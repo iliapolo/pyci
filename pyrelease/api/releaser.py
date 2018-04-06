@@ -76,9 +76,10 @@ class GithubReleaser(object):
 
         releases = filter(lambda r: r.title == release, list(self.repo.get_releases()))
         if not releases:
-            raise RuntimeError('')
+            raise exceptions.ReleaseNotFoundException(release=release)
         if len(releases) > 1:
-            raise RuntimeError('')
+            raise exceptions.MultipleReleasesFoundException(release=release,
+                                                            how_many=len(releases))
 
         release = releases[0]
         self._logger.info('Deleting release: {0}'.format(release.title))
@@ -87,9 +88,9 @@ class GithubReleaser(object):
         refs = filter(lambda r: release.title in r.ref, list(self.repo.get_git_refs()))
 
         if not refs:
-            raise RuntimeError('')
+            raise exceptions.RefNotFoundException(ref=release.title)
         if len(refs) > 1:
-            raise RuntimeError('')
+            raise exceptions.MultipleRefsFoundException(ref=release.title, how_many=len(refs))
 
         ref = refs[0]
         self._logger.info('Deleting ref: {0}'.format(ref.ref))
