@@ -53,7 +53,7 @@ class GithubReleaser(object):
         semantic_version = self._get_next_release(last_release, labels)
         self._logger.info('Next version will be: {0}'.format(semantic_version))
 
-        message = '*Changes* ([Go to issue]({0}))'.format(issue.url)
+        message = '*Changes* ([Go to issue]({0}))'.format(issue.html_url)
 
         if 'feature' in labels:
             message = message + '\n\n' + '**New Feature:**\n\n    - {0}'.format(issue.title)
@@ -72,12 +72,35 @@ class GithubReleaser(object):
         )
         self._logger.info('Successfully created release: {0}'.format(semantic_version))
 
+    def delete(self, release):
+
+        releases = filter(lambda r: r.title == release, list(self.repo.get_releases()))
+        if not releases:
+            raise RuntimeError('')
+        if len(releases) > 1:
+            raise RuntimeError('')
+
+        release = releases[0]
+        self._logger.info('Deleting release: {0}'.format(release.title))
+        release.delete_release()
+
+        refs = filter(lambda r: release.title in r.ref, list(self.repo.get_git_refs()))
+
+        if not refs:
+            raise RuntimeError('')
+        if len(refs) > 1:
+            raise RuntimeError('')
+
+        ref = refs[0]
+        self._logger.info('Deleting ref: {0}'.format(ref.ref))
+        ref.delete()
+
     def _get_latest_release(self):
 
         releases = [release.title for release in list(self.repo.get_releases())]
 
         if not releases:
-            return '1.0.0'
+            return None
         return sorted(releases, cmp=lambda t1, t2: semver.compare(t2, t1))[0]
 
     def get_issue(self, branch):
@@ -100,6 +123,9 @@ class GithubReleaser(object):
 
     @staticmethod
     def _get_next_release(last_release, labels):
+
+        if not last_release:
+            return '1.0.0'
 
         semantic_version = last_release.split('.')
 
@@ -141,5 +167,3 @@ class GithubReleaser(object):
             return match.group(1)
         else:
             raise exceptions.InvalidCommitMessage(commit_message=commit_message)
-
-
