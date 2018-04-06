@@ -43,6 +43,7 @@ setup(
         'click==6.7',
         'wryte==0.2.1',
         'pygithub==1.38',
-        'semver==2.7.9'
+        'semver==2.7.9',
+        'pygithub==1.38'
     ]
 )

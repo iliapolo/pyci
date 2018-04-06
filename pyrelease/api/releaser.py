@@ -19,6 +19,7 @@ import re
 
 import semver
 from github import Github
+from github.GithubException import UnknownObjectException
 
 from pyrelease.api import exceptions
 from pyrelease.api import logger
@@ -29,7 +30,7 @@ class GithubReleaser(object):
     repo = None
     _logger = None
 
-    def __init__(self, repo, access_token=None):
+    def __init__(self, repo, access_token):
 
         # create a github release
         hub = Github(access_token)
@@ -44,22 +45,28 @@ class GithubReleaser(object):
         self._logger.info('Fetched latest version: {0}'.format(last_release))
 
         self._logger.info('Fetching issue...')
-        issue = self.get_issue(branch)
+        issue = self._get_issue(branch)
         self._logger.info('Fetched issue associated with latest commit on branch {0}: '
                           'Issue number {1}'.format(branch, issue.number))
 
         labels = map(lambda label: label.name, list(issue.get_labels()))
 
         semantic_version = self._get_next_release(last_release, labels)
+        if semantic_version == last_release:
+            self._logger.info('The latest commit corresponds to an issue that is not marked as a '
+                              'release issue. Not releasing.')
+            return
         self._logger.info('Next version will be: {0}'.format(semantic_version))
 
-        message = '*Changes* ([Go to issue]({0}))'.format(issue.html_url)
+        message = '*Changes*'
 
         if 'feature' in labels:
-            message = message + '\n\n' + '**New Feature:**\n\n    - {0}'.format(issue.title)
+            message = message + '\n\n' + '**New Feature:**\n\n- {0} ([Issue]({1}))'\
+                .format(issue.title, issue.html_url)
 
         if 'bug' in labels:
-            message = message + '\n\n' + '**Bug Fix:**\n\n    - {0}'.format(issue.title)
+            message = message + '\n\n' + '**Bug Fix:**\n\n- {0} ([Issue]({1}))' \
+                .format(issue.title, issue.html_url)
 
         self._logger.info('Creating Github Release...')
         self.repo.create_git_release(
@@ -79,9 +86,14 @@ class GithubReleaser(object):
         self._logger.info('Successfully updated master branch to: {0}'.format(sha))
 
         pull_request = self._get_pull_request(branch)
-        pull_request_ref = self.repo.get_git_ref('heads/{0}'.format(pull_request.head.ref))
-        self._logger.info('Deleting ref: {0}'.format(pull_request_ref.ref))
-        pull_request_ref.delete()
+        try:
+            pull_request_ref = self.repo.get_git_ref('heads/{0}'.format(pull_request.head.ref))
+            self._logger.info('Deleting ref: {0}'.format(pull_request_ref.ref))
+            pull_request_ref.delete()
+        except UnknownObjectException:
+            # this is ok, the branch doesn't necessarily have to be there.
+            # it might have been deleted when the pull request was merged
+            pass
 
     def delete(self, release):
 
@@ -115,7 +127,7 @@ class GithubReleaser(object):
             return None
         return sorted(releases, cmp=lambda t1, t2: semver.compare(t2, t1))[0]
 
-    def get_issue(self, branch):
+    def _get_issue(self, branch):
 
         pull_request = self._get_pull_request(branch)
 
@@ -133,10 +145,53 @@ class GithubReleaser(object):
 
         return self.repo.get_pull(number=pr)
 
+    def _get_issue_from_commit(self, commit):
+
+        commit_message = commit.commit.message
+
+        pull_request_number = int(self._get_pull_request_number(commit_message))
+
+        pull_request = self.repo.get_pull(number=pull_request_number)
+
+        issue_number = self._get_issue_number(pull_request.body)
+
+        return self.repo.get_issue(number=int(issue_number))
+
+    def _get_changelog(self, branch):
+
+        last_release = self._get_latest_release()
+
+        # TODO add validations, the tag might not exists...?
+        tag = filter(lambda t: last_release == t.name, list(self.repo.get_tags()))[0]
+
+        last_commit_sha = self.repo.get_branch(branch=branch).commit.sha
+
+        commits = list(self.repo.get_commits(sha=branch, since=tag.commit.commit.committer.date))
+
+        if len(commits) == 1 and commits[0].commit.sha == last_commit_sha:
+            self._logger.info('The last commit of this branch was already released. no change log')
+            return None
+        for commit in commits[1:]:
+            issue = self._get_issue_from_commit(commit)
+
+            labels = map(lambda label: label.name, list(issue.get_labels()))
+
+            message = '*Changes*'
+
+            if 'feature' in labels:
+                message = message + '\n\n' + '**New Feature:**\n\n- {0} ([Issue]({1}))' \
+                    .format(issue.title, issue.html_url)
+
+            if 'bug' in labels:
+                message = message + '\n\n' + '**Bug Fix:**\n\n- {0} ([Issue]({1}))' \
+                    .format(issue.title, issue.html_url)
+
+            print message
+
     @staticmethod
     def _get_next_release(last_release, labels):
 
-        if not last_release:
+        if last_release is None:
             return '1.0.0'
 
         semantic_version = last_release.split('.')
