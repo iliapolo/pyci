@@ -58,22 +58,12 @@ class GithubReleaser(object):
             return
         self._logger.info('Next version will be: {0}'.format(semantic_version))
 
-        message = '*Changes*'
-
-        if 'feature' in labels:
-            message = message + '\n\n' + '**New Feature:**\n\n- {0} ([Issue]({1}))'\
-                .format(issue.title, issue.html_url)
-
-        if 'bug' in labels:
-            message = message + '\n\n' + '**Bug Fix:**\n\n- {0} ([Issue]({1}))' \
-                .format(issue.title, issue.html_url)
-
         self._logger.info('Creating Github Release...')
         self.repo.create_git_release(
             tag=semantic_version,
             target_commitish=branch,
             name=semantic_version,
-            message=message,
+            message=self._get_changelog(branch),
             draft=False,
             prerelease=False,
         )
@@ -171,22 +161,36 @@ class GithubReleaser(object):
         if len(commits) == 1 and commits[0].commit.sha == last_commit_sha:
             self._logger.info('The last commit of this branch was already released. no change log')
             return None
-        for commit in commits[1:]:
+
+        commits = filter(lambda com: com.sha != tag.commit.sha, commits)
+
+        features = []
+        bug_fixes = []
+
+        for commit in commits:
             issue = self._get_issue_from_commit(commit)
 
             labels = map(lambda label: label.name, list(issue.get_labels()))
 
-            message = '*Changes*'
-
             if 'feature' in labels:
-                message = message + '\n\n' + '**New Feature:**\n\n- {0} ([Issue]({1}))' \
-                    .format(issue.title, issue.html_url)
+                features.append('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
 
             if 'bug' in labels:
-                message = message + '\n\n' + '**Bug Fix:**\n\n- {0} ([Issue]({1}))' \
-                    .format(issue.title, issue.html_url)
+                bug_fixes.append('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
 
-            print message
+        features_string = '\n'.join(features)
+        bug_fixes_string = '\n'.join(bug_fixes)
+
+        return '''*Changes*
+
+**New Features:**
+
+{0}
+
+**Bug Fixes:**
+
+{1}        
+        '''.format(features_string, bug_fixes_string)
 
     @staticmethod
     def _get_next_release(last_release, labels):
