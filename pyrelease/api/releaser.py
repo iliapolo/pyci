@@ -72,6 +72,17 @@ class GithubReleaser(object):
         )
         self._logger.info('Successfully created release: {0}'.format(semantic_version))
 
+        self._logger.info('Updating master branch')
+        master = self.repo.get_git_ref('heads/master')
+        sha = self.repo.get_branch(branch=branch).commit.sha
+        master.edit(sha=sha)
+        self._logger.info('Successfully updated master branch to: {0}'.format(sha))
+
+        pull_request = self._get_pull_request(branch)
+        pull_request_ref = self.repo.get_git_ref('heads/{0}'.format(pull_request.head.ref))
+        self._logger.info('Deleting ref: {0}'.format(pull_request_ref.ref))
+        pull_request_ref.delete()
+
     def delete(self, release):
 
         releases = filter(lambda r: r.title == release, list(self.repo.get_releases()))
