@@ -38,18 +38,47 @@ class GithubReleaser(object):
         self.repo = hub.get_repo(repo)
         self._logger = logger.get_logger('pyrelease.releaser.GithubReleaser')
 
-    def release(self, branch):
+    def release(self, branch_name):
 
-        self._logger.info('Fetching latest version...')
-        last_release = self._get_latest_release()
-        self._logger.info('Fetched latest version: {0}'.format(last_release))
+        # first fetch everething we need from github
+
+        self._logger.info('Fetching branch...')
+        branch = self.repo.get_branch(branch=branch_name)
+        self._logger.info('Fetched branch: {0}'.format(branch.name))
+
+        self._logger.info('Fetching commit...')
+        commit = self.repo.get_commit(sha=branch.commit.sha)
+        self._logger.info('Fetched commit: {0}'.format(commit.sha))
+
+        self._logger.info('Fetching tags...')
+        tags = list(self.repo.get_tags())
+
+        self._logger.info('Fetching releases...')
+        releases = list(self.repo.get_releases())
+
+        self._logger.info('Extracting latest release')
+        last_release = self._get_latest_release(releases)
+        self._logger.info('Extracted latest release: {0}'.format(last_release))
+
+        tag = filter(lambda t: last_release == t.name, list(tags))[0]
+        if commit.sha == tag.commit.sha:
+            self._logger.info('The latest commit of this branch is already released: {0}'
+                              .format(last_release))
+            return
+
+        self._logger.info('Fetching pull request')
+        pull_request = self.repo.get_pull(
+            number=self._get_pull_request_number(commit.commit.message))
+        self._logger.info('Fetched pull request: {0}'.format(pull_request.title))
 
         self._logger.info('Fetching issue...')
-        issue = self._get_issue(branch)
-        self._logger.info('Fetched issue associated with latest commit on branch {0}: '
-                          'Issue number {1}'.format(branch, issue.number))
+        issue = self.repo.get_issue(
+            number=int(self._get_issue_number(pull_request.body)))
+        self._logger.info('Fetched issue: {0}'.format(issue.number))
 
-        labels = map(lambda label: label.name, list(issue.get_labels()))
+        self._logger.info('Fetching issue labels...')
+        labels = list(issue.get_labels())
+        self._logger.info('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
 
         semantic_version = self._get_next_release(last_release, labels)
         if semantic_version == last_release:
@@ -58,24 +87,28 @@ class GithubReleaser(object):
             return
         self._logger.info('Next version will be: {0}'.format(semantic_version))
 
+        self._logger.info('Fetching changelog...')
+        changelog = self._get_changelog(releases=releases, tags=tags, branch=branch)
+
+        self._logger.info('Fetching master ref...')
+        master = self.repo.get_git_ref('heads/master')
+        self._logger.info('Fetched ref: {0}'.format(master.ref))
+
         self._logger.info('Creating Github Release...')
         self.repo.create_git_release(
             tag=semantic_version,
-            target_commitish=branch,
+            target_commitish=branch_name,
             name=semantic_version,
-            message=self._get_changelog(branch),
+            message=changelog,
             draft=False,
             prerelease=False,
         )
         self._logger.info('Successfully created release: {0}'.format(semantic_version))
 
         self._logger.info('Updating master branch')
-        master = self.repo.get_git_ref('heads/master')
-        sha = self.repo.get_branch(branch=branch).commit.sha
-        master.edit(sha=sha)
-        self._logger.info('Successfully updated master branch to: {0}'.format(sha))
+        master.edit(sha=branch.commit.sha, force=True)
+        self._logger.info('Successfully updated master branch to: {0}'.format(branch.commit.sha))
 
-        pull_request = self._get_pull_request(branch)
         try:
             pull_request_ref = self.repo.get_git_ref('heads/{0}'.format(pull_request.head.ref))
             self._logger.info('Deleting ref: {0}'.format(pull_request_ref.ref))
@@ -109,31 +142,15 @@ class GithubReleaser(object):
         self._logger.info('Deleting ref: {0}'.format(ref.ref))
         ref.delete()
 
-    def _get_latest_release(self):
-
-        releases = [release.title for release in list(self.repo.get_releases())]
+    @staticmethod
+    def _get_latest_release(releases):
 
         if not releases:
             return None
-        return sorted(releases, cmp=lambda t1, t2: semver.compare(t2, t1))[0]
 
-    def _get_issue(self, branch):
+        versions = [release.title for release in releases]
 
-        pull_request = self._get_pull_request(branch)
-
-        issue_number = self._get_issue_number(pull_request.body)
-
-        return self.repo.get_issue(number=int(issue_number))
-
-    def _get_pull_request(self, branch):
-
-        sha = self.repo.get_branch(branch=branch).commit.sha
-
-        commit_message = self.repo.get_commit(sha=sha).commit.message
-
-        pr = int(self._get_pull_request_number(commit_message))
-
-        return self.repo.get_pull(number=pr)
+        return sorted(versions, cmp=lambda t1, t2: semver.compare(t2, t1))[0]
 
     def _get_issue_from_commit(self, commit):
 
@@ -147,16 +164,17 @@ class GithubReleaser(object):
 
         return self.repo.get_issue(number=int(issue_number))
 
-    def _get_changelog(self, branch):
+    def _get_changelog(self, releases, tags, branch):
 
-        last_release = self._get_latest_release()
+        last_release = self._get_latest_release(releases)
 
         # TODO add validations, the tag might not exists...?
-        tag = filter(lambda t: last_release == t.name, list(self.repo.get_tags()))[0]
+        tag = filter(lambda t: last_release == t.name, list(tags))[0]
 
-        last_commit_sha = self.repo.get_branch(branch=branch).commit.sha
+        last_commit_sha = branch.commit.sha
 
-        commits = list(self.repo.get_commits(sha=branch, since=tag.commit.commit.committer.date))
+        commits = list(self.repo.get_commits(sha=branch.name,
+                                             since=tag.commit.commit.committer.date))
 
         if len(commits) == 1 and commits[0].commit.sha == last_commit_sha:
             self._logger.info('The last commit of this branch was already released. no change log')
@@ -170,7 +188,7 @@ class GithubReleaser(object):
         for commit in commits:
             issue = self._get_issue_from_commit(commit)
 
-            labels = map(lambda label: label.name, list(issue.get_labels()))
+            labels = [label.name for label in list(issue.get_labels())]
 
             if 'feature' in labels:
                 features.append('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
@@ -198,20 +216,22 @@ class GithubReleaser(object):
         if last_release is None:
             return '1.0.0'
 
+        label_names = [label.name for label in labels]
+
         semantic_version = last_release.split('.')
 
         micro = int(semantic_version[2])
         minor = int(semantic_version[1])
         major = int(semantic_version[0])
 
-        if 'micro' in labels:
+        if 'micro' in label_names:
             micro = micro + 1
 
-        if 'minor' in labels:
+        if 'minor' in label_names:
             micro = 0
             minor = minor + 1
 
-        if 'major' in labels:
+        if 'major' in label_names:
             micro = 0
             minor = 0
             major = major + 1
@@ -235,6 +255,6 @@ class GithubReleaser(object):
         p = re.compile('.* ?\(#(\d+)\)')
         match = p.match(commit_message)
         if match:
-            return match.group(1)
+            return int(match.group(1))
         else:
             raise exceptions.InvalidCommitMessage(commit_message=commit_message)

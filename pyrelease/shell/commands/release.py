@@ -28,3 +28,14 @@ def release(repo, branch):
 
     releaser = GithubReleaser(repo=repo, access_token=secrets.github_access_token())
     releaser.release(branch)
+
+
+@click.command()
+@click.option('--repo', required=True)
+@click.option('--version', required=True)
+def delete(repo, version):
+
+    releaser = GithubReleaser(repo=repo, access_token=secrets.github_access_token())
+    releaser.delete(version)
+
+

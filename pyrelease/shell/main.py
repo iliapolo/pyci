@@ -31,6 +31,7 @@ def app():
 
 
 app.add_command(release.release)
+app.add_command(release.delete)
 
 # allows running the application as a single executable
 # created by pyinstaller
