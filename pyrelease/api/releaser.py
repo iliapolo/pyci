@@ -65,19 +65,25 @@ class GithubReleaser(object):
 
         tag = [t for t in list(tags) if t.name == last_release][0]
 
+        # figure out if we really need to release
         if commit.sha == tag.commit.sha:
             self._logger.info('The latest commit of this branch is already released: {0}'
                               .format(last_release))
             return
 
         self._logger.info('Fetching pull request')
-        pull_request = self.repo.get_pull(
-            number=utils.get_pull_request_number(commit.commit.message))
+        pull_request = self._get_pull_request(commit)
+        if pull_request is None:
+            self._logger.info('Commit is not related to any pull request, not releasing...')
+            return
         self._logger.info('Fetched pull request: {0}'.format(pull_request.title))
 
         self._logger.info('Fetching issue...')
-        issue = self.repo.get_issue(
-            number=int(utils.get_issue_number(pull_request.body)))
+        issue = self._get_issue_from_pull_request(pull_request)
+        if issue is None:
+            self._logger.info('Pull request {0} is not related to any issue, '
+                              'not releasing...'.format(pull_request.number))
+            return
         self._logger.info('Fetched issue: {0}'.format(issue.number))
 
         self._logger.info('Fetching issue labels...')
@@ -87,7 +93,7 @@ class GithubReleaser(object):
         semantic_version = self._get_next_release(last_release, labels)
         if semantic_version == last_release:
             self._logger.info('The latest commit corresponds to an issue that is not marked as a '
-                              'release issue. Not releasing.')
+                              'release issue. not releasing....')
             return
         self._logger.info('Next version will be: {0}'.format(semantic_version))
 
@@ -122,30 +128,33 @@ class GithubReleaser(object):
             # it might have been deleted when the pull request was merged
             pass
 
-    def delete(self, release):
+    def delete(self, version):
 
-        releases = [r for r in list(self.repo.get_releases()) if r.title == release]
+        releases = [r for r in list(self.repo.get_releases()) if r.title == version]
 
-        if not releases:
-            raise exceptions.ReleaseNotFoundException(release=release)
         if len(releases) > 1:
-            raise exceptions.MultipleReleasesFoundException(release=release,
+            raise exceptions.MultipleReleasesFoundException(release=version,
                                                             how_many=len(releases))
 
-        release = releases[0]
-        self._logger.info('Deleting release: {0}'.format(release.title))
-        release.delete_release()
+        if releases:
+            release = releases[0]
+            self._logger.info('Deleting release: {0}'.format(version.title))
+            release.delete_release()
+        else:
+            self._logger.info('Release {0} not found, skipping...'.format(version))
 
-        refs = [ref for ref in list(self.repo.get_git_refs()) if ref.ref == release.title]
+        refs = [ref for ref in list(self.repo.get_git_refs()) if ref.ref == 'refs/tags/{0}'
+                .format(version)]
 
-        if not refs:
-            raise exceptions.RefNotFoundException(ref=release.title)
         if len(refs) > 1:
-            raise exceptions.MultipleRefsFoundException(ref=release.title, how_many=len(refs))
+            raise exceptions.MultipleRefsFoundException(ref=version, how_many=len(refs))
 
-        ref = refs[0]
-        self._logger.info('Deleting ref: {0}'.format(ref.ref))
-        ref.delete()
+        if refs:
+            ref = refs[0]
+            self._logger.info('Deleting ref: {0}'.format(ref.ref))
+            ref.delete()
+        else:
+            self._logger.info('Tag {0} not found, skipping...'.format(version))
 
     @staticmethod
     def _get_latest_release(releases):
@@ -159,15 +168,26 @@ class GithubReleaser(object):
 
     def _get_issue_from_commit(self, commit):
 
-        commit_message = commit.commit.message
+        pull_request = self._get_pull_request(commit)
+        if pull_request is None:
+            return None
 
-        pull_request_number = int(utils.get_pull_request_number(commit_message))
+        return self._get_issue_from_pull_request(pull_request)
 
-        pull_request = self.repo.get_pull(number=pull_request_number)
+    def _get_issue_from_pull_request(self, pull_request):
 
         issue_number = utils.get_issue_number(pull_request.body)
-
+        if issue_number is None:
+            return None
         return self.repo.get_issue(number=int(issue_number))
+
+    def _get_pull_request(self, commit):
+
+        pr_number = utils.get_pull_request_number(commit.commit.message)
+        if pr_number is None:
+            return None
+
+        return self.repo.get_pull(number=pr_number)
 
     def _get_changelog(self, releases, tags, branch):
 

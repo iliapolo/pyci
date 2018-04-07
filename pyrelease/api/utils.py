@@ -28,9 +28,8 @@ def get_issue_number(pr_body):
 
     if match:
         return match.group(1)
-    else:
-        raise exceptions.InvalidPullRequestBody(body=pr_body)
 
+    return None
 
 def get_pull_request_number(commit_message):
 
@@ -39,5 +38,5 @@ def get_pull_request_number(commit_message):
     match = p.match(commit_message)
     if match:
         return int(match.group(1))
-    else:
-        raise exceptions.InvalidCommitMessage(commit_message=commit_message)
+
+    return None
