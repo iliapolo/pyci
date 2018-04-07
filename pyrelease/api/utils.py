@@ -37,7 +37,7 @@ SUPPORTED_KEYWORDS = [
 def get_issue_number(pr_body):
 
     # pylint: disable=anomalous-backslash-in-string
-    p = re.compile('.* ?({0}) #(\d+)'.format(SUPPORTED_KEYWORDS))
+    p = re.compile('.* ?({0}) #(\d+)'.format('|'.join(SUPPORTED_KEYWORDS)))
     match = p.match(pr_body)
 
     if match:
