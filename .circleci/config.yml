@@ -1,0 +1,66 @@
+version: 2
+jobs:
+  python27:
+    docker:
+      - image: circleci/python:2.7
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install tox
+          command: sudo pip install tox==3.0.0
+      - run:
+          name: install dependencies
+          command: tox --notest -e py27
+      - save_cache:
+          key: tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+      - run:
+          name: run tox
+          command: tox -e py27
+  python36:
+    docker:
+      - image: circleci/python:3.6
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install tox
+          command: sudo pip install tox==3.0.0
+      - run:
+          name: install dependencies
+          command: tox --notest -e py27
+      - save_cache:
+          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+      - run:
+          name: run tox
+          command: tox -e py36
+
+workflows:
+  version: 2
+  python:
+    jobs:
+      - python27:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
+
+      - python36:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
+
+

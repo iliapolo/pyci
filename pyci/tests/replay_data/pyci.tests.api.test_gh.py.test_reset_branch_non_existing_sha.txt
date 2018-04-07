@@ -1,0 +1,22 @@
+https
+GET
+api.github.com
+None
+/repos/iliapolo/pyci-guinea-pig/git/refs/heads/release
+{'Authorization': 'token private_token_removed', 'User-Agent': 'PyGithub/Python'}
+None
+200
+[('Server', 'GitHub.com'), ('Date', 'Sat, 09 Jun 2018 19:46:17 GMT'), ('Content-Type', 'application/json; charset=utf-8'), ('Transfer-Encoding', 'chunked'), ('Status', '200 OK'), ('X-RateLimit-Limit', '5000'), ('X-RateLimit-Remaining', '4280'), ('X-RateLimit-Reset', '1528576446'), ('Cache-Control', 'private, max-age=60, s-maxage=60'), ('Vary', 'Accept, Authorization, Cookie, X-GitHub-OTP'), ('ETag', 'W/"d56495ddf7f5fcea7b23cc729e442d30"'), ('Last-Modified', 'Sat, 09 Jun 2018 19:45:46 GMT'), ('X-Poll-Interval', '300'), ('X-OAuth-Scopes', 'admin:gpg_key, admin:org, admin:org_hook, admin:public_key, admin:repo_hook, delete_repo, gist, notifications, repo, user, write:discussion'), ('X-Accepted-OAuth-Scopes', 'repo'), ('X-GitHub-Media-Type', 'github.v3; format=json'), ('Access-Control-Expose-Headers', 'ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval'), ('Access-Control-Allow-Origin', '*'), ('Strict-Transport-Security', 'max-age=31536000; includeSubdomains; preload'), ('X-Frame-Options', 'deny'), ('X-Content-Type-Options', 'nosniff'), ('X-XSS-Protection', '1; mode=block'), ('Referrer-Policy', 'origin-when-cross-origin, strict-origin-when-cross-origin'), ('Content-Security-Policy', "default-src 'none'"), ('X-Runtime-rack', '0.034702'), ('Content-Encoding', 'gzip'), ('X-GitHub-Request-Id', 'FF02:20C6:228EBF8:4B0BDEA:5B1C2E89')]
+{"ref":"refs/heads/release","node_id":"MDM6UmVmMTI5MjcyMzgyOnJlbGVhc2U=","url":"https://api.github.com/repos/iliapolo/pyci-guinea-pig/git/refs/heads/release","object":{"sha":"1b8e0b8ef5929e6d2e6017242bba68425ff64b9a","type":"commit","url":"https://api.github.com/repos/iliapolo/pyci-guinea-pig/git/commits/1b8e0b8ef5929e6d2e6017242bba68425ff64b9a"}}
+
+https
+PATCH
+api.github.com
+None
+/repos/iliapolo/pyci-guinea-pig/git/refs/heads/release
+{'Content-Type': 'application/json', 'Authorization': 'token private_token_removed', 'User-Agent': 'PyGithub/Python'}
+{"sha": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1", "force": false}
+422
+[('Server', 'GitHub.com'), ('Date', 'Sat, 09 Jun 2018 19:46:18 GMT'), ('Content-Type', 'application/json; charset=utf-8'), ('Content-Length', '118'), ('Status', '422 Unprocessable Entity'), ('X-RateLimit-Limit', '5000'), ('X-RateLimit-Remaining', '4279'), ('X-RateLimit-Reset', '1528576446'), ('X-OAuth-Scopes', 'admin:gpg_key, admin:org, admin:org_hook, admin:public_key, admin:repo_hook, delete_repo, gist, notifications, repo, user, write:discussion'), ('X-Accepted-OAuth-Scopes', 'repo'), ('X-GitHub-Media-Type', 'github.v3; format=json'), ('Access-Control-Expose-Headers', 'ETag, Link, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval'), ('Access-Control-Allow-Origin', '*'), ('Strict-Transport-Security', 'max-age=31536000; includeSubdomains; preload'), ('X-Frame-Options', 'deny'), ('X-Content-Type-Options', 'nosniff'), ('X-XSS-Protection', '1; mode=block'), ('Referrer-Policy', 'origin-when-cross-origin, strict-origin-when-cross-origin'), ('Content-Security-Policy', "default-src 'none'"), ('X-Runtime-rack', '0.132580'), ('X-GitHub-Request-Id', 'FF03:20C3:2D316D7:5B6E183:5B1C2E8A')]
+{"message":"Object does not exist","documentation_url":"https://developer.github.com/v3/git/refs/#update-a-reference"}
+

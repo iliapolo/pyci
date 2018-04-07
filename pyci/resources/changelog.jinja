@@ -1,0 +1,33 @@
+*Changes*
+
+{% if features %}
+**New Features:**
+
+{% for feature in features %}
+- {{feature.title}} ([Issue]({{feature.url}}))
+{% endfor %}
+{% endif %}
+
+{% if bugs %}
+**Bug Fixes:**
+
+{% for bug in bugs %}
+- {{bug.title}} ([Issue]({{bug.url}}))
+{% endfor %}
+{% endif %}
+
+{% if issues %}
+**Issues:**
+
+{% for issue in issues %}
+- {{issue.title}} ([Issue]({{issue.url}}))
+{% endfor %}
+{% endif %}
+
+{% if commits %}
+**Dangling Commits:**
+
+{% for commit in commits %}
+- {{commit.title}} ([Commit]({{commit.url}}))
+{% endfor %}
+{% endif %}

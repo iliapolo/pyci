@@ -1,0 +1,6 @@
+pytest==3.6.0
+pytest-cov==2.5.1
+pytest-mock==1.10.0
+pylint==1.9.1
+codecov==2.0.15
+https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip
