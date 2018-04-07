@@ -17,6 +17,6 @@ echo "Running tests"
 py.test --cov-report term-missing --cov=pyrelease pyrelease/tests
 
 echo "Running release"
-pyrelease release --repo iliapolo/pyrelease --branch dev
+pyrelease release --repo iliapolo/pyrelease --branch release
 
 echo "Done!"
