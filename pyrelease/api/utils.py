@@ -17,8 +17,6 @@
 
 import re
 
-from pyrelease.api import exceptions
-
 
 def get_issue_number(pr_body):
 

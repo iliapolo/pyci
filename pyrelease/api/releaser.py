@@ -40,7 +40,7 @@ class GithubReleaser(object):
         self.repo = hub.get_repo(repo)
         self._logger.info('Fetched repo: {0}'.format(self.repo.name))
 
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-statements
     def release(self, branch_name):
 
         # first fetch everything we need from github
@@ -63,13 +63,13 @@ class GithubReleaser(object):
         last_release = self._get_latest_release(releases)
         self._logger.info('Extracted latest release: {0}'.format(last_release))
 
-        tag = [t for t in list(tags) if t.name == last_release][0]
-
-        # figure out if we really need to release
-        if commit.sha == tag.commit.sha:
-            self._logger.info('The latest commit of this branch is already released: {0}'
-                              .format(last_release))
-            return
+        if last_release:
+            tag = [t for t in list(tags) if t.name == last_release][0]
+            # figure out if we really need to release
+            if commit.sha == tag.commit.sha:
+                self._logger.info('The latest commit of this branch is already released: {0}'
+                                  .format(last_release))
+                return
 
         self._logger.info('Fetching pull request')
         pull_request = self._get_pull_request(commit)
@@ -138,7 +138,7 @@ class GithubReleaser(object):
 
         if releases:
             release = releases[0]
-            self._logger.info('Deleting release: {0}'.format(version.title))
+            self._logger.info('Deleting release: {0}'.format(version))
             release.delete_release()
         else:
             self._logger.info('Release {0} not found, skipping...'.format(version))
@@ -193,32 +193,43 @@ class GithubReleaser(object):
 
         last_release = self._get_latest_release(releases)
 
-        release_tags = [t for t in list(tags) if t.name == last_release]
-        if not release_tags:
-            raise exceptions.TagNotFoundException(tag=last_release, release=last_release)
+        since = None
+        tag = None
+        if last_release:
+            release_tags = [t for t in list(tags) if t.name == last_release]
+            if not release_tags:
+                raise exceptions.TagNotFoundException(tag=last_release, release=last_release)
 
-        # it cannot have multiple elements because there cannot be
-        # to tags with the same name
-        tag = release_tags[0]
+            # it cannot have multiple elements because there cannot be
+            # to tags with the same name
+            tag = release_tags[0]
+            since = tag.commit.commit.committer.date
 
-        commits = list(self.repo.get_commits(sha=branch.name,
-                                             since=tag.commit.commit.committer.date))
+        if since:
+            commits = list(self.repo.get_commits(sha=branch.name, since=since))
+        else:
+            commits = list(self.repo.get_commits(sha=branch.name))
 
-        commits = [com for com in commits if com.sha != tag.commit.sha]
+        commits = [com for com in commits if tag is None or com.sha != tag.commit.sha]
 
-        features = []
-        bug_fixes = []
+        features = set()
+        bug_fixes = set()
 
         for commit in commits:
+
+            self._logger.info('Fetching issue for commit: {0}'.format(commit.commit.message))
             issue = self._get_issue_from_commit(commit)
+
+            if issue is None:
+                continue
 
             labels = [label.name for label in list(issue.get_labels())]
 
             if 'feature' in labels:
-                features.append('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
+                features.add('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
 
             if 'bug' in labels:
-                bug_fixes.append('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
+                bug_fixes.add('- {0} ([Issue]({1}))'.format(issue.title, issue.html_url))
 
         features_string = '\n'.join(features)
         bug_fixes_string = '\n'.join(bug_fixes)
@@ -238,7 +249,7 @@ class GithubReleaser(object):
     def _get_next_release(last_release, labels):
 
         if last_release is None:
-            return '1.0.0'
+            return '0.0.1'
 
         label_names = [label.name for label in labels]
 
