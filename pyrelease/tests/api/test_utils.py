@@ -38,4 +38,3 @@ def test_get_issue_number(keyword):
     expected = '3'
 
     assert expected == actual
-
