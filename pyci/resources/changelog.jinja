@@ -1,0 +1,33 @@
+*Changes*
+
+{% if features %}
+**New Features:**
+
+{% for feature in features %}
+- {{feature.title}} ([Issue]({{feature.url}}))
+{% endfor %}
+{% endif %}
+
+{% if bugs %}
+**Bug Fixes:**
+
+{% for bug in bugs %}
+- {{bug.title}} ([Issue]({{bug.url}}))
+{% endfor %}
+{% endif %}
+
+{% if internals %}
+**Internals:**
+
+{% for internal in internals %}
+- {{internal.title}} ([Issue]({{internal.url}}))
+{% endfor %}
+{% endif %}
+
+{% if dangling_commits %}
+**Dangling Commits:**
+
+{% for dangling_commit in dangling_commits %}
+- {{dangling_commit.title}} ([Commit]({{dangling_commit.url}}))
+{% endfor %}
+{% endif %}

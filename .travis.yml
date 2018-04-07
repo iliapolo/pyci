@@ -1,0 +1,11 @@
+matrix:
+  include:
+    - os: linux
+      language: python
+      python: "2.7"
+    - os: osx
+      language: generic
+
+
+script:
+  - ./ci.sh
