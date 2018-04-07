@@ -83,3 +83,14 @@ class MultipleRefsFoundException(ApiException):
 
     def __str__(self):
         return 'Multiple refs found ({0}): {1}'.format(self.ref, self.how_many)
+
+
+class TagNotFoundException(ApiException):
+
+    def __init__(self, tag, release):
+        self.tag = tag
+        self.release = release
+        super(TagNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Tag ({0}) not found for release: {1}'.format(self.tag, self.release)

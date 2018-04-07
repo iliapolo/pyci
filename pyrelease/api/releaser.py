@@ -15,14 +15,13 @@
 #
 #############################################################################
 
-import re
-
 import semver
 from github import Github
 from github.GithubException import UnknownObjectException
 
 from pyrelease.api import exceptions
 from pyrelease.api import logger
+from pyrelease.api import utils
 
 
 class GithubReleaser(object):
@@ -35,12 +34,16 @@ class GithubReleaser(object):
         # create a github release
         hub = Github(access_token)
 
-        self.repo = hub.get_repo(repo)
         self._logger = logger.get_logger('pyrelease.releaser.GithubReleaser')
 
+        self._logger.info('Fetching repo...')
+        self.repo = hub.get_repo(repo)
+        self._logger.info('Fetched repo: {0}'.format(self.repo.name))
+
+    # pylint: disable=too-many-locals
     def release(self, branch_name):
 
-        # first fetch everething we need from github
+        # first fetch everything we need from github
 
         self._logger.info('Fetching branch...')
         branch = self.repo.get_branch(branch=branch_name)
@@ -60,7 +63,8 @@ class GithubReleaser(object):
         last_release = self._get_latest_release(releases)
         self._logger.info('Extracted latest release: {0}'.format(last_release))
 
-        tag = filter(lambda t: last_release == t.name, list(tags))[0]
+        tag = [t for t in list(tags) if t.name == last_release][0]
+
         if commit.sha == tag.commit.sha:
             self._logger.info('The latest commit of this branch is already released: {0}'
                               .format(last_release))
@@ -68,12 +72,12 @@ class GithubReleaser(object):
 
         self._logger.info('Fetching pull request')
         pull_request = self.repo.get_pull(
-            number=self._get_pull_request_number(commit.commit.message))
+            number=utils.get_pull_request_number(commit.commit.message))
         self._logger.info('Fetched pull request: {0}'.format(pull_request.title))
 
         self._logger.info('Fetching issue...')
         issue = self.repo.get_issue(
-            number=int(self._get_issue_number(pull_request.body)))
+            number=int(utils.get_issue_number(pull_request.body)))
         self._logger.info('Fetched issue: {0}'.format(issue.number))
 
         self._logger.info('Fetching issue labels...')
@@ -120,7 +124,8 @@ class GithubReleaser(object):
 
     def delete(self, release):
 
-        releases = filter(lambda r: r.title == release, list(self.repo.get_releases()))
+        releases = [r for r in list(self.repo.get_releases()) if r.title == release]
+
         if not releases:
             raise exceptions.ReleaseNotFoundException(release=release)
         if len(releases) > 1:
@@ -131,7 +136,7 @@ class GithubReleaser(object):
         self._logger.info('Deleting release: {0}'.format(release.title))
         release.delete_release()
 
-        refs = filter(lambda r: release.title in r.ref, list(self.repo.get_git_refs()))
+        refs = [ref for ref in list(self.repo.get_git_refs()) if ref.ref == release.title]
 
         if not refs:
             raise exceptions.RefNotFoundException(ref=release.title)
@@ -156,11 +161,11 @@ class GithubReleaser(object):
 
         commit_message = commit.commit.message
 
-        pull_request_number = int(self._get_pull_request_number(commit_message))
+        pull_request_number = int(utils.get_pull_request_number(commit_message))
 
         pull_request = self.repo.get_pull(number=pull_request_number)
 
-        issue_number = self._get_issue_number(pull_request.body)
+        issue_number = utils.get_issue_number(pull_request.body)
 
         return self.repo.get_issue(number=int(issue_number))
 
@@ -168,19 +173,18 @@ class GithubReleaser(object):
 
         last_release = self._get_latest_release(releases)
 
-        # TODO add validations, the tag might not exists...?
-        tag = filter(lambda t: last_release == t.name, list(tags))[0]
+        release_tags = [t for t in list(tags) if t.name == last_release]
+        if not release_tags:
+            raise exceptions.TagNotFoundException(tag=last_release, release=last_release)
 
-        last_commit_sha = branch.commit.sha
+        # it cannot have multiple elements because there cannot be
+        # to tags with the same name
+        tag = release_tags[0]
 
         commits = list(self.repo.get_commits(sha=branch.name,
                                              since=tag.commit.commit.committer.date))
 
-        if len(commits) == 1 and commits[0].commit.sha == last_commit_sha:
-            self._logger.info('The last commit of this branch was already released. no change log')
-            return None
-
-        commits = filter(lambda com: com.sha != tag.commit.sha, commits)
+        commits = [com for com in commits if com.sha != tag.commit.sha]
 
         features = []
         bug_fixes = []
@@ -237,24 +241,3 @@ class GithubReleaser(object):
             major = major + 1
 
         return '{0}.{1}.{2}'.format(major, minor, micro)
-
-    @staticmethod
-    def _get_issue_number(pr_body):
-
-        p = re.compile('.* ?resolve #(\d+) ')
-        match = p.match(pr_body)
-
-        if match:
-            return match.group(1)
-        else:
-            raise exceptions.InvalidPullRequestBody(body=pr_body)
-
-    @staticmethod
-    def _get_pull_request_number(commit_message):
-
-        p = re.compile('.* ?\(#(\d+)\)')
-        match = p.match(commit_message)
-        if match:
-            return int(match.group(1))
-        else:
-            raise exceptions.InvalidCommitMessage(commit_message=commit_message)

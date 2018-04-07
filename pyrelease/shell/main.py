@@ -23,10 +23,9 @@ from pyrelease.shell import handle_exceptions
 from pyrelease.shell.commands import release
 
 
-# pylint: disable=no-value-for-parameter
 @click.group()
 @handle_exceptions
-def app():
+def app(*_):
     pass
 
 

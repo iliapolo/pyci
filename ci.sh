@@ -14,12 +14,9 @@ echo "Running code analysis"
 pylint --rcfile .pylint.ini pyrelease
 
 echo "Running tests"
-py.test --cov-report term-missing --cov=fileconfig pyrelease/tests
+py.test --cov-report term-missing --cov=pyrelease pyrelease/tests
 
-if [ -z ${TRAVIS_PULL_REQUEST_BRANCH} ] && [ "dev" = ${TRAVIS_BRANCH} ]; then
-    echo "Running release"
-    pip install https://github.com/iliapolo/pyrelease/archive/master.zip
-    pyrelease release --repo iliapolo/pyrelease --branch dev
-fi
+echo "Running release"
+pyrelease release --repo iliapolo/pyrelease --branch dev
 
 echo "Done!"

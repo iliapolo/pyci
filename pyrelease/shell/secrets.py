@@ -15,13 +15,14 @@
 #
 #############################################################################
 
-import click
 import os
+
+import click
 
 
 def github_access_token():
 
     if 'GITHUB_ACCESS_TOKEN' in os.environ:
         return os.environ['GITHUB_ACCESS_TOKEN']
-    else:
-        return click.prompt('Enter Github access token:', hide_input=True)
+
+    return click.prompt('Enter Github access token:', hide_input=True)
