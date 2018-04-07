@@ -15,6 +15,8 @@
 #
 #############################################################################
 
+import pytest
+
 from pyrelease.api import utils
 
 
@@ -23,5 +25,16 @@ def test_get_pull_request_number():
     actual = utils.get_pull_request_number('Implemented feature 1 (#6)')
 
     expected = 6
+
+    assert expected == actual
+
+
+@pytest.mark.parametrize("keyword", utils.SUPPORTED_KEYWORDS)
+def test_get_issue_number(keyword):
+
+    pr_body = 'This pull request {0} #3 more text'.format(keyword)
+    actual = utils.get_issue_number(pr_body)
+
+    expected = '3'
 
     assert expected == actual
