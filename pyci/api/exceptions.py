@@ -94,3 +94,32 @@ class TagNotFoundException(ApiException):
 
     def __str__(self):
         return 'Tag ({0}) not found for release: {1}'.format(self.tag, self.release)
+
+
+class CommandExecutionException(ApiException):
+
+    def __init__(self, command, error, output, code):
+        self.command = command
+        self.error = error
+        self.code = code
+        self.output = output
+        super(CommandExecutionException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Command '{0}' executed with an error." \
+               "\ncode: {1}" \
+               "\nerror: {2}" \
+               "\noutput: {3}" \
+            .format(self.command, self.code,
+                    self.error or None,
+                    self.output or None)
+
+
+class BinaryAlreadyExists(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(BinaryAlreadyExists, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Binary file already exists: {0}'.format(self.path)

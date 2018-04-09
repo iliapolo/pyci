@@ -2,7 +2,7 @@
 
 set -e
 
-env
+program=pyci
 
 echo "Installing test requirements"
 pip install -r test-requirements.txt
@@ -11,12 +11,12 @@ echo "Installing dependencies"
 pip install -e .
 
 echo "Running code analysis"
-pylint --rcfile .pylint.ini pyrelease
+pylint --rcfile .pylint.ini ${program}
 
 echo "Running tests"
-py.test --cov-report term-missing --cov=pyrelease pyrelease/tests
+py.test --cov-report term-missing --cov=${program} ${program}/tests
 
 echo "Running release"
-pyrelease release --repo iliapolo/pyrelease --branch release
+${program} releaser --repo iliapolo/${program} release --branch release --binary --binary-entrypoint ${program}/shell/main.py --binary-name ${program}
 
 echo "Done!"

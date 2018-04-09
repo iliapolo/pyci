@@ -15,36 +15,39 @@
 #
 #############################################################################
 
+import wryte
 
-from setuptools import setup
+from pyci.api.constants import PROGRAM_NAME
+
+loggers = {}
 
 
-PROGRAM_NAME = 'pyci'
+class Logger(object):
 
-setup(
-    name=PROGRAM_NAME,
-    version='0.1',
-    author='Eli Polonsky',
-    author_email='eli.polonsky@gmail.com',
-    packages=[
-        PROGRAM_NAME,
-        '{0}.api'.format(PROGRAM_NAME),
-        '{0}.shell'.format(PROGRAM_NAME),
-        '{0}.shell.commands'.format(PROGRAM_NAME),
-    ],
-    license='LICENSE',
-    description="Command Line Interface for releasing open source python libraries",
-    entry_points={
-        'console_scripts': [
-            '{0} = {0}.shell.main:app'.format(PROGRAM_NAME)
-        ]
-    },
-    install_requires=[
-        'click==6.7',
-        'wryte==0.2.1',
-        'pygithub==1.38',
-        'semver==2.7.9',
-        'pygithub==1.38',
-        'pyinstaller==3.3.1'
-    ]
-)
+    _logger = None
+
+    def __init__(self, name=None, level=None):
+        self._logger = wryte.Wryte(name)
+        self._logger.set_level(level)
+
+    def info(self, message):
+        self._logger.info(message)
+
+    def warning(self, message):
+        self._logger.warning(message)
+
+    def warn(self, message):
+        self._logger.warn(message)
+
+    def error(self, message):
+        self._logger.error(message)
+
+    def debug(self, message):
+        self._logger.debug(message)
+
+
+def get_logger(name, level='info'):
+    name = '{0}.{1}'.format(PROGRAM_NAME, name)
+    if name not in loggers:
+        loggers[name] = Logger(name, level)
+    return loggers[name]
