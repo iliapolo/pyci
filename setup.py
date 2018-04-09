@@ -45,6 +45,9 @@ setup(
         'pygithub==1.38',
         'semver==2.7.9',
         'pygithub==1.38',
-        'pyinstaller==3.3.1'
+        'pyinstaller==3.3.1',
+        'requests==2.18.4',
+        'jinja2==2.10',
+        'boltons==18.0.0'
     ]
 )

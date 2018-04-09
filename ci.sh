@@ -17,6 +17,6 @@ echo "Running tests"
 py.test --cov-report term-missing --cov=${program} ${program}/tests
 
 echo "Running release"
-${program} releaser --repo iliapolo/${program} release --branch release --binary --binary-entrypoint ${program}/shell/main.py --binary-name ${program}
+${program} --repo iliapolo/${program} releaser release --branch release
 
 echo "Done!"

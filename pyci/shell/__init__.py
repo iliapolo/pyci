@@ -17,6 +17,7 @@
 
 from functools import wraps
 
+import github
 import click
 
 from pyci.api import exceptions
@@ -29,7 +30,7 @@ def handle_exceptions(func):
 
         try:
             func(*args, **kwargs)
-        except (exceptions.ApiException, click.ClickException) as e:
+        except (exceptions.ApiException, click.ClickException, github.UnknownObjectException) as e:
             raise click.ClickException(str(e) + build_info(e))
 
     return wrapper

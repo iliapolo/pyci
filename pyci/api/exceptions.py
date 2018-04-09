@@ -123,3 +123,36 @@ class BinaryAlreadyExists(ApiException):
 
     def __str__(self):
         return 'Binary file already exists: {0}'.format(self.path)
+
+
+class MultiplePackagesFound(ApiException):
+
+    def __init__(self, repo, packages):
+        self.repo = repo
+        self.packages = packages
+        super(MultiplePackagesFound, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Found multiple python packages at the root level of your repo ({0}): {1}'.format(
+            self.repo, ','.join(self.packages))
+
+
+class PackageNotFound(ApiException):
+
+    def __init__(self, repo):
+        self.repo = repo
+        super(PackageNotFound, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'No python packages found at the root level of your repo ({0})'.format(self.repo)
+
+
+class EntrypointNotFoundException(ApiException):
+
+    def __init__(self, repo, expected_path):
+        self.expected_path = expected_path
+        self.repo = repo
+        super(EntrypointNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'No entrypoint found for repo ({0}): {1}'.format(self.repo, self.expected_path)

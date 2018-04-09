@@ -17,45 +17,50 @@
 
 import click
 
-from pyci.api.packager import Packager
+from pyci.api import exceptions
 from pyci.shell import cidetector
 
 
 # pylint: disable=too-many-arguments
 @click.command()
 @click.pass_context
-@click.option('--branch', required=True)
-@click.option('--binary', is_flag=True)
+@click.option('--branch', required=False)
+@click.option('--no-binary', is_flag=True)
 @click.option('--binary-entrypoint', required=False)
 @click.option('--binary-name', required=False)
 @click.option('--force', is_flag=True)
-def release(ctx, branch, binary, binary_entrypoint, binary_name, force):
+def release(ctx, branch, no_binary, binary_entrypoint, binary_name, force):
 
     def _do_release():
 
-        if binary:
+        click.echo('Creating release...')
+        release_title = ctx.parent.releaser.release(branch)
 
-            packager = Packager()
-            click.echo('Creating release...')
-            release_title = ctx.parent.releaser.release(branch)
+        # release_title may be None in case this commit should not
+        # be released.
+        if release_title and not no_binary:
             click.echo('Successfully created release: {0}'.format(release_title))
-
-            # release_title may be None in case this commit should not
-            # be released.
-            if release_title:
+            try:
                 click.echo('Creating binary package...')
-                package = packager.binary(entrypoint=binary_entrypoint, name=binary_name)
+                package = ctx.parent.packager.binary(branch=branch,
+                                                     entrypoint=binary_entrypoint,
+                                                     name=binary_name)
                 click.echo('Successfully created binary package: {0}'.format(package))
 
                 click.echo('Uploading binary package to release...')
                 asset_url = ctx.parent.releaser.upload(asset=package, release=release_title)
                 click.echo('Successfully uploaded binary package to release: {0}'.format(asset_url))
-
-        else:
-
-            click.echo('Creating release...')
-            ctx.parent.releaser.release(branch)
-            click.echo('Successfully created release: {0}'.format(release_title))
+            except exceptions.EntrypointNotFoundException as e:
+                # this is ok, the package doesn't contain an entrypoint in the
+                # expected default location. we should however print a log
+                # since the user might have expected the binary package (since the default is
+                #  to create one)
+                click.echo('Binary package will not be created because an entrypoint was not '
+                           'found in the expected path: {0}. You can specify a custom '
+                           'entrypoint path by using the "--binary-entrypoint" option. '
+                           'If your package is not meant to be an executable binary, '
+                           'use the "--no-binary" flag to avoid seeing this message'
+                           .format(e.expected_path))
 
     ci = cidetector.detect(branch)
 
