@@ -19,18 +19,44 @@ import sys
 
 import click
 
-from pyrelease.shell import handle_exceptions
-from pyrelease.shell.commands import release
+from pyci.shell import secrets
+from pyci.shell import handle_exceptions
+from pyci.shell.commands import packager as packager_group
+from pyci.shell.commands import releaser as releaser_group
+from pyci.api.packager import Packager
+from pyci.api.releaser import GithubReleaser
 
 
 @click.group()
 @handle_exceptions
-def app(*_):
+def app(*_, **__):
     pass
 
 
-app.add_command(release.release)
-app.add_command(release.delete)
+@click.group()
+@click.pass_context
+@click.option('--repo', required=True)
+@handle_exceptions
+def releaser(ctx, repo):
+
+    ctx.releaser = GithubReleaser(repo=repo, access_token=secrets.github_access_token())
+
+
+@click.group()
+@click.pass_context
+@handle_exceptions
+def packager(ctx):
+
+    ctx.packager = Packager()
+
+
+releaser.add_command(releaser_group.release)
+releaser.add_command(releaser_group.delete)
+
+packager.add_command(packager_group.binary)
+
+app.add_command(releaser)
+app.add_command(packager)
 
 # allows running the application as a single executable
 # created by pyinstaller

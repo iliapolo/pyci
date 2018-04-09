@@ -17,7 +17,7 @@
 
 import pytest
 
-from pyrelease.api import utils
+from pyci.api import utils
 
 
 def test_get_pull_request_number():

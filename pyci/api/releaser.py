@@ -14,14 +14,15 @@
 #   * limitations under the License.
 #
 #############################################################################
+import os
 
 import semver
 from github import Github
 from github.GithubException import UnknownObjectException
 
-from pyrelease.api import exceptions
-from pyrelease.api import logger
-from pyrelease.api import utils
+from pyci.api import exceptions
+from pyci.api import logger
+from pyci.api import utils
 
 
 class GithubReleaser(object):
@@ -34,99 +35,109 @@ class GithubReleaser(object):
         # create a github release
         hub = Github(access_token)
 
-        self._logger = logger.get_logger('pyrelease.releaser.GithubReleaser')
+        self._logger = logger.get_logger('api.releaser.GithubReleaser')
 
-        self._logger.info('Fetching repo...')
+        self._logger.debug('Fetching repo...')
         self.repo = hub.get_repo(repo)
-        self._logger.info('Fetched repo: {0}'.format(self.repo.name))
+        self._logger.debug('Fetched repo: {0}'.format(self.repo.name))
 
     # pylint: disable=too-many-locals,too-many-statements
     def release(self, branch_name):
 
         # first fetch everything we need from github
 
-        self._logger.info('Fetching branch...')
+        self._logger.debug('Fetching branch...')
         branch = self.repo.get_branch(branch=branch_name)
-        self._logger.info('Fetched branch: {0}'.format(branch.name))
+        self._logger.debug('Fetched branch: {0}'.format(branch.name))
 
-        self._logger.info('Fetching commit...')
+        self._logger.debug('Fetching commit...')
         commit = self.repo.get_commit(sha=branch.commit.sha)
-        self._logger.info('Fetched commit: {0}'.format(commit.sha))
+        self._logger.debug('Fetched commit: {0}'.format(commit.sha))
 
-        self._logger.info('Fetching tags...')
+        self._logger.debug('Fetching tags...')
         tags = list(self.repo.get_tags())
 
-        self._logger.info('Fetching releases...')
+        self._logger.debug('Fetching releases...')
         releases = list(self.repo.get_releases())
 
-        self._logger.info('Extracting latest release')
+        self._logger.debug('Extracting latest release')
         last_release = self._get_latest_release(releases)
-        self._logger.info('Extracted latest release: {0}'.format(last_release))
+        self._logger.debug('Extracted latest release: {0}'.format(last_release))
 
         if last_release:
             tag = [t for t in list(tags) if t.name == last_release][0]
             # figure out if we really need to release
             if commit.sha == tag.commit.sha:
-                self._logger.info('The latest commit of this branch is already released: {0}'
-                                  .format(last_release))
-                return
+                self._logger.debug('The latest commit of this branch is already released: {0}'
+                                   .format(last_release))
+                return None
 
-        self._logger.info('Fetching pull request')
+        self._logger.debug('Fetching pull request')
         pull_request = self._get_pull_request(commit)
         if pull_request is None:
-            self._logger.info('Commit is not related to any pull request, not releasing...')
-            return
-        self._logger.info('Fetched pull request: {0}'.format(pull_request.title))
+            self._logger.debug('Commit is not related to any pull request, not releasing...')
+            return None
+        self._logger.debug('Fetched pull request: {0}'.format(pull_request.title))
 
-        self._logger.info('Fetching issue...')
+        self._logger.debug('Fetching issue...')
         issue = self._get_issue_from_pull_request(pull_request)
         if issue is None:
-            self._logger.info('Pull request {0} is not related to any issue, '
-                              'not releasing...'.format(pull_request.number))
-            return
-        self._logger.info('Fetched issue: {0}'.format(issue.number))
+            self._logger.debug('Pull request {0} is not related to any issue, '
+                               'not releasing...'.format(pull_request.number))
+            return None
+        self._logger.debug('Fetched issue: {0}'.format(issue.number))
 
-        self._logger.info('Fetching issue labels...')
+        self._logger.debug('Fetching issue labels...')
         labels = list(issue.get_labels())
-        self._logger.info('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
+        self._logger.debug('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
 
         semantic_version = self._get_next_release(last_release, labels)
         if semantic_version == last_release:
-            self._logger.info('The latest commit corresponds to an issue that is not marked as a '
-                              'release issue. not releasing....')
-            return
-        self._logger.info('Next version will be: {0}'.format(semantic_version))
+            self._logger.debug('The latest commit corresponds to an issue that is not marked as a '
+                               'release issue. not releasing....')
+            return None
+        self._logger.debug('Next version will be: {0}'.format(semantic_version))
 
-        self._logger.info('Fetching changelog...')
+        self._logger.debug('Fetching changelog...')
         changelog = self._get_changelog(releases=releases, tags=tags, branch=branch)
 
-        self._logger.info('Fetching master ref...')
+        self._logger.debug('Fetching master ref...')
         master = self.repo.get_git_ref('heads/master')
-        self._logger.info('Fetched ref: {0}'.format(master.ref))
+        self._logger.debug('Fetched ref: {0}'.format(master.ref))
 
-        self._logger.info('Creating Github Release...')
+        self._logger.debug('Creating Github Release...')
         self.repo.create_git_release(
             tag=semantic_version,
             target_commitish=branch_name,
             name=semantic_version,
             message=changelog,
             draft=False,
-            prerelease=False,
+            prerelease=False
         )
-        self._logger.info('Successfully created release: {0}'.format(semantic_version))
+        self._logger.debug('Successfully created release: {0}'.format(semantic_version))
 
-        self._logger.info('Updating master branch')
+        self._logger.debug('Updating master branch')
         master.edit(sha=branch.commit.sha, force=True)
-        self._logger.info('Successfully updated master branch to: {0}'.format(branch.commit.sha))
+        self._logger.debug('Successfully updated master branch to: {0}'.format(branch.commit.sha))
 
         try:
             pull_request_ref = self.repo.get_git_ref('heads/{0}'.format(pull_request.head.ref))
-            self._logger.info('Deleting ref: {0}'.format(pull_request_ref.ref))
+            self._logger.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
             pull_request_ref.delete()
         except UnknownObjectException:
             # this is ok, the branch doesn't necessarily have to be there.
             # it might have been deleted when the pull request was merged
             pass
+
+        return semantic_version
+
+    def upload(self, asset, release):
+
+        release = self.repo.get_release(id=release)
+        release.upload_asset(path=asset, content_type='application/octet-stream')
+
+        return 'https://github.com/{0}/releases/download/{1}/{2}'\
+            .format(self.repo.name, release.title, os.path.basename(asset))
 
     def delete(self, version):
 
@@ -138,10 +149,10 @@ class GithubReleaser(object):
 
         if releases:
             release = releases[0]
-            self._logger.info('Deleting release: {0}'.format(version))
+            self._logger.debug('Deleting release: {0}'.format(version))
             release.delete_release()
         else:
-            self._logger.info('Release {0} not found, skipping...'.format(version))
+            self._logger.debug('Release {0} not found, skipping...'.format(version))
 
         refs = [ref for ref in list(self.repo.get_git_refs()) if ref.ref == 'refs/tags/{0}'
                 .format(version)]
@@ -151,10 +162,10 @@ class GithubReleaser(object):
 
         if refs:
             ref = refs[0]
-            self._logger.info('Deleting ref: {0}'.format(ref.ref))
+            self._logger.debug('Deleting ref: {0}'.format(ref.ref))
             ref.delete()
         else:
-            self._logger.info('Tag {0} not found, skipping...'.format(version))
+            self._logger.debug('Tag {0} not found, skipping...'.format(version))
 
     @staticmethod
     def _get_latest_release(releases):
@@ -217,7 +228,7 @@ class GithubReleaser(object):
 
         for commit in commits:
 
-            self._logger.info('Fetching issue for commit: {0}'.format(commit.commit.message))
+            self._logger.debug('Fetching issue for commit: {0}'.format(commit.commit.message))
             issue = self._get_issue_from_commit(commit)
 
             if issue is None:

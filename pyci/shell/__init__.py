@@ -19,7 +19,7 @@ from functools import wraps
 
 import click
 
-from pyrelease.api import exceptions
+from pyci.api import exceptions
 
 
 def handle_exceptions(func):
