@@ -237,7 +237,7 @@ class _GitHubBranchReleaser(object):
             tag = [t for t in list(self._tags) if t.name == self._last_release][0]
             if self._commit.sha == tag.commit.sha:
                 raise exceptions.CommitIsAlreadyReleasedException(sha=self._commit.sha,
-                                                                  release=tag.tag)
+                                                                  release=tag.name)
 
     def _fetch_issue(self, pull_request):
 

@@ -20,6 +20,8 @@ import platform
 import shutil
 import tempfile
 
+from boltons.cacheutils import cachedproperty
+
 from pyci.api import logger, exceptions
 from pyci.api import utils
 from pyci.api.downloader import download
@@ -29,63 +31,85 @@ from pyci.api.runner import LocalCommandRunner
 
 class Packager(object):
 
-    def __init__(self, repo, log_level='info'):
+    def __init__(self, repo, sha, local_repo_path=None, log_level='info'):
         self._repo = repo
+        self._sha = sha
+        self._local_repo_path = local_repo_path
         self._logger = logger.get_logger('api.packager.Packager', level=log_level)
         self._runner = LocalCommandRunner()
 
-    def binary(self, branch, entrypoint=None, name=None, target_dir=None):
+    @cachedproperty
+    def _repo_dir(self):
+
+        repo_base_name = '/'.join(self._repo.split('/')[1:])
+
+        if self._local_repo_path:
+
+            # pylint: disable=fixme
+            # TODO document and explain that the 'sha' argument is ignored here
+
+            self._logger.debug('Copying local repository to temp directory...')
+            temp_dir = tempfile.mkdtemp()
+            repo_copy = os.path.join(temp_dir, repo_base_name)
+            shutil.copytree(self._local_repo_path, repo_copy)
+            self._logger.debug('Successfully copied repo to: {0}'.format(repo_copy))
+            return repo_copy
 
         self._logger.debug('Fetching repository...')
-        repo_dir = self._fetch_repo(self._repo, branch)
+        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
+        archive = download(url)
+        repo_dir = extract(archive=archive)
         self._logger.debug('Successfully fetched repository: {0}'.format(repo_dir))
+
+        return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
+
+    def binary(self, entrypoint=None, name=None, target_dir=None):
 
         temp_dir = tempfile.mkdtemp()
         try:
 
             target_dir = target_dir or os.getcwd()
-            name = name or self._find_name(repo_dir=repo_dir)
-            entrypoint = self._find_entrypoint(name, repo_dir, entrypoint=entrypoint)
+            name = name or self._find_name(repo_dir=self._repo_dir)
+            entrypoint = self._find_entrypoint(name, self._repo_dir, entrypoint=entrypoint)
 
-            full_name = '{0}-{1}-{2}'.format(name, platform.machine(), platform.system())
+            destination = os.path.join(target_dir, '{0}-{1}-{2}'.format(name,
+                                                                        platform.machine(),
+                                                                        platform.system()))
 
-            target = os.path.join(target_dir, full_name)
+            if platform.system().lower() == 'windows':
+                destination = '{0}.exe'.format(destination)
 
-            if os.path.exists(target):
-                raise exceptions.BinaryAlreadyExists(path=target)
+            if os.path.exists(destination):
+                raise exceptions.BinaryAlreadyExists(path=destination)
 
-            self._logger.debug('Binary name will be: {0}'.format(full_name))
+            self._logger.debug('Binary path will be: {0}'.format(destination))
             self._logger.debug('Entrypoint assumed as: {0}'.format(entrypoint))
 
-            self._runner.run('pyinstaller --onefile --name {0} --distpath {1} --workpath {2} '
-                             '--specpath {3} {4}'
-                             .format(full_name,
-                                     os.path.join(temp_dir, 'dist'),
-                                     os.path.join(temp_dir, 'build'),
-                                     temp_dir,
-                                     entrypoint),
-                             stdout_pipe=False,
-                             exit_on_failure=True)
-            package_path = os.path.join(target_dir, full_name)
-            shutil.copy(os.path.join(temp_dir, 'dist', name), package_path)
-            self._logger.debug('Packaged successfully: {0}'.format(package_path))
-            return package_path
+            dist_dir = os.path.join(temp_dir, 'dist')
+            build_dir = os.path.join(temp_dir, 'build')
+
+            result = self._runner.run('pyinstaller --onefile --distpath {0} '
+                                      '--workpath {1} --specpath {2} {3}'
+                                      .format(dist_dir, build_dir, temp_dir, entrypoint),
+                                      stdout_pipe=False,
+                                      exit_on_failure=True)
+
+            if result.std_err:
+                self._logger.debug('pyinstaller command error: {0}'.format(result.std_err))
+
+            if result.std_out:
+                self._logger.debug('pyinstaller command output: {0}'.format(result.std_out))
+
+            actual_name = utils.lsf(dist_dir)[0]
+
+            shutil.copy(os.path.join(dist_dir, actual_name), destination)
+            self._logger.debug('Packaged successfully: {0}'.format(destination))
+            return destination
         finally:
-            shutil.rmtree(repo_dir)
             shutil.rmtree(temp_dir)
 
     def wheel(self):
         raise NotImplementedError()
-
-    def _fetch_repo(self, repo, branch):
-
-        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, branch)
-        archive = download(url)
-        repo_dir = extract(archive=archive)
-
-        repo_base_name = '/'.join(repo.split('/')[1:])
-
-        return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, branch))
 
     def _find_name(self, repo_dir):
 

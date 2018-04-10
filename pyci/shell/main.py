@@ -42,17 +42,16 @@ def app(ctx, repo):
 def releaser(ctx):
 
     ctx.releaser = GitHubReleaser(repo=ctx.parent.repo, access_token=secrets.github_access_token())
-    ctx.packager = Packager(repo=ctx.parent.repo)
 
 
 @click.group()
 @click.pass_context
-@click.option('--branch', required=True)
+@click.option('--sha', required=True)
+@click.option('--local-repo-path', required=False)
 @handle_exceptions
-def packager(ctx, branch):
+def packager(ctx, sha, local_repo_path):
 
-    ctx.packager = Packager(repo=ctx.parent.repo)
-    ctx.branch = branch
+    ctx.packager = Packager(repo=ctx.parent.repo, local_repo_path=local_repo_path, sha=sha)
 
 
 releaser.add_command(releaser_group.release)

@@ -18,6 +18,7 @@
 import click
 
 from pyci.api import exceptions
+from pyci.api.packager import Packager
 from pyci.shell import cidetector
 
 
@@ -61,9 +62,10 @@ def release(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
         if release_title and not no_binary:
             try:
                 click.echo('Creating binary package...')
-                package = ctx.parent.packager.binary(branch=sha,
-                                                     entrypoint=binary_entrypoint,
-                                                     name=binary_name)
+
+                packager = Packager(repo=ctx.parent.parent.repo, sha=sha)
+                package = packager.binary(entrypoint=binary_entrypoint,
+                                          name=binary_name)
                 click.echo('Successfully created binary package: {0}'.format(package))
 
                 click.echo('Uploading binary package to release...')

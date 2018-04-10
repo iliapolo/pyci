@@ -31,8 +31,7 @@ def binary(ctx, name, entrypoint, target_dir):
 
     click.echo('Packaging... (this may take some time)')
     try:
-        package_path = ctx.parent.packager.binary(branch=ctx.parent.branch,
-                                                  entrypoint=entrypoint,
+        package_path = ctx.parent.packager.binary(entrypoint=entrypoint,
                                                   name=name,
                                                   target_dir=target_dir)
     except exceptions.BinaryAlreadyExists as e:

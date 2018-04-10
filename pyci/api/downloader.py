@@ -17,6 +17,7 @@
 
 import os
 import tempfile
+import uuid
 
 import requests
 
@@ -35,6 +36,4 @@ def download(url, target=None):
 
 def _create_random_file_name():
 
-    temp_file = tempfile.mkstemp()[1]
-    os.remove(temp_file)
-    return temp_file
+    return os.path.join(tempfile.mkdtemp(), str(uuid.uuid4()))

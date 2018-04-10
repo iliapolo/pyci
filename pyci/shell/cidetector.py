@@ -39,7 +39,7 @@ def detect(branch):
         if os.environ.get('TRAVIS_PULL_REQUEST_BRANCH'):
             ci.should_release = False
             ci.reason = 'The current build is a PR build'
-        if travis_branch != branch:
+        elif travis_branch != branch:
             ci.should_release = False
             ci.reason = 'The current build branch ({0}) does not match the release branch ({1})'\
                 .format(travis_branch, branch)
@@ -50,7 +50,11 @@ def detect(branch):
         if os.environ.get('APPVEYOR_PULL_REQUEST_HEAD_REPO_BRANCH'):
             ci.should_release = False
             ci.reason = 'The current build is a PR build'
-        if appveyor_branch != branch:
+        elif os.environ.get('APPVEYOR_REPO_TAG_NAME'):
+            ci.should_release = False
+            ci.reason = 'The current build is a tag build ({0})'.format(
+                os.environ['APPVEYOR_REPO_TAG_NAME'])
+        elif appveyor_branch != branch:
             ci.should_release = False
             ci.reason = 'The current build branch ({0}) does not match the release branch ({1})' \
                 .format(appveyor_branch, branch)
