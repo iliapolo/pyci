@@ -23,15 +23,16 @@ from pyci.shell import handle_exceptions
 
 @click.command()
 @click.pass_context
-@click.option('--name', required=True)
-@click.option('--entrypoint', required=True)
+@click.option('--name', required=False)
+@click.option('--entrypoint', required=False)
 @click.option('--target-dir', required=False)
 @handle_exceptions
 def binary(ctx, name, entrypoint, target_dir):
 
     click.echo('Packaging... (this may take some time)')
     try:
-        package_path = ctx.parent.packager.binary(entrypoint=entrypoint,
+        package_path = ctx.parent.packager.binary(branch=ctx.parent.branch,
+                                                  entrypoint=entrypoint,
                                                   name=name,
                                                   target_dir=target_dir)
     except exceptions.BinaryAlreadyExists as e:

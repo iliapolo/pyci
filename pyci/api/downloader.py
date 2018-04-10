@@ -15,36 +15,26 @@
 #
 #############################################################################
 
-from functools import wraps
+import os
+import tempfile
 
-import github
-import click
-
-from pyci.api import exceptions
+import requests
 
 
-def handle_exceptions(func):
+def download(url, target=None):
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
+    target = target or _create_random_file_name()
 
-        try:
-            func(*args, **kwargs)
-        except (exceptions.ApiException, click.ClickException, github.UnknownObjectException) as e:
-            raise click.ClickException(str(e) + build_info(e))
+    r = requests.get(url, stream=True)
+    with open(target, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+    return target
 
-    return wrapper
 
+def _create_random_file_name():
 
-def build_info(exception):
-
-    info = ''
-
-    if hasattr(exception, 'cause'):
-        info = info + '\n\n' + exception.cause + '.'
-
-    if hasattr(exception, 'possible_solutions'):
-        info = info + '\n\nPossible solutions: \n\n' + \
-               '\n'.join(['    - ' + solution + '.' for solution in exception.possible_solutions])
-
-    return info
+    temp_file = tempfile.mkstemp()[1]
+    os.remove(temp_file)
+    return temp_file

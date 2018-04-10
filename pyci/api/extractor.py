@@ -15,36 +15,16 @@
 #
 #############################################################################
 
-from functools import wraps
-
-import github
-import click
-
-from pyci.api import exceptions
+import zipfile
+import tempfile
 
 
-def handle_exceptions(func):
+def extract(archive, target=None):
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
+    target = target or tempfile.mkdtemp()
 
-        try:
-            func(*args, **kwargs)
-        except (exceptions.ApiException, click.ClickException, github.UnknownObjectException) as e:
-            raise click.ClickException(str(e) + build_info(e))
+    zip_ref = zipfile.ZipFile(archive, 'r')
+    zip_ref.extractall(target)
+    zip_ref.close()
 
-    return wrapper
-
-
-def build_info(exception):
-
-    info = ''
-
-    if hasattr(exception, 'cause'):
-        info = info + '\n\n' + exception.cause + '.'
-
-    if hasattr(exception, 'possible_solutions'):
-        info = info + '\n\nPossible solutions: \n\n' + \
-               '\n'.join(['    - ' + solution + '.' for solution in exception.possible_solutions])
-
-    return info
+    return target

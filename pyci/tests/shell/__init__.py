@@ -14,37 +14,3 @@
 #   * limitations under the License.
 #
 #############################################################################
-
-from functools import wraps
-
-import github
-import click
-
-from pyci.api import exceptions
-
-
-def handle_exceptions(func):
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-
-        try:
-            func(*args, **kwargs)
-        except (exceptions.ApiException, click.ClickException, github.UnknownObjectException) as e:
-            raise click.ClickException(str(e) + build_info(e))
-
-    return wrapper
-
-
-def build_info(exception):
-
-    info = ''
-
-    if hasattr(exception, 'cause'):
-        info = info + '\n\n' + exception.cause + '.'
-
-    if hasattr(exception, 'possible_solutions'):
-        info = info + '\n\nPossible solutions: \n\n' + \
-               '\n'.join(['    - ' + solution + '.' for solution in exception.possible_solutions])
-
-    return info

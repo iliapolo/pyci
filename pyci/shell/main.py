@@ -19,35 +19,40 @@ import sys
 
 import click
 
-from pyci.shell import secrets
+from pyci.api.packager import Packager
+from pyci.api.releaser import GitHubReleaser
 from pyci.shell import handle_exceptions
+from pyci.shell import secrets
 from pyci.shell.commands import packager as packager_group
 from pyci.shell.commands import releaser as releaser_group
-from pyci.api.packager import Packager
-from pyci.api.releaser import GithubReleaser
 
 
 @click.group()
-@handle_exceptions
-def app(*_, **__):
-    pass
-
-
-@click.group()
-@click.pass_context
 @click.option('--repo', required=True)
+@click.pass_context
 @handle_exceptions
-def releaser(ctx, repo):
+def app(ctx, repo):
 
-    ctx.releaser = GithubReleaser(repo=repo, access_token=secrets.github_access_token())
+    ctx.repo = repo
 
 
 @click.group()
 @click.pass_context
 @handle_exceptions
-def packager(ctx):
+def releaser(ctx):
 
-    ctx.packager = Packager()
+    ctx.releaser = GitHubReleaser(repo=ctx.parent.repo, access_token=secrets.github_access_token())
+    ctx.packager = Packager(repo=ctx.parent.repo)
+
+
+@click.group()
+@click.pass_context
+@click.option('--branch', required=True)
+@handle_exceptions
+def packager(ctx, branch):
+
+    ctx.packager = Packager(repo=ctx.parent.repo)
+    ctx.branch = branch
 
 
 releaser.add_command(releaser_group.release)
@@ -61,4 +66,5 @@ app.add_command(packager)
 # allows running the application as a single executable
 # created by pyinstaller
 if getattr(sys, 'frozen', False):
+    # pylint: disable=no-value-for-parameter
     app(sys.argv[1:])
