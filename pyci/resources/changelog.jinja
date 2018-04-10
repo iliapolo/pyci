@@ -1,0 +1,17 @@
+*Changes*
+
+{% if features %}
+**New Features:**
+
+{% for feature in features %}
+- {{feature.title}} ([Issue]({{feature.url}}))
+{% endfor %}
+{% endif %}
+
+{% if bugs %}
+**Bug Fixes:**
+
+{% for bug in bugs %}
+- {{bug.title}} ([Issue]({{bug.url}}))
+{% endfor %}
+{% endif %}
