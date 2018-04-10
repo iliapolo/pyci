@@ -19,11 +19,12 @@ import os
 import re
 
 import semver
-# see https://help.github.com/articles/closing-issues-using-keywords/
 from jinja2 import Template
 
 from pyci.resources import get_resource
 
+
+# see https://help.github.com/articles/closing-issues-using-keywords/
 SUPPORTED_KEYWORDS = [
 
     'close',

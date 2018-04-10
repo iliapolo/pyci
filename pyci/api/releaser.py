@@ -163,7 +163,7 @@ class _GitHubBranchReleaser(object):
             changelog = self._generate_changelog()
 
             self._logger.debug('Creating Github Release...')
-            self._repo.create_git_release(
+            release = self._repo.create_git_release(
                 tag=next_release,
                 target_commitish=self._branch_name,
                 name=next_release,
@@ -172,6 +172,13 @@ class _GitHubBranchReleaser(object):
                 prerelease=False
             )
             self._logger.debug('Successfully created release: {0}'.format(next_release))
+
+            issue_comment = 'This issue is part of release [{0}]({1})'.format(release.id,
+                                                                              release.url)
+
+            self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
+            self._issue.create_comment(body=issue_comment)
+            self._logger.debug('Added comment: {0}'.format(issue_comment))
 
             self._logger.debug('Fetching master ref...')
             master = self._repo.get_git_ref('heads/master')
