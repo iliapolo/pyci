@@ -21,10 +21,10 @@ import shutil
 import tempfile
 
 from pyci.api import logger, exceptions
-from pyci.api.runner import LocalCommandRunner
+from pyci.api import utils
 from pyci.api.downloader import download
 from pyci.api.extractor import extract
-from pyci.api import utils
+from pyci.api.runner import LocalCommandRunner
 
 
 class Packager(object):
@@ -64,11 +64,10 @@ class Packager(object):
                                      os.path.join(temp_dir, 'build'),
                                      temp_dir,
                                      entrypoint),
-                             stdout_pipe=False)
-            package_path = os.path.join(temp_dir, 'dist', full_name)
-
-            shutil.copy(package_path, target_dir)
+                             stdout_pipe=False,
+                             exit_on_failure=True)
             package_path = os.path.join(target_dir, full_name)
+            shutil.copy(os.path.join(temp_dir, 'dist', name), package_path)
             self._logger.debug('Packaged successfully: {0}'.format(package_path))
             return package_path
         finally:
