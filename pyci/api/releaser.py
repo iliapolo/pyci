@@ -19,6 +19,7 @@ import os
 from boltons.cacheutils import cachedproperty
 from github import Github
 from github import GithubObject
+from github.GithubException import GithubException
 from github.GithubException import UnknownObjectException
 
 from pyci.api import exceptions
@@ -46,9 +47,9 @@ class GitHubReleaser(object):
         self._logger.debug('Fetched repo: {0}'.format(self._repo_name))
         return repo
 
-    def release(self, branch_name):
+    def release(self, sha):
         return _GitHubBranchReleaser(repo=self._repo,
-                                     branch_name=branch_name,
+                                     sha=sha,
                                      log=self._logger).release()
 
     def upload(self, asset, release):
@@ -91,23 +92,16 @@ class GitHubReleaser(object):
 # pylint: disable=too-few-public-methods
 class _GitHubBranchReleaser(object):
 
-    def __init__(self, repo, branch_name, log):
+    def __init__(self, repo, sha, log):
 
         self._logger = log
-        self._branch_name = branch_name
+        self._sha = sha
         self._repo = repo
-
-    @cachedproperty
-    def _branch(self):
-        self._logger.debug('Fetching branch...')
-        branch = self._repo.get_branch(branch=self._branch_name)
-        self._logger.debug('Fetched branch: {0}'.format(branch.name))
-        return branch
 
     @cachedproperty
     def _commit(self):
         self._logger.debug('Fetching commit...')
-        commit = self._repo.get_commit(sha=self._branch.commit.sha)
+        commit = self._repo.get_commit(sha=self._sha)
         self._logger.debug('Fetched commit: {0}'.format(commit.sha))
         return commit
 
@@ -151,83 +145,99 @@ class _GitHubBranchReleaser(object):
 
     def release(self):
 
-        should_release = self._should_release()
-        should = should_release[0]
-        next_release = should_release[1]
+        self._validate_commit()
 
-        if should:
+        next_release = utils.get_next_release(self._last_release, self._labels)
 
-            self._logger.debug('Next version will be: {0}'.format(next_release))
+        self._logger.debug('Next version will be: {0}'.format(next_release))
 
-            self._logger.debug('Fetching changelog...')
-            changelog = self._generate_changelog()
+        self._logger.debug('Fetching changelog...')
+        changelog = self._generate_changelog()
+        self._logger.debug('Successfully fetched changelog')
 
+        try:
             self._logger.debug('Creating Github Release...')
             release = self._repo.create_git_release(
                 tag=next_release,
-                target_commitish=self._branch_name,
+                target_commitish=self._commit.sha,
                 name=next_release,
                 message=changelog,
                 draft=False,
                 prerelease=False
             )
             self._logger.debug('Successfully created release: {0}'.format(next_release))
+        except GithubException as e:
 
-            issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
-                                                                              release.html_url)
+            if e.data['errors'][0]['code'] != 'already_exists':
+                raise
 
-            self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
-            self._issue.create_comment(body=issue_comment)
-            self._logger.debug('Added comment: {0}'.format(issue_comment))
+            release = self._repo.get_release(id=next_release)
+            commit = self._fetch_commit(release.tag_name)
 
-            self._logger.debug('Fetching master ref...')
-            master = self._repo.get_git_ref('heads/master')
-            self._logger.debug('Fetched ref: {0}'.format(master.ref))
+            if commit.sha == self._commit.sha:
+                # we already checked if this commit is released in _validate_commit(),
+                # how can this be? well, there might be concurrent executions running on the
+                # same commit (two different CI systems for example)
+                raise exceptions.CommitIsAlreadyReleasedException(sha=self._commit.sha,
+                                                                  release=next_release)
 
-            self._logger.debug('Updating master branch')
-            master.edit(sha=self._branch.commit.sha, force=True)
-            self._logger.debug('Successfully updated master branch to: {0}'.format(
-                self._branch.commit.sha))
+            # if we get here, its bad. the release already exists but with a different commit than
+            # ours? it probably means there are two concurrent release jobs on the same
+            # branch...
 
-            try:
-                pull_request_ref = self._repo.get_git_ref('heads/{0}'.format(self._pr.head.ref))
-                self._logger.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
-                pull_request_ref.delete()
-            except UnknownObjectException:
-                # this is ok, the branch doesn't necessarily have to be there.
-                # it might have been deleted when the pull request was merged
-                pass
+            # pylint: disable=fixme
+            # TODO what should we do here? what are the implications of this?
+            raise exceptions.ReleaseConflictException(release=next_release,
+                                                      our_sha=self._commit.sha,
+                                                      their_sha=commit.sha)
+
+        issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
+                                                                          release.html_url)
+
+        self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
+        self._issue.create_comment(body=issue_comment)
+        self._logger.debug('Added comment: {0}'.format(issue_comment))
+
+        self._logger.debug('Fetching master ref...')
+        master = self._repo.get_git_ref('heads/master')
+        self._logger.debug('Fetched ref: {0}'.format(master.ref))
+
+        self._logger.debug('Updating master branch')
+        master.edit(sha=self._commit.sha, force=True)
+        self._logger.debug('Successfully updated master branch to: {0}'.format(
+            self._commit.sha))
+
+        try:
+            pull_request_ref = self._repo.get_git_ref('heads/{0}'.format(self._pr.head.ref))
+            self._logger.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
+            pull_request_ref.delete()
+        except UnknownObjectException:
+            # this is ok, the branch doesn't necessarily have to be there.
+            # it might have been deleted when the pull request was merged
+            pass
 
         return next_release
 
-    def _should_release(self):
+    def _validate_commit(self):
 
-        should = True
+        if self._pr is None:
+            raise exceptions.CommitNotRelatedToPullRequestException(sha=self._commit.sha)
+
+        if self._issue is None:
+            raise exceptions.PullRequestNotRelatedToIssueException(sha=self._commit.sha,
+                                                                   pr=self._pr.number)
+
+        next_release = utils.get_next_release(self._last_release, self._labels)
+        if next_release is None:
+            raise exceptions.IssueIsNotLabeledAsReleaseException(issue=self._issue.number,
+                                                                 sha=self._commit.sha,
+                                                                 pr=self._pr.number)
 
         if self._last_release:
             tag = [t for t in list(self._tags) if t.name == self._last_release][0]
             if self._commit.sha == tag.commit.sha:
-                self._logger.debug('The latest commit of this branch is already released: {0}'
-                                   .format(self._last_release))
-                should = False
-
-        if self._pr is None:
-            self._logger.debug('Commit ({0}) is not related to any pull request, '
-                               'not releasing...'.format(self._commit.commit.sha))
-            should = False
-
-        if self._issue is None:
-            self._logger.debug('Pull request {0} is not related to any issue, '
-                               'not releasing...'.format(self._pr.number))
-            should = False
-
-        next_release = utils.get_next_release(self._last_release, self._labels)
-        if next_release == self._last_release:
-            self._logger.debug('The latest commit corresponds to an issue that is not '
-                               'marked as a release issue. not releasing....')
-            should = False
-
-        return should, next_release
+                raise exceptions.CommitIsAlreadyReleasedException(sha=self._commit.sha,
+                                                                  release=tag.tag)
 
     def _fetch_issue(self, pull_request):
 
@@ -238,6 +248,16 @@ class _GitHubBranchReleaser(object):
 
         pr_number = utils.get_pull_request_number(commit.commit.message)
         return self._repo.get_pull(number=pr_number) if pr_number else None
+
+    def _fetch_commit(self, tag_name):
+
+        tag = self._repo.get_git_ref(ref='tags/{0}'.format(tag_name))
+
+        # pylint: disable=fixme
+        # TODO this looks like internal github API. see if we can do better
+        sha = tag.raw_data['object']['sha']
+
+        return self._repo.get_commit(sha=sha)
 
     def _generate_changelog(self):
 
@@ -258,18 +278,11 @@ class _GitHubBranchReleaser(object):
         latest_sha = None
         if self._last_release:
 
-            self._logger.debug('Fetching tag: {0}'.format(self._last_release))
-            latest_tag = self._repo.get_git_ref(ref='tags/{0}'.format(self._last_release))
-            self._logger.debug('Fetched tag: {0}'.format(self._last_release))
-
-            # pylint: disable=fixme
-            # TODO this looks like internal github API. see if we can do better
-            latest_sha = latest_tag.raw_data['object']['sha']
-
-            latest_commit = self._repo.get_commit(sha=latest_sha)
+            latest_commit = self._fetch_commit(tag_name=self._last_release)
             since = latest_commit.commit.committer.date
+            latest_sha = latest_commit.sha
 
-        commits = list(self._repo.get_commits(sha=self._branch.name, since=since))
+        commits = list(self._repo.get_commits(sha=self._commit.sha, since=since))
 
         features = set()
         bugs = set()
