@@ -1,25 +1,29 @@
+set program=pyci
 
-program=pyci
-
-dir %PYTHON%
+dir %PYTHON%\\Scripts
 echo "Installing test requirements"
-%PYTHON%\\python.exe -m pip install -r test-requirements.txt
+%PYTHON%\\Scripts\\python.exe -m pip install -r test-requirements.txt || goto :error
 
-dir %PYTHON%
+dir %PYTHON%\\Scripts
 echo "Installing dependencies"
-%PYTHON%\\python.exe -m pip install -e .
+%PYTHON%\\Scripts\\python.exe -m pip install -e . || goto :error
 
-dir %PYTHON%
+dir %PYTHON%\\Scripts
 echo "Running code analysis"
-%PYTHON%\\pylint.exe --rcfile .pylint.ini ${program}
+%PYTHON%\\Scripts\\pylint.exe --rcfile .pylint.ini %program% || goto :error
 
-dir %PYTHON%
+dir %PYTHON%\\Scripts
 echo "Running tests"
-%PYTHON%\\py.test.exe --cov-report term-missing --cov=${program} ${program}/tests
+%PYTHON%\\Scripts\\py.test.exe --cov-report term-missing --cov=%program% %program%/tests || goto :error
 
-dir %PYTHON%
+dir %PYTHON%\\Scripts
 echo "Running release"
-%PYTHON%\\${program}.exe --repo iliapolo/${program} releaser release --branch release --binary-entrypoint pyci.spec
+%PYTHON%\\Scripts\\%program%.exe --repo iliapolo/%program% releaser release --branch release--binary-entrypoint pyci.spec || goto :error
 
-dir %PYTHON%
+dir %PYTHON%\\Scripts
 echo "Done!"
+
+
+:error
+echo Failed with error #%errorlevel%.
+exit /b %errorlevel%
