@@ -2,11 +2,11 @@ set program=pyci
 
 dir %PYTHON%\\Scripts
 echo "Installing test requirements"
-%PYTHON%\\Scripts\\python.exe -m pip install -r test-requirements.txt || goto :error
+%PYTHON%\\python.exe -m pip install -r test-requirements.txt || goto :error
 
 dir %PYTHON%\\Scripts
 echo "Installing dependencies"
-%PYTHON%\\Scripts\\python.exe -m pip install -e . || goto :error
+%PYTHON%\\python.exe -m pip install -e . || goto :error
 
 dir %PYTHON%\\Scripts
 echo "Running code analysis"
