@@ -22,6 +22,7 @@ import os
 
 
 TRAVIS = 'Travis-CI'
+APPVEYOR = 'AppVeyor'
 
 
 def detect(branch):
@@ -30,6 +31,7 @@ def detect(branch):
                                                   'if you wish to release anyway.')
 
     travis_branch = os.environ.get('TRAVIS_BRANCH')
+    appveyor_branch = os.environ.get('APPVEYOR_REPO_BRANCH')
 
     if travis_branch:
         ci.system = TRAVIS
@@ -41,6 +43,17 @@ def detect(branch):
             ci.should_release = False
             ci.reason = 'The current build branch ({0}) does not match the release branch ({1})'\
                 .format(travis_branch, branch)
+
+    elif appveyor_branch:
+        ci.system = APPVEYOR
+        ci.should_release = True
+        if os.environ.get('APPVEYOR_PULL_REQUEST_HEAD_REPO_BRANCH'):
+            ci.should_release = False
+            ci.reason = 'The current build is a PR build'
+        if appveyor_branch != branch:
+            ci.should_release = False
+            ci.reason = 'The current build branch ({0}) does not match the release branch ({1})' \
+                .format(appveyor_branch, branch)
 
     return ci
 
