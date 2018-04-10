@@ -156,3 +156,62 @@ class EntrypointNotFoundException(ApiException):
 
     def __str__(self):
         return 'No entrypoint found for repo ({0}): {1}'.format(self.repo, self.expected_path)
+
+
+class CommitNotRelatedToPullRequestException(ApiException):
+
+    def __init__(self, sha):
+        self.sha = sha
+        super(CommitNotRelatedToPullRequestException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'The commit is not related to any pull request: {0}'.format(self.sha)
+
+
+class PullRequestNotRelatedToIssueException(ApiException):
+
+    def __init__(self, sha, pr):
+        self.sha = sha
+        self.pr = pr
+        super(PullRequestNotRelatedToIssueException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'The pull request is not related to any issue: {0} (commit {1})'.format(self.pr,
+                                                                                       self.sha)
+
+
+class IssueIsNotLabeledAsReleaseException(ApiException):
+
+    def __init__(self, sha, pr, issue):
+        self.pr = pr
+        self.sha = sha
+        self.issue = issue
+        super(IssueIsNotLabeledAsReleaseException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Issue is not labeled with any release labels: {0} (commit {1}, pr {2})'\
+            .format(self.issue, self.sha, self.pr)
+
+
+class CommitIsAlreadyReleasedException(ApiException):
+
+    def __init__(self, sha, release):
+        self.sha = sha
+        self.release = release
+        super(CommitIsAlreadyReleasedException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Commit is already released: {0} (release {1})'.format(self.sha, self.release)
+
+
+class ReleaseConflictException(ApiException):
+
+    def __init__(self, our_sha, their_sha, release):
+        self.our_sha = our_sha
+        self.their_sha = their_sha
+        self.release = release
+        super(ReleaseConflictException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Release conflict. The release ({0}) already exists but with a different ' \
+               'commit ({1}) than ours ({2})'.format(self.release, self.their_sha, self.our_sha)

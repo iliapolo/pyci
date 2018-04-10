@@ -1,0 +1,10 @@
+environment:
+
+  matrix:
+
+    - PYTHON: "C:\\Python27"
+
+build: off
+
+test_script:
+  - ./ci.bat
