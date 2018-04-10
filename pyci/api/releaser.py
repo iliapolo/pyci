@@ -250,7 +250,8 @@ class _GitHubBranchReleaser(object):
         since = GithubObject.NotSet
         latest_tag = None
         if self._last_release:
-            latest_tag = self._repo.get_git_ref(ref='refs/tags/{0}'.format(self._last_release))
+            self._logger.info('Fetching tag: {0}'.format(self._last_release))
+            latest_tag = self._repo.get_git_ref(ref='tags/{0}'.format(self._last_release))
             since = latest_tag.commit.commit.committer.date
 
         commits = list(self._repo.get_commits(sha=self._branch.name, since=since))
