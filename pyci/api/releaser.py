@@ -57,7 +57,7 @@ class GitHubReleaser(object):
         release.upload_asset(path=asset, content_type='application/octet-stream')
 
         return 'https://github.com/{0}/releases/download/{1}/{2}'\
-            .format(self._repo.name, release.title, os.path.basename(asset))
+            .format(self._repo_name, release.title, os.path.basename(asset))
 
     def delete(self, version):
 
