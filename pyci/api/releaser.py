@@ -49,7 +49,7 @@ class GitHubReleaser(object):
     def release(self, branch_name):
         return _GitHubBranchReleaser(repo=self._repo,
                                      branch_name=branch_name,
-                                     log=self._logger)
+                                     log=self._logger).release()
 
     def upload(self, asset, release):
 
