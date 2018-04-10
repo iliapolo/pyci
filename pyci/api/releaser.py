@@ -248,11 +248,19 @@ class _GitHubBranchReleaser(object):
                 return hash(self.url)
 
         since = GithubObject.NotSet
-        latest_tag = None
+        latest_sha = None
         if self._last_release:
-            self._logger.info('Fetching tag: {0}'.format(self._last_release))
+
+            self._logger.debug('Fetching tag: {0}'.format(self._last_release))
             latest_tag = self._repo.get_git_ref(ref='tags/{0}'.format(self._last_release))
-            since = latest_tag.commit.commit.committer.date
+            self._logger.debug('Fetched tag: {0}'.format(self._last_release))
+
+            # pylint: disable=fixme
+            # TODO this looks like internal github API. see if we can do better
+            latest_sha = latest_tag.raw_data['object']['sha']
+
+            latest_commit = self._repo.get_commit(sha=latest_sha)
+            since = latest_commit.commit.committer.date
 
         commits = list(self._repo.get_commits(sha=self._branch.name, since=since))
 
@@ -269,7 +277,7 @@ class _GitHubBranchReleaser(object):
             if issue is None:
                 continue
 
-            if latest_tag and commit.sha == latest_tag.commit.sha:
+            if commit.sha == latest_sha:
                 continue
 
             labels = [label.name for label in list(issue.get_labels())]
