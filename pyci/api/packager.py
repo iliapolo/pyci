@@ -47,12 +47,12 @@ class Packager(object):
             name = name or self._find_name(repo_dir=repo_dir)
             entrypoint = self._find_entrypoint(name, repo_dir, entrypoint=entrypoint)
 
-            target = os.path.join(target_dir, name)
+            full_name = '{0}-{1}-{2}'.format(name, platform.machine(), platform.system())
+
+            target = os.path.join(target_dir, full_name)
 
             if os.path.exists(target):
                 raise exceptions.BinaryAlreadyExists(path=target)
-
-            full_name = '{0}-{1}-{2}'.format(name, platform.machine(), platform.system())
 
             self._logger.debug('Binary name will be: {0}'.format(full_name))
             self._logger.debug('Entrypoint assumed as: {0}'.format(entrypoint))
