@@ -98,7 +98,9 @@ def get_next_release(last_release, labels):
         minor = 0
         major = major + 1
 
-    return '{0}.{1}.{2}'.format(major, minor, micro)
+    next_release = '{0}.{1}.{2}'.format(major, minor, micro)
+
+    return next_release if next_release != last_release else None
 
 
 def render_changelog(features, bugs):
