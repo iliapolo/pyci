@@ -173,8 +173,8 @@ class _GitHubBranchReleaser(object):
             )
             self._logger.debug('Successfully created release: {0}'.format(next_release))
 
-            issue_comment = 'This issue is part of release [{0}]({1})'.format(release.id,
-                                                                              release.url)
+            issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
+                                                                              release.html_url)
 
             self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
             self._issue.create_comment(body=issue_comment)
