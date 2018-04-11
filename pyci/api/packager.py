@@ -70,7 +70,7 @@ class Packager(object):
 
             target_dir = target_dir or os.getcwd()
             name = name or self._find_name(repo_dir=self._repo_dir)
-            entrypoint = self._find_entrypoint(name, self._repo_dir, entrypoint=entrypoint)
+            entrypoint = self._find_entrypoint(name, entrypoint=entrypoint)
 
             destination = os.path.join(target_dir, '{0}-{1}-{2}'.format(name,
                                                                         platform.machine(),
@@ -129,12 +129,24 @@ class Packager(object):
 
         return possibles.pop()
 
-    def _find_entrypoint(self, name, repo_dir, entrypoint=None):
+    def _find_entrypoint(self, name, entrypoint=None):
 
-        entrypoint = entrypoint or os.path.join(name, 'shell', 'main.py')
+        spec_file_name = '{0}.spec'.format(name)
+        spec_file = os.path.join(self._repo_dir, spec_file_name)
 
-        full_path = os.path.join(repo_dir, entrypoint)
+        if entrypoint is None and os.path.exists(spec_file):
+            return spec_file
+
+        script_file = os.path.join(name, 'shell', 'main.py')
+
+        entrypoint = entrypoint or script_file
+
+        full_path = os.path.join(self._repo_dir, entrypoint)
         if not os.path.exists(full_path):
-            raise exceptions.EntrypointNotFoundException(repo=self._repo, expected_path=entrypoint)
+            raise exceptions.EntrypointNotFoundException(repo=self._repo,
+                                                         expected_paths=[
+                                                             spec_file_name,
+                                                             script_file
+                                                         ])
 
         return full_path

@@ -81,7 +81,7 @@ def release(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
                            'entrypoint path by using the "--binary-entrypoint" option.\n'
                            'If your package is not meant to be an executable binary, '
                            'use the "--no-binary" flag to avoid seeing this message'
-                           .format(e.expected_path))
+                           .format(e.expected_paths))
 
     ci = cidetector.detect(sha)
 

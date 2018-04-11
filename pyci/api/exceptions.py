@@ -149,13 +149,14 @@ class PackageNotFound(ApiException):
 
 class EntrypointNotFoundException(ApiException):
 
-    def __init__(self, repo, expected_path):
-        self.expected_path = expected_path
+    def __init__(self, repo, expected_paths):
+        self.expected_paths = expected_paths
         self.repo = repo
         super(EntrypointNotFoundException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'No entrypoint found for repo ({0}): {1}'.format(self.repo, self.expected_path)
+        return 'No entrypoint found for repo ({0}): Looked in --> [{1}]'.format(
+            self.repo, ', '.join(self.expected_paths))
 
 
 class CommitNotRelatedToPullRequestException(ApiException):
