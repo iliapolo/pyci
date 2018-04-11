@@ -32,6 +32,7 @@ from pyci.api.runner import LocalCommandRunner
 
 class Packager(object):
 
+    # pylint: disable=too-many-arguments
     def __init__(self, repo, access_token=None, sha=None, local_repo_path=None, log_level='info'):
         self._repo = repo
         self._sha = sha or self._fetch_default_branch(access_token)

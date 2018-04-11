@@ -23,8 +23,8 @@ from pyci.api.packager import Packager
 from pyci.api.releaser import GitHubReleaser
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
-from pyci.shell.commands import packager as packager_group
-from pyci.shell.commands import releaser as releaser_group
+from pyci.shell.commands import pack as pack_group
+from pyci.shell.commands import release as release_group
 
 
 @click.group()
@@ -61,10 +61,10 @@ def pack(ctx, sha, local_repo_path):
                             access_token=access_token)
 
 
-release.add_command(releaser_group.create)
-release.add_command(releaser_group.delete)
+release.add_command(release_group.create)
+release.add_command(release_group.delete)
 
-pack.add_command(packager_group.binary)
+pack.add_command(pack_group.binary)
 
 app.add_command(release)
 app.add_command(pack)
