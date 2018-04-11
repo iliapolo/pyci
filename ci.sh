@@ -16,6 +16,7 @@ function install_python_on_mac {
 
     echo "Installing python 2.7.14 with pyenv..."
     pyenv install 2.7.14
+    pyenv global 2.7.14
     echo "Successfully installed python 2.7.14 with pyenv..."
 
     echo "Checking where python is"
