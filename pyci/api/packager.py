@@ -21,6 +21,7 @@ import shutil
 import tempfile
 
 from boltons.cacheutils import cachedproperty
+from github import Github
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
@@ -31,37 +32,13 @@ from pyci.api.runner import LocalCommandRunner
 
 class Packager(object):
 
-    def __init__(self, repo, sha, local_repo_path=None, log_level='info'):
+    # pylint: disable=too-many-arguments
+    def __init__(self, repo, access_token=None, sha=None, local_repo_path=None, log_level='info'):
         self._repo = repo
-        self._sha = sha
+        self._sha = sha or self._fetch_default_branch(access_token)
         self._local_repo_path = local_repo_path
         self._logger = logger.get_logger('api.packager.Packager', level=log_level)
         self._runner = LocalCommandRunner()
-
-    @cachedproperty
-    def _repo_dir(self):
-
-        repo_base_name = '/'.join(self._repo.split('/')[1:])
-
-        if self._local_repo_path:
-
-            # pylint: disable=fixme
-            # TODO document and explain that the 'sha' argument is ignored here
-
-            self._logger.debug('Copying local repository to temp directory...')
-            temp_dir = tempfile.mkdtemp()
-            repo_copy = os.path.join(temp_dir, repo_base_name)
-            shutil.copytree(self._local_repo_path, repo_copy)
-            self._logger.debug('Successfully copied repo to: {0}'.format(repo_copy))
-            return repo_copy
-
-        self._logger.debug('Fetching repository...')
-        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
-        archive = download(url)
-        repo_dir = extract(archive=archive)
-        self._logger.debug('Successfully fetched repository: {0}'.format(repo_dir))
-
-        return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
 
     def binary(self, entrypoint=None, name=None, target_dir=None):
 
@@ -107,6 +84,35 @@ class Packager(object):
             return destination
         finally:
             shutil.rmtree(temp_dir)
+
+    def _fetch_default_branch(self, access_token):
+        hub = Github(access_token)
+        return hub.get_repo(self._repo).default_branch
+
+    @cachedproperty
+    def _repo_dir(self):
+
+        repo_base_name = '/'.join(self._repo.split('/')[1:])
+
+        if self._local_repo_path:
+
+            # pylint: disable=fixme
+            # TODO document and explain that the 'sha' argument is ignored here
+
+            self._logger.debug('Copying local repository to temp directory...')
+            temp_dir = tempfile.mkdtemp()
+            repo_copy = os.path.join(temp_dir, repo_base_name)
+            shutil.copytree(self._local_repo_path, repo_copy)
+            self._logger.debug('Successfully copied repo to: {0}'.format(repo_copy))
+            return repo_copy
+
+        self._logger.debug('Fetching repository...')
+        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
+        archive = download(url)
+        repo_dir = extract(archive=archive)
+        self._logger.debug('Successfully fetched repository: {0}'.format(repo_dir))
+
+        return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
 
     def wheel(self):
         raise NotImplementedError()
