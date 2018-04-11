@@ -6,6 +6,15 @@ TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
 
 
 function install_python_on_mac {
+
+    echo "Installing xcode tools..."
+    xcode-select --install
+    echo "Successfully installed xcode tools..."
+
+    echo "Installing python development headers..."
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install python@2
+    echo "Successfully Installed python development headers..."
+
     echo "Installing pyenv..."
     HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
     echo "Successfully installed pyenv"
