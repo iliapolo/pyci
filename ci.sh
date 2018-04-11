@@ -6,13 +6,14 @@ TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
 
 
 function install_python_on_mac {
-    echo "Installing python..."
-    HOMEBREW_NO_AUTO_UPDATE=1 brew install python@2
-    echo "Successfully installed python"
+    echo "Installing pyenv..."
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
+    echo "Successfully installed pyenv"
 
-    echo "Exporting path"
-    export PATH="/usr/local/opt/python@2/libexec/bin:$PATH"
-    echo "Path is now: ${PATH}"
+    eval "$(pyenv init -)"
+    exec "$SHELL"
+
+    pyenv install 2.7.14
 
     echo "Checking where python is"
     which python
