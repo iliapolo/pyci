@@ -16,6 +16,7 @@ function install_python_on_mac {
     echo "Successfully initialized pyenv..."
 
     echo "Installing python 2.7.14 with pyenv..."
+    # --enable-shared is needed for pyinstaller.
     env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 2.7.14
     pyenv global 2.7.14
     echo "Successfully installed python 2.7.14 with pyenv..."
@@ -38,10 +39,9 @@ if [ ${os} == "Darwin" ] && [ ! -z ${TRAVIS_BRANCH} ]; then
     # only install on travis since it does not have python
     # installed for mac builds
     install_python_on_mac
-    echo "After python installation"
 fi
 
-echo "Starting script"
+echo "Starting ci script"
 program=pyci
 
 echo "Installing test requirements"
