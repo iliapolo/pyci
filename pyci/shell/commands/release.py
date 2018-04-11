@@ -19,7 +19,7 @@ import click
 
 from pyci.api import exceptions
 from pyci.api.packager import Packager
-from pyci.shell import cidetector, secrets
+from pyci.shell import cidetector
 
 
 # pylint: disable=too-many-arguments
@@ -63,11 +63,7 @@ def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
             try:
                 click.echo('Creating binary package...')
 
-                access_token = None
-                if sha is None:
-                    access_token = secrets.github_access_token()
-
-                packager = Packager(repo=ctx.parent.parent.repo, sha=sha, access_token=access_token)
+                packager = Packager(repo=ctx.parent.parent.repo, sha=sha)
                 package = packager.binary(entrypoint=binary_entrypoint,
                                           name=binary_name)
                 click.echo('Successfully created binary package: {0}'.format(package))
@@ -86,6 +82,8 @@ def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
                            'If your package is not meant to be an executable binary, '
                            'use the "--no-binary" flag to avoid seeing this message'
                            .format(e.expected_paths))
+
+    sha = sha or ctx.parent.releaser.default_branch
 
     ci = cidetector.detect(sha)
 
