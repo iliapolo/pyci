@@ -8,12 +8,16 @@ TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
 function install_python_on_mac {
     echo "Installing pyenv..."
     HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
+    HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade pyenv
     echo "Successfully installed pyenv"
 
+    echo "Initializing pyenv..."
     eval "$(pyenv init -)"
-    exec "$SHELL"
+    echo "Successfully initialized pyenv..."
 
+    echo "Installing python 2.7.14 with pyenv..."
     pyenv install 2.7.14
+    echo "Successfully installed python 2.7.14 with pyenv..."
 
     echo "Checking where python is"
     which python
