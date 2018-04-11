@@ -17,6 +17,9 @@ function install_python_on_mac {
     echo "Checking where python is"
     which python
 
+    echo "Checking python version"
+    $(which python) --version
+
     echo "Checking where pip is"
     which pip
 
