@@ -4,16 +4,12 @@ set -e
 
 TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
 
-whoami=$(whoami)
 
 function install_python_on_mac {
-    curl -OL https://www.python.org/ftp/python/2.7.13/Python-2.7.13.tgz
-    tar xzvf Python-2.7.13.tgz
-    cd Python-2.7.13
-    make
-    ./configure --prefix=/Users/$(whoami)/ --enable-shared
-    make install
-    ls -lr /Users/$(whoami)/
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install python@2
+    export PATH="/usr/local/opt/python@2/libexec/bin:$PATH"
+    which python
+    which pip
 }
 
 
