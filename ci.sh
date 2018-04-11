@@ -7,14 +7,6 @@ TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
 
 function install_python_on_mac {
 
-    echo "Installing xcode tools..."
-    xcode-select --install
-    echo "Successfully installed xcode tools..."
-
-    echo "Installing python development headers..."
-    HOMEBREW_NO_AUTO_UPDATE=1 brew install python@2
-    echo "Successfully Installed python development headers..."
-
     echo "Installing pyenv..."
     HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
     echo "Successfully installed pyenv"
@@ -24,7 +16,7 @@ function install_python_on_mac {
     echo "Successfully initialized pyenv..."
 
     echo "Installing python 2.7.14 with pyenv..."
-    pyenv install 2.7.14
+    env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 2.7.14
     pyenv global 2.7.14
     echo "Successfully installed python 2.7.14 with pyenv..."
 
