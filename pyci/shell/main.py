@@ -39,28 +39,35 @@ def app(ctx, repo):
 @click.group()
 @click.pass_context
 @handle_exceptions
-def releaser(ctx):
+def release(ctx):
 
     ctx.releaser = GitHubReleaser(repo=ctx.parent.repo, access_token=secrets.github_access_token())
 
 
 @click.group()
 @click.pass_context
-@click.option('--sha', required=True)
+@click.option('--sha', required=False)
 @click.option('--local-repo-path', required=False)
 @handle_exceptions
-def packager(ctx, sha, local_repo_path):
+def pack(ctx, sha, local_repo_path):
 
-    ctx.packager = Packager(repo=ctx.parent.repo, local_repo_path=local_repo_path, sha=sha)
+    access_token = None
+    if sha is None:
+        access_token = secrets.github_access_token()
+
+    ctx.packager = Packager(repo=ctx.parent.repo,
+                            local_repo_path=local_repo_path,
+                            sha=sha,
+                            access_token=access_token)
 
 
-releaser.add_command(releaser_group.release)
-releaser.add_command(releaser_group.delete)
+release.add_command(releaser_group.create)
+release.add_command(releaser_group.delete)
 
-packager.add_command(packager_group.binary)
+pack.add_command(packager_group.binary)
 
-app.add_command(releaser)
-app.add_command(packager)
+app.add_command(release)
+app.add_command(pack)
 
 # allows running the application as a single executable
 # created by pyinstaller

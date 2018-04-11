@@ -19,18 +19,18 @@ import click
 
 from pyci.api import exceptions
 from pyci.api.packager import Packager
-from pyci.shell import cidetector
+from pyci.shell import cidetector, secrets
 
 
 # pylint: disable=too-many-arguments
 @click.command()
 @click.pass_context
-@click.option('--sha', required=True)
+@click.option('--sha', required=False)
 @click.option('--no-binary', is_flag=True)
 @click.option('--binary-entrypoint', required=False)
 @click.option('--binary-name', required=False)
 @click.option('--force', is_flag=True)
-def release(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
+def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
 
     def _do_release():
 
@@ -63,7 +63,11 @@ def release(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
             try:
                 click.echo('Creating binary package...')
 
-                packager = Packager(repo=ctx.parent.parent.repo, sha=sha)
+                access_token = None
+                if sha is None:
+                    access_token = secrets.github_access_token()
+
+                packager = Packager(repo=ctx.parent.parent.repo, sha=sha, access_token=access_token)
                 package = packager.binary(entrypoint=binary_entrypoint,
                                           name=binary_name)
                 click.echo('Successfully created binary package: {0}'.format(package))

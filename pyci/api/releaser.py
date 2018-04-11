@@ -47,7 +47,7 @@ class GitHubReleaser(object):
         self._logger.debug('Fetched repo: {0}'.format(self._repo_name))
         return repo
 
-    def release(self, sha):
+    def release(self, sha=None):
         return _GitHubBranchReleaser(repo=self._repo,
                                      sha=sha,
                                      log=self._logger).release()
@@ -92,11 +92,11 @@ class GitHubReleaser(object):
 # pylint: disable=too-few-public-methods
 class _GitHubBranchReleaser(object):
 
-    def __init__(self, repo, sha, log):
+    def __init__(self, repo, log, sha=None):
 
         self._logger = log
-        self._sha = sha
         self._repo = repo
+        self._sha = sha or self._repo.default_branch
 
     @cachedproperty
     def _commit(self):
