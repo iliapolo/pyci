@@ -49,9 +49,9 @@ class GitHubReleaser(object):
 
     @cachedproperty
     def default_branch(self):
-        self._logger.debug('Fetching default branch...')
+        log.debug('Fetching default branch...')
         branch = self._repo.default_branch
-        self._logger.debug('Fetched branch: {0}'.format(branch))
+        log.debug('Fetched branch: {0}'.format(branch))
         return branch
 
     def release(self, sha=None):
