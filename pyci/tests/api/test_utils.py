@@ -21,6 +21,7 @@ import pytest
 
 import pyci
 from pyci.api import utils
+from pyci.api.releaser import Task
 
 
 def test_get_pull_request_number():
@@ -89,3 +90,56 @@ def test_get_local_repo(cwd, expected):
         assert expected == actual
     finally:
         os.chdir(prev_cwd)
+
+
+@pytest.mark.parametrize("bugs,features,internals,expected", [
+
+    ([], [Task(title='this is the feature', url='this is the feature url')], [], '''*Changes*
+
+
+**New Features:**
+
+
+- this is the feature ([Issue](this is the feature url))
+
+
+
+
+
+'''),
+
+    ([Task(title='this is the bug', url='this is the bug url')], [], [], '''*Changes*
+
+
+
+
+**Bug Fixes:**
+
+
+- this is the bug ([Issue](this is the bug url))
+
+
+
+'''),
+
+    ([], [], [Task(title='this is the internal', url='this is the internal url')], '''*Changes*
+
+
+
+
+
+
+**Internals:**
+
+
+- this is the internal ([Issue](this is the internal url))
+
+''')
+
+
+])
+def test_render_changelog(bugs, features, internals, expected):
+
+    actual = utils.render_changelog(features=features, bugs=bugs, internals=internals)
+
+    assert expected == actual

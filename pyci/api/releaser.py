@@ -280,19 +280,6 @@ class _GitHubBranchReleaser(object):
 
     def _generate_changelog(self):
 
-        # pylint: disable=too-few-public-methods
-        class Task(object):
-
-            def __init__(self, title, url):
-                self.title = title
-                self.url = url
-
-            def __eq__(self, other):
-                return other.url == self.url
-
-            def __hash__(self):
-                return hash(self.url)
-
         since = GithubObject.NotSet
         latest_sha = None
         if self._last_release:
@@ -336,3 +323,17 @@ class _GitHubBranchReleaser(object):
             issues.append(issue)
 
         return utils.render_changelog(features=features, bugs=bugs, internals=internals), issues
+
+
+# pylint: disable=too-few-public-methods
+class Task(object):
+
+    def __init__(self, title, url):
+        self.title = title
+        self.url = url
+
+    def __eq__(self, other):
+        return other.url == self.url
+
+    def __hash__(self):
+        return hash(self.url)
