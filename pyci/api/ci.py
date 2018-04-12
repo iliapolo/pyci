@@ -52,13 +52,13 @@ class _CI(object):
     def tag(self):
         raise NotImplementedError()
 
-    def is_it(self):
+    def detect(self):
         raise NotImplementedError()
 
     def validate_rc(self, release_branch):
 
         if self.pull_request:
-            raise exceptions.NotReleaseCandidateException(reason='Built is a Pull Request ({0})'
+            raise exceptions.NotReleaseCandidateException(reason='Build is a Pull Request ({0})'
                                                           .format(self.pull_request))
 
         if self.tag:
@@ -79,6 +79,8 @@ class _TravisCI(_CI):
 
     @property
     def pull_request(self):
+        # travis sets this env variable to the 'false' string in case this
+        # build isn't a pull request... see https://docs.travis-ci.com/user/environment-variables/
         return os.environ.get('TRAVIS_PULL_REQUEST', 'false').lower() != 'false'
 
     @property
@@ -97,7 +99,7 @@ class _TravisCI(_CI):
     def repo(self):
         return os.environ.get('TRAVIS_REPO_SLUG')
 
-    def is_it(self):
+    def detect(self):
         return os.environ.get('TRAVIS')
 
 
@@ -127,7 +129,7 @@ class _AppVeyor(_CI):
     def repo(self):
         return os.environ.get('APPVEYOR_REPO_NAME')
 
-    def is_it(self):
+    def detect(self):
         return os.environ.get('APPVEYOR')
 
 
@@ -143,7 +145,7 @@ class CIDetector(object):
 
         ci = None
         for system in self._ci_systems:
-            if system.is_it():
+            if system.detect():
                 ci = system
 
         return ci

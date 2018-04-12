@@ -13,7 +13,7 @@ echo "Running tests"
 %PYTHON%\\Scripts\\py.test.exe --cov-report term-missing --cov=%program% %program%/tests || goto :error
 
 echo "Running release"
-%PYTHON%\\Scripts\\%program%.exe --repo iliapolo/%program% release create || goto :error
+%PYTHON%\\Scripts\\%program%.exe release create || goto :error
 
 echo "Done!"
 

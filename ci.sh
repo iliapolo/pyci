@@ -57,6 +57,6 @@ echo "Running tests"
 py.test --cov-report term-missing --cov=${program} ${program}/tests
 
 echo "Running release"
-${program} --repo iliapolo/${program} release create
+${program} release create
 
 echo "Done!"
