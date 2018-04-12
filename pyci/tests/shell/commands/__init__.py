@@ -20,8 +20,9 @@ import shlex
 from click.testing import CliRunner
 
 from pyci.api import logger
-from pyci.api.constants import PROGRAM_NAME
 from pyci.shell.main import app
+
+log = logger.get_logger(__name__)
 
 
 # pylint: disable=too-few-public-methods
@@ -30,11 +31,10 @@ class Runner(object):
     def __init__(self):
         super(Runner, self).__init__()
         self._runner = CliRunner()
-        self.log = logger.get_logger('{0}.tests.shell.commands:Runner'.format(PROGRAM_NAME))
 
     def run(self, command, catch_exceptions=False):
 
-        self.log.info('Invoking command: {0}'.format(command))
+        log.info('Invoking command: {0}'.format(command))
 
         result = self._runner.invoke(app, shlex.split(command)[1:],
                                      catch_exceptions=catch_exceptions)
