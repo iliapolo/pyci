@@ -320,4 +320,4 @@ class _GitHubBranchReleaser(object):
             if 'internal' in labels:
                 internals.add(Task(title=issue.title, url=issue.html_url))
 
-        return utils.render_changelog(features=features, bugs=bugs)
+        return utils.render_changelog(features=features, bugs=bugs, internals=internals)

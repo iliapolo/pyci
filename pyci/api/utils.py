@@ -21,7 +21,9 @@ import re
 import semver
 from jinja2 import Template
 
+from pyci.api import exceptions
 from pyci.resources import get_resource
+from pyci.api.runner import LocalCommandRunner
 
 
 # see https://help.github.com/articles/closing-issues-using-keywords/
@@ -68,8 +70,6 @@ def get_latest_release(releases):
     if not releases:
         return None
 
-    semver.bump_patch()
-
     versions = [release.title for release in releases]
 
     return sorted(versions, cmp=lambda t1, t2: semver.compare(t2, t1))[0]
@@ -114,3 +114,20 @@ def smkdir(directory):
 
     if not os.path.exists(directory):
         os.makedirs(directory)
+
+
+def get_local_repo():
+
+    runner = LocalCommandRunner()
+    try:
+        result = runner.run('git remote -v')
+        return parse_repo(result.std_out.splitlines()[0])
+    except exceptions.CommandExecutionException:
+        return None
+
+
+def parse_repo(remote_url):
+    try:
+        return remote_url.split(' ')[0].split('.git')[0].split('.com')[1][1:]
+    except IndexError:
+        return None

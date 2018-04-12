@@ -3,6 +3,7 @@
 set -e
 
 TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 
 function install_python_on_mac {
@@ -45,16 +46,16 @@ echo "Starting ci script"
 program=pyci
 
 echo "Installing test requirements"
-pip install -r test-requirements.txt
+pip install -r ${DIR}/test-requirements.txt
 
 echo "Installing dependencies"
-pip install -e .
+pip install -e ${DIR}/.
 
 echo "Running code analysis"
-pylint --rcfile .pylint.ini ${program}
+pylint --rcfile ${DIR}/.pylint.ini ${program}
 
 echo "Running tests"
-py.test --cov-report term-missing --cov=${program} ${program}/tests
+py.test --cov-report term-missing --cov=${DIR}/${program} ${DIR}/${program}/tests
 
 echo "Running release"
 ${program} release create
