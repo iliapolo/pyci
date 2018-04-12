@@ -216,3 +216,13 @@ class ReleaseConflictException(ApiException):
     def __str__(self):
         return 'Release conflict. The release ({0}) already exists but with a different ' \
                'commit ({1}) than ours ({2})'.format(self.release, self.their_sha, self.our_sha)
+
+
+class NotReleaseCandidateException(ApiException):
+
+    def __init__(self, reason):
+        self.reason = reason
+        super(NotReleaseCandidateException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return self.reason
