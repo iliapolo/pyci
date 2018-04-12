@@ -40,3 +40,24 @@ def binary(ctx, name, entrypoint, target_dir):
         ]
         raise e
     click.echo('Package created: {0}'.format(package_path))
+
+
+@click.command()
+@click.pass_context
+@click.option('--target-dir', required=False)
+@click.option('--universal', is_flag=True)
+@handle_exceptions
+def wheel(ctx, target_dir, universal):
+
+    click.echo('Packaging... (this may take some time)')
+    try:
+        package_path = ctx.parent.packager.wheel(
+            target_dir=target_dir,
+            universal=universal
+        )
+    except exceptions.WheelAlreadyExistsException as e:
+        e.possible_solutions = [
+            'Delete/Move the file and try again'
+        ]
+        raise e
+    click.echo('Package created: {0}'.format(package_path))

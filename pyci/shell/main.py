@@ -87,6 +87,7 @@ release.add_command(release_group.create)
 release.add_command(release_group.delete)
 
 pack.add_command(pack_group.binary)
+pack.add_command(pack_group.wheel)
 
 app.add_command(release)
 app.add_command(pack)

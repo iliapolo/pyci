@@ -87,6 +87,44 @@ class Packager(object):
         finally:
             shutil.rmtree(temp_dir)
 
+    def wheel(self, target_dir=None, universal=False):
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+
+            target_dir = target_dir or os.getcwd()
+
+            dist_dir = os.path.join(temp_dir, 'dist')
+            bdist_dir = os.path.join(temp_dir, 'bdist')
+
+            command = 'python setup.py bdist_wheel --bdist-dir {0} --dist-dir {1}'\
+                      .format(bdist_dir, dist_dir)
+
+            if universal:
+                command = '{0} --universal'.format(command)
+
+            result = self._runner.run(command, cwd=self._repo_dir)
+
+            if result.std_err:
+                log.debug('wheel command error: {0}'.format(result.std_err))
+
+            if result.std_out:
+                log.debug('wheel command output: {0}'.format(result.std_out))
+
+            actual_name = utils.lsf(dist_dir)[0]
+
+            destination = os.path.join(target_dir, actual_name)
+
+            if os.path.exists(destination):
+                raise exceptions.WheelAlreadyExistsException(path=destination)
+
+            shutil.copy(os.path.join(dist_dir, actual_name), destination)
+            log.debug('Packaged successfully: {0}'.format(destination))
+            return destination
+
+        finally:
+            shutil.rmtree(temp_dir)
+
     def _fetch_default_branch(self, access_token):
         hub = Github(access_token)
         return hub.get_repo(self._repo).default_branch
@@ -115,9 +153,6 @@ class Packager(object):
         log.debug('Successfully fetched repository: {0}'.format(repo_dir))
 
         return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
-
-    def wheel(self):
-        raise NotImplementedError()
 
     def _find_name(self, repo_dir):
 

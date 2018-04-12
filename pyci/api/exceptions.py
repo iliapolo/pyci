@@ -125,6 +125,16 @@ class BinaryAlreadyExists(ApiException):
         return 'Binary file already exists: {0}'.format(self.path)
 
 
+class WheelAlreadyExistsException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(WheelAlreadyExistsException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Wheel file already exists: {0}'.format(self.path)
+
+
 class MultiplePackagesFound(ApiException):
 
     def __init__(self, repo, packages):
