@@ -79,7 +79,7 @@ class _TravisCI(_CI):
 
     @property
     def pull_request(self):
-        return os.environ.get('TRAVIS_PULL_REQUEST')
+        return os.environ.get('TRAVIS_PULL_REQUEST', 'false').lower() != 'false'
 
     @property
     def tag(self):
