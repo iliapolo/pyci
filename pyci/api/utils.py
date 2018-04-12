@@ -68,6 +68,8 @@ def get_latest_release(releases):
     if not releases:
         return None
 
+    semver.bump_patch()
+
     versions = [release.title for release in releases]
 
     return sorted(versions, cmp=lambda t1, t2: semver.compare(t2, t1))[0]
@@ -78,33 +80,24 @@ def get_next_release(last_release, labels):
     if last_release is None:
         return '0.0.1'
 
-    label_names = [label.name for label in labels]
+    next_release = None
 
-    semantic_version = last_release.split('.')
+    if 'patch' in labels:
+        next_release = semver.bump_patch(last_release)
 
-    micro = int(semantic_version[2])
-    minor = int(semantic_version[1])
-    major = int(semantic_version[0])
+    if 'minor' in labels:
+        next_release = semver.bump_minor(last_release)
 
-    if 'micro' in label_names:
-        micro = micro + 1
-
-    if 'minor' in label_names:
-        micro = 0
-        minor = minor + 1
-
-    if 'major' in label_names:
-        micro = 0
-        minor = 0
-        major = major + 1
-
-    next_release = '{0}.{1}.{2}'.format(major, minor, micro)
+    if 'major' in labels:
+        next_release = semver.bump_major(last_release)
 
     return next_release if next_release != last_release else None
 
 
-def render_changelog(features, bugs):
-    return Template(get_resource('changelog.jinja')).render(features=features, bugs=bugs)
+def render_changelog(features, bugs, internals):
+    return Template(get_resource('changelog.jinja')).render(features=features,
+                                                            bugs=bugs,
+                                                            internals=internals)
 
 
 def lsf(directory):

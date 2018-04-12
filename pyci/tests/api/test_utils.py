@@ -38,3 +38,21 @@ def test_get_issue_number(keyword):
     expected = '3'
 
     assert expected == actual
+
+
+@pytest.mark.parametrize("last_release,labels,expected", [
+    (None, ['whatever'], "0.0.1"),
+    ("1.2.3", ['nothing'], None),
+    ("1.2.3", ['patch'], "1.2.4"),
+    ("1.2.3", ['minor'], "1.3.0"),
+    ("1.2.3", ['major'], "2.0.0"),
+    ("1.2.3", ['major', 'minor', 'patch'], "2.0.0"),
+    ("1.2.3", ['major', 'minor'], "2.0.0"),
+    ("1.2.3", ['major', 'patch'], "2.0.0"),
+    ("1.2.3", ['minor', 'patch'], "1.3.0")
+])
+def test_get_next_release(last_release, labels, expected):
+
+    actual = utils.get_next_release(last_release=last_release, labels=labels)
+
+    assert expected == actual
