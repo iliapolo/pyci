@@ -23,6 +23,7 @@ from pyci.api import utils
 from pyci.api.ci import CIDetector
 from pyci.api.packager import Packager
 from pyci.api.releaser import GitHubReleaser
+from pyci.api import logger
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import pack as pack_group
@@ -31,9 +32,13 @@ from pyci.shell.commands import release as release_group
 
 @click.group()
 @click.option('--repo', required=False)
+@click.option('--debug', is_flag=True)
 @click.pass_context
 @handle_exceptions
-def app(ctx, repo):
+def app(ctx, repo, debug):
+
+    if debug:
+        logger.setup_loggers('DEBUG')
 
     ctx.ci = CIDetector().detect()
 
@@ -57,7 +62,8 @@ def app(ctx, repo):
 @handle_exceptions
 def release(ctx):
 
-    ctx.releaser = GitHubReleaser(repo=ctx.parent.repo, access_token=secrets.github_access_token())
+    ctx.releaser = GitHubReleaser(repo=ctx.parent.repo,
+                                  access_token=secrets.github_access_token())
 
 
 @click.group()

@@ -27,34 +27,36 @@ from pyci.api import logger
 from pyci.api import utils
 
 
+log = logger.get_logger(__name__)
+
+
 class GitHubReleaser(object):
 
     _repo = None
     _logger = None
     _hub = None
 
-    def __init__(self, repo, access_token, log_level='info'):
-
-        self._logger = logger.get_logger('api.releaser.GithubReleaser', level=log_level)
-
+    def __init__(self, repo, access_token):
         self._hub = Github(access_token)
         self._repo_name = repo
 
     @cachedproperty
     def _repo(self):
-        self._logger.debug('Fetching repo...')
+        log.debug('Fetching repo...')
         repo = self._hub.get_repo(self._repo_name)
-        self._logger.debug('Fetched repo: {0}'.format(self._repo_name))
+        log.debug('Fetched repo: {0}'.format(self._repo_name))
         return repo
 
     @cachedproperty
     def default_branch(self):
-        return self._repo.default_branch
+        log.debug('Fetching default branch...')
+        branch = self._repo.default_branch
+        log.debug('Fetched branch: {0}'.format(branch))
+        return branch
 
     def release(self, sha=None):
         return _GitHubBranchReleaser(repo=self._repo,
-                                     sha=sha,
-                                     log=self._logger).release()
+                                     sha=sha).release()
 
     def upload(self, asset, release):
 
@@ -74,10 +76,10 @@ class GitHubReleaser(object):
 
         if releases:
             release = releases[0]
-            self._logger.debug('Deleting release: {0}'.format(version))
+            log.debug('Deleting release: {0}'.format(version))
             release.delete_release()
         else:
-            self._logger.debug('Release {0} not found, skipping...'.format(version))
+            log.debug('Release {0} not found, skipping...'.format(version))
 
         refs = [ref for ref in list(self._repo.get_git_refs()) if ref.ref == 'refs/tags/{0}'
                 .format(version)]
@@ -87,64 +89,62 @@ class GitHubReleaser(object):
 
         if refs:
             ref = refs[0]
-            self._logger.debug('Deleting ref: {0}'.format(ref.ref))
+            log.debug('Deleting ref: {0}'.format(ref.ref))
             ref.delete()
         else:
-            self._logger.debug('Tag {0} not found, skipping...'.format(version))
+            log.debug('Tag {0} not found, skipping...'.format(version))
 
 
 # pylint: disable=too-few-public-methods
 class _GitHubBranchReleaser(object):
 
-    def __init__(self, repo, log, sha=None):
-
-        self._logger = log
+    def __init__(self, repo, sha=None):
         self._repo = repo
         self._sha = sha or self._repo.default_branch
 
     @cachedproperty
     def _commit(self):
-        self._logger.debug('Fetching commit...')
+        log.debug('Fetching commit...')
         commit = self._repo.get_commit(sha=self._sha)
-        self._logger.debug('Fetched commit: {0}'.format(commit.sha))
+        log.debug('Fetched commit: {0}'.format(commit.sha))
         return commit
 
     @cachedproperty
     def _pr(self):
-        self._logger.debug('Fetching pull request...')
+        log.debug('Fetching pull request...')
         pr = self._fetch_pr(self._commit)
-        self._logger.debug('Fetched pull request: {0}'.format(pr))
+        log.debug('Fetched pull request: {0}'.format(pr))
         return pr
 
     @cachedproperty
     def _issue(self):
-        self._logger.debug('Fetching issue...')
+        log.debug('Fetching issue...')
         issue = self._fetch_issue(self._pr)
-        self._logger.debug('Fetched issue: {0}'.format(issue))
+        log.debug('Fetched issue: {0}'.format(issue))
         return issue
 
     @cachedproperty
     def _releases(self):
-        self._logger.debug('Fetching releases...')
+        log.debug('Fetching releases...')
         return list(self._repo.get_releases())
 
     @cachedproperty
     def _tags(self):
-        self._logger.debug('Fetching tags...')
+        log.debug('Fetching tags...')
         return list(self._repo.get_tags())
 
     @cachedproperty
     def _last_release(self):
-        self._logger.debug('Extracting latest release')
+        log.debug('Extracting latest release')
         last_release = utils.get_latest_release(self._releases)
-        self._logger.debug('Extracted latest release: {0}'.format(last_release))
+        log.debug('Extracted latest release: {0}'.format(last_release))
         return last_release
 
     @cachedproperty
     def _labels(self):
-        self._logger.debug('Fetching issue labels...')
+        log.debug('Fetching issue labels...')
         labels = list(self._issue.get_labels())
-        self._logger.debug('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
+        log.debug('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
         return labels
 
     def release(self):
@@ -155,9 +155,9 @@ class _GitHubBranchReleaser(object):
 
         next_release = utils.get_next_release(self._last_release, label_names)
 
-        self._logger.debug('Next version will be: {0}'.format(next_release))
+        log.debug('Next version will be: {0}'.format(next_release))
 
-        self._logger.debug('Fetching changelog...')
+        log.debug('Fetching changelog...')
 
         # pylint: disable=fixme
         # TODO i dont like returning tuples, think of a better way
@@ -165,10 +165,10 @@ class _GitHubBranchReleaser(object):
         changelog_body = changelog[0]
         changelog_issues = changelog[1]
 
-        self._logger.debug('Successfully fetched changelog')
+        log.debug('Successfully fetched changelog')
 
         try:
-            self._logger.debug('Creating Github Release...')
+            log.debug('Creating Github Release...')
             release = self._repo.create_git_release(
                 tag=next_release,
                 target_commitish=self._commit.sha,
@@ -177,7 +177,7 @@ class _GitHubBranchReleaser(object):
                 draft=False,
                 prerelease=False
             )
-            self._logger.debug('Successfully created release: {0}'.format(next_release))
+            log.debug('Successfully created release: {0}'.format(next_release))
         except GithubException as e:
 
             if e.data['errors'][0]['code'] != 'already_exists':
@@ -206,18 +206,18 @@ class _GitHubBranchReleaser(object):
         for issue in changelog_issues:
             self._comment_issue(issue, release)
 
-        self._logger.debug('Fetching master ref...')
+        log.debug('Fetching master ref...')
         master = self._repo.get_git_ref('heads/master')
-        self._logger.debug('Fetched ref: {0}'.format(master.ref))
+        log.debug('Fetched ref: {0}'.format(master.ref))
 
-        self._logger.debug('Updating master branch')
+        log.debug('Updating master branch')
         master.edit(sha=self._commit.sha, force=True)
-        self._logger.debug('Successfully updated master branch to: {0}'.format(
+        log.debug('Successfully updated master branch to: {0}'.format(
             self._commit.sha))
 
         try:
             pull_request_ref = self._repo.get_git_ref('heads/{0}'.format(self._pr.head.ref))
-            self._logger.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
+            log.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
             pull_request_ref.delete()
         except UnknownObjectException:
             # this is ok, the branch doesn't necessarily have to be there.
@@ -254,9 +254,9 @@ class _GitHubBranchReleaser(object):
         issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
                                                                           release.html_url)
 
-        self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
+        log.debug('Adding a comment to issue: {0}'.format(self._issue))
         issue.create_comment(body=issue_comment)
-        self._logger.debug('Added comment: {0}'.format(issue_comment))
+        log.debug('Added comment: {0}'.format(issue_comment))
 
     def _fetch_issue(self, pull_request):
 
@@ -298,10 +298,10 @@ class _GitHubBranchReleaser(object):
 
         for commit in commits:
 
-            self._logger.debug('Fetching issue for commit: {0}'.format(commit.commit.message))
+            log.debug('Fetching issue for commit: {0}'.format(commit.commit.message))
             pull_request = self._fetch_pr(commit)
             issue = self._fetch_issue(pull_request) if pull_request else None
-            self._logger.debug('Fetched Issue: {0}'.format(issue))
+            log.debug('Fetched Issue: {0}'.format(issue))
 
             if issue is None:
                 continue

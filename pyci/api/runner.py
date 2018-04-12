@@ -23,12 +23,13 @@ from pyci.api import logger
 from pyci.api import exceptions
 
 
+log = logger.get_logger(__name__)
+
+
 # pylint: disable=too-many-arguments,too-few-public-methods
 class LocalCommandRunner(object):
 
     def __init__(self, host='localhost'):
-
-        self.logger = logger.get_logger('api.runner.LocalCommandRunner')
         self.host = host
 
     def run(self, command,
@@ -42,7 +43,7 @@ class LocalCommandRunner(object):
             popen_args = command
         else:
             popen_args = _shlex_split(command)
-        self.logger.debug('[{0}] run: {1}'.format(self.host, command))
+        log.debug('[{0}] run: {1}'.format(self.host, command))
         stdout = subprocess.PIPE if stdout_pipe else None
         stderr = subprocess.PIPE if stderr_pipe else None
         command_env = os.environ.copy()
@@ -68,7 +69,7 @@ class LocalCommandRunner(object):
             if exit_on_failure:
                 raise error
             else:
-                self.logger.error(error)
+                log.error(error)
 
         return CommandExecutionResponse(
             command=command,

@@ -17,17 +17,27 @@
 
 import wryte
 
-from pyci.api.constants import PROGRAM_NAME
 
-loggers = {}
+loggers = []
+
+
+DEFAULT_LOG_LEVEL = 'INFO'
 
 
 class Logger(object):
 
     _logger = None
 
-    def __init__(self, name=None, level=None):
+    def __init__(self, name=None, level=DEFAULT_LOG_LEVEL):
+        self._name = name
         self._logger = wryte.Wryte(name)
+        self.set_level(level)
+
+    @property
+    def name(self):
+        return self._name
+
+    def set_level(self, level):
         self._logger.set_level(level)
 
     def info(self, message):
@@ -46,8 +56,12 @@ class Logger(object):
         self._logger.debug(message)
 
 
-def get_logger(name, level='info'):
-    name = '{0}.{1}'.format(PROGRAM_NAME, name)
-    if name not in loggers:
-        loggers[name] = Logger(name, level)
-    return loggers[name]
+def get_logger(name):
+    logger = Logger(name)
+    loggers.append(logger)
+    return logger
+
+
+def setup_loggers(level):
+    for logger in loggers:
+        logger.set_level(level)
