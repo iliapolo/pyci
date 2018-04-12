@@ -21,7 +21,9 @@ import re
 import semver
 from jinja2 import Template
 
+from pyci.api import exceptions
 from pyci.resources import get_resource
+from pyci.api.runner import LocalCommandRunner
 
 
 # see https://help.github.com/articles/closing-issues-using-keywords/
@@ -78,33 +80,24 @@ def get_next_release(last_release, labels):
     if last_release is None:
         return '0.0.1'
 
-    label_names = [label.name for label in labels]
+    next_release = None
 
-    semantic_version = last_release.split('.')
+    if 'patch' in labels:
+        next_release = semver.bump_patch(last_release)
 
-    micro = int(semantic_version[2])
-    minor = int(semantic_version[1])
-    major = int(semantic_version[0])
+    if 'minor' in labels:
+        next_release = semver.bump_minor(last_release)
 
-    if 'micro' in label_names:
-        micro = micro + 1
-
-    if 'minor' in label_names:
-        micro = 0
-        minor = minor + 1
-
-    if 'major' in label_names:
-        micro = 0
-        minor = 0
-        major = major + 1
-
-    next_release = '{0}.{1}.{2}'.format(major, minor, micro)
+    if 'major' in labels:
+        next_release = semver.bump_major(last_release)
 
     return next_release if next_release != last_release else None
 
 
-def render_changelog(features, bugs):
-    return Template(get_resource('changelog.jinja')).render(features=features, bugs=bugs)
+def render_changelog(features, bugs, internals):
+    return Template(get_resource('changelog.jinja')).render(features=features,
+                                                            bugs=bugs,
+                                                            internals=internals)
 
 
 def lsf(directory):
@@ -121,3 +114,20 @@ def smkdir(directory):
 
     if not os.path.exists(directory):
         os.makedirs(directory)
+
+
+def get_local_repo():
+
+    runner = LocalCommandRunner()
+    try:
+        result = runner.run('git remote -v')
+        return parse_repo(result.std_out.splitlines()[0])
+    except exceptions.CommandExecutionException:
+        return None
+
+
+def parse_repo(remote_url):
+    try:
+        return remote_url.split(' ')[0].split('.git')[0].split('.com')[1][1:]
+    except IndexError:
+        return None

@@ -151,7 +151,9 @@ class _GitHubBranchReleaser(object):
 
         self._validate_commit()
 
-        next_release = utils.get_next_release(self._last_release, self._labels)
+        label_names = [label.name for label in self._labels]
+
+        next_release = utils.get_next_release(self._last_release, label_names)
 
         self._logger.debug('Next version will be: {0}'.format(next_release))
 
@@ -231,7 +233,9 @@ class _GitHubBranchReleaser(object):
             raise exceptions.PullRequestNotRelatedToIssueException(sha=self._commit.sha,
                                                                    pr=self._pr.number)
 
-        next_release = utils.get_next_release(self._last_release, self._labels)
+        label_names = [label.name for label in self._labels]
+
+        next_release = utils.get_next_release(self._last_release, label_names)
         if next_release is None:
             raise exceptions.IssueIsNotLabeledAsReleaseException(issue=self._issue.number,
                                                                  sha=self._commit.sha,
@@ -290,6 +294,7 @@ class _GitHubBranchReleaser(object):
 
         features = set()
         bugs = set()
+        internals = set()
 
         for commit in commits:
 
@@ -312,4 +317,7 @@ class _GitHubBranchReleaser(object):
             if 'bug' in labels:
                 bugs.add(Task(title=issue.title, url=issue.html_url))
 
-        return utils.render_changelog(features=features, bugs=bugs)
+            if 'internal' in labels:
+                internals.add(Task(title=issue.title, url=issue.html_url))
+
+        return utils.render_changelog(features=features, bugs=bugs, internals=internals)

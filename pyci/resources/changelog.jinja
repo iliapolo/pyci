@@ -14,4 +14,12 @@
 {% for bug in bugs %}
 - {{bug.title}} ([Issue]({{bug.url}}))
 {% endfor %}
+
+{% if internals %}
+**Internals:**
+
+{% for internal in internals %}
+- {{internal.title}} ([Issue]({{internal.url}}))
+{% endfor %}
+
 {% endif %}

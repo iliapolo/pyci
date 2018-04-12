@@ -15,8 +15,11 @@
 #
 #############################################################################
 
+import tempfile
+import os
 import pytest
 
+import pyci
 from pyci.api import utils
 
 
@@ -38,3 +41,51 @@ def test_get_issue_number(keyword):
     expected = '3'
 
     assert expected == actual
+
+
+@pytest.mark.parametrize("last_release,labels,expected", [
+    (None, ['whatever'], "0.0.1"),
+    ("1.2.3", ['nothing'], None),
+    ("1.2.3", ['patch'], "1.2.4"),
+    ("1.2.3", ['minor'], "1.3.0"),
+    ("1.2.3", ['major'], "2.0.0"),
+    ("1.2.3", ['major', 'minor', 'patch'], "2.0.0"),
+    ("1.2.3", ['major', 'minor'], "2.0.0"),
+    ("1.2.3", ['major', 'patch'], "2.0.0"),
+    ("1.2.3", ['minor', 'patch'], "1.3.0")
+])
+def test_get_next_release(last_release, labels, expected):
+
+    actual = utils.get_next_release(last_release=last_release, labels=labels)
+
+    assert expected == actual
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("git@github.com:iliapolo/pyci.git", "iliapolo/pyci"),
+    ("https://github.com/iliapolo/pyci.git", "iliapolo/pyci"),
+    ("not-a-git-url", None),
+])
+def test_parse_repo(url, expected):
+
+    actual = utils.parse_repo(url)
+
+    assert expected == actual
+
+
+@pytest.mark.parametrize("cwd,expected", [
+    (os.path.abspath(os.path.join(os.path.abspath(pyci.__file__), os.pardir, os.pardir)),
+     'iliapolo/pyci'),
+    (tempfile.mkdtemp(), None)
+])
+def test_get_local_repo(cwd, expected):
+
+    prev_cwd = os.getcwd()
+
+    try:
+        os.chdir(cwd)
+        actual = utils.get_local_repo()
+
+        assert expected == actual
+    finally:
+        os.chdir(prev_cwd)

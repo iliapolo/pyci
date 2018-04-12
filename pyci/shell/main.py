@@ -19,9 +19,10 @@ import sys
 
 import click
 
+from pyci.api import utils
+from pyci.api.ci import CIDetector
 from pyci.api.packager import Packager
 from pyci.api.releaser import GitHubReleaser
-from pyci.api.ci import CIDetector
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import pack as pack_group
@@ -39,11 +40,14 @@ def app(ctx, repo):
     if ctx.ci:
         click.echo('Detected CI: {0}'.format(ctx.ci.name))
 
-    repo = repo or ctx.ci.repo
+    repo = repo or (ctx.ci.repo if ctx.ci else utils.get_local_repo())
 
     if repo is None:
-        raise click.ClickException(message='Failed detecting repository name. Please provide is '
-                                           'using the "--repo" option')
+        raise click.ClickException(message='Failed detecting repository name. Please provide it '
+                                           'using the "--repo" option.\nIf you are running '
+                                           'locally, you can also execute this command from your '
+                                           'project root directory (repository will be detected '
+                                           'using git).')
 
     ctx.repo = repo
 
