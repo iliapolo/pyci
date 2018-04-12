@@ -158,7 +158,13 @@ class _GitHubBranchReleaser(object):
         self._logger.debug('Next version will be: {0}'.format(next_release))
 
         self._logger.debug('Fetching changelog...')
+
+        # pylint: disable=fixme
+        # TODO i dont like returning tuples, think of a better way
         changelog = self._generate_changelog()
+        changelog_body = changelog[0]
+        changelog_issues = changelog[1]
+
         self._logger.debug('Successfully fetched changelog')
 
         try:
@@ -167,7 +173,7 @@ class _GitHubBranchReleaser(object):
                 tag=next_release,
                 target_commitish=self._commit.sha,
                 name=next_release,
-                message=changelog,
+                message=changelog_body,
                 draft=False,
                 prerelease=False
             )
@@ -197,12 +203,8 @@ class _GitHubBranchReleaser(object):
                                                       our_sha=self._commit.sha,
                                                       their_sha=commit.sha)
 
-        issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
-                                                                          release.html_url)
-
-        self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
-        self._issue.create_comment(body=issue_comment)
-        self._logger.debug('Added comment: {0}'.format(issue_comment))
+        for issue in changelog_issues:
+            self._comment_issue(issue, release)
 
         self._logger.debug('Fetching master ref...')
         master = self._repo.get_git_ref('heads/master')
@@ -246,6 +248,15 @@ class _GitHubBranchReleaser(object):
             if self._commit.sha == tag.commit.sha:
                 raise exceptions.CommitIsAlreadyReleasedException(sha=self._commit.sha,
                                                                   release=tag.name)
+
+    def _comment_issue(self, issue, release):
+
+        issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
+                                                                          release.html_url)
+
+        self._logger.debug('Adding a comment to issue: {0}'.format(self._issue))
+        issue.create_comment(body=issue_comment)
+        self._logger.debug('Added comment: {0}'.format(issue_comment))
 
     def _fetch_issue(self, pull_request):
 
@@ -296,6 +307,8 @@ class _GitHubBranchReleaser(object):
         bugs = set()
         internals = set()
 
+        issues = []
+
         for commit in commits:
 
             self._logger.debug('Fetching issue for commit: {0}'.format(commit.commit.message))
@@ -320,4 +333,6 @@ class _GitHubBranchReleaser(object):
             if 'internal' in labels:
                 internals.add(Task(title=issue.title, url=issue.html_url))
 
-        return utils.render_changelog(features=features, bugs=bugs, internals=internals)
+            issues.append(issue)
+
+        return utils.render_changelog(features=features, bugs=bugs, internals=internals), issues
