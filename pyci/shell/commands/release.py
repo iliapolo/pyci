@@ -19,25 +19,27 @@ import click
 
 from pyci.api import exceptions
 from pyci.api.packager import Packager
-from pyci.shell import cidetector
 
 
 # pylint: disable=too-many-arguments
 @click.command()
 @click.pass_context
 @click.option('--sha', required=False)
+@click.option('--branch', required=False)
 @click.option('--no-binary', is_flag=True)
 @click.option('--binary-entrypoint', required=False)
 @click.option('--binary-name', required=False)
 @click.option('--force', is_flag=True)
-def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
+def create(ctx, sha, branch, no_binary, binary_entrypoint, binary_name, force):
 
-    def _do_release():
+    ci = ctx.parent.parent.ci
+
+    def _do_release(sha_to_release):
 
         release_title = None
         try:
             click.echo('Creating release...')
-            release_title = ctx.parent.releaser.release(sha)
+            release_title = ctx.parent.releaser.release(sha_to_release)
             click.echo('Successfully created release: {0}'.format(release_title))
         except exceptions.CommitIsAlreadyReleasedException as e:
 
@@ -63,7 +65,7 @@ def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
             try:
                 click.echo('Creating binary package...')
 
-                packager = Packager(repo=ctx.parent.parent.repo, sha=sha)
+                packager = Packager(repo=ctx.parent.parent.repo, sha=sha_to_release)
                 package = packager.binary(entrypoint=binary_entrypoint,
                                           name=binary_name)
                 click.echo('Successfully created binary package: {0}'.format(package))
@@ -71,7 +73,7 @@ def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
                 click.echo('Uploading binary package to release...')
                 asset_url = ctx.parent.releaser.upload(asset=package, release=release_title)
                 click.echo('Successfully uploaded binary package to release: {0}'.format(asset_url))
-            except exceptions.EntrypointNotFoundException as e:
+            except exceptions.EntrypointNotFoundException as ene:
                 # this is ok, the package doesn't contain an entrypoint in the
                 # expected default location. we should however print a log
                 # since the user might have expected the binary package (since the default is
@@ -81,19 +83,30 @@ def create(ctx, sha, no_binary, binary_entrypoint, binary_name, force):
                            'entrypoint path by using the "--binary-entrypoint" option.\n'
                            'If your package is not meant to be an executable binary, '
                            'use the "--no-binary" flag to avoid seeing this message'
-                           .format(e.expected_paths))
+                           .format(ene.expected_paths))
 
-    sha = sha or ctx.parent.releaser.default_branch
-
-    ci = cidetector.detect(sha)
-
-    if ci.system:
-        click.echo('Detected CI: {0}'.format(ci.system))
-
-    if force or ci.should_release:
-        _do_release()
+    if ci is None and not force:
+        click.echo('No CI system detected. If you wish to release nevertheless, '
+                   'use the "--force" option.')
     else:
-        click.echo('No need to release this commit: {0}'.format(ci.reason))
+
+        try:
+
+            release_branch = branch or ctx.parent.releaser.default_branch
+
+            if ci:
+
+                ci.validate_rc(release_branch)
+                release_sha = sha or ci.sha
+
+            else:
+
+                release_sha = sha or release_branch
+
+            _do_release(release_sha)
+
+        except exceptions.NotReleaseCandidateException as nrce:
+            click.echo('No need to release this commit: {0}'.format(str(nrce)))
 
 
 @click.command()

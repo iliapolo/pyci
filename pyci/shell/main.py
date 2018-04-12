@@ -21,6 +21,7 @@ import click
 
 from pyci.api.packager import Packager
 from pyci.api.releaser import GitHubReleaser
+from pyci.api.ci import CIDetector
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import pack as pack_group
@@ -28,10 +29,21 @@ from pyci.shell.commands import release as release_group
 
 
 @click.group()
-@click.option('--repo', required=True)
+@click.option('--repo', required=False)
 @click.pass_context
 @handle_exceptions
 def app(ctx, repo):
+
+    ctx.ci = CIDetector().detect()
+
+    if ctx.ci:
+        click.echo('Detected CI: {0}'.format(ctx.ci.name))
+
+    repo = repo or ctx.ci.repo
+
+    if repo is None:
+        raise click.ClickException(message='Failed detecting repository name. Please provide is '
+                                           'using the "--repo" option')
 
     ctx.repo = repo
 
