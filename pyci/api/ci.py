@@ -81,7 +81,8 @@ class _TravisCI(_CI):
     def pull_request(self):
         # travis sets this env variable to the 'false' string in case this
         # build isn't a pull request... see https://docs.travis-ci.com/user/environment-variables/
-        return os.environ.get('TRAVIS_PULL_REQUEST', 'false').lower() != 'false'
+        pr = os.environ.get('TRAVIS_PULL_REQUEST')
+        return pr if pr != 'false' else None
 
     @property
     def tag(self):
