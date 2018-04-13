@@ -19,31 +19,38 @@ import click
 
 from pyci.api import exceptions
 from pyci.api.packager import Packager
-
-
-# pylint: disable=too-many-arguments
 from pyci.shell import handle_exceptions
 
 
+# pylint: disable=too-many-arguments
 @click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--branch', required=False)
+@click.option('--sha', required=False)
 @click.option('--no-binary', is_flag=True)
 @click.option('--no-wheel', is_flag=True)
 @click.option('--binary-entrypoint', required=False)
 @click.option('--binary-name', required=False)
 @click.option('--force', is_flag=True)
-def create(ctx, branch, no_binary, no_wheel, binary_entrypoint, binary_name, force):
+def create(ctx,
+           branch,
+           sha,
+           no_binary,
+           no_wheel,
+           binary_entrypoint,
+           binary_name,
+           force):
 
     ci = ctx.parent.parent.ci
 
-    def _do_release(branch_name):
+    def _do_release():
 
         release_title = None
         try:
             click.echo('Creating release...')
-            release_title = ctx.parent.releaser.release(branch_name=branch_name)
+            release_title = ctx.parent.releaser.release(branch_name=branch_name,
+                                                        sha=sha)
             click.echo('Successfully created release: {0}'.format(release_title))
         except exceptions.CommitIsAlreadyReleasedException as e:
 
@@ -69,7 +76,7 @@ def create(ctx, branch, no_binary, no_wheel, binary_entrypoint, binary_name, for
 
             packager = Packager(repo=ctx.parent.parent.repo,
                                 branch=branch_name,
-                                version=release_title)
+                                sha=sha)
 
             if not no_binary:
 
@@ -103,7 +110,7 @@ def create(ctx, branch, no_binary, no_wheel, binary_entrypoint, binary_name, for
                 click.echo('Successfully created wheel: {0}'.format(package))
 
                 click.echo('Uploading wheel to PyPI...')
-                wheel_url = ctx.parent.releaser.upload_pypi(wheel=package)
+                wheel_url = ctx.parent.pypi.upload(wheel=package)
                 click.echo('Successfully uploaded wheel to PyPI: {0}'.format(wheel_url))
 
     if ci is None and not force:
@@ -119,7 +126,7 @@ def create(ctx, branch, no_binary, no_wheel, binary_entrypoint, binary_name, for
 
                 ci.validate_rc(branch_name)
 
-            _do_release(branch_name)
+            _do_release()
 
         except exceptions.NotReleaseCandidateException as nrce:
             click.echo('No need to release this commit: {0}'.format(str(nrce)))

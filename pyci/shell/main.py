@@ -22,12 +22,14 @@ import click
 from pyci.api import utils
 from pyci.api.ci import CIDetector
 from pyci.api.packager import Packager
+from pyci.api.pypi import PyPI
 from pyci.api.releaser import GitHubReleaser
 from pyci.api import logger
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import pack as pack_group
 from pyci.shell.commands import release as release_group
+from pyci.shell.commands import pypi as pypi_group
 
 
 @click.group()
@@ -59,11 +61,18 @@ def app(ctx, repo, debug):
 
 @click.group()
 @click.pass_context
+@click.option('--pypi-test', is_flag=True)
+@click.option('--pypi-url', is_flag=True)
 @handle_exceptions
-def release(ctx):
+def release(ctx, pypi_test, pypi_url):
 
     ctx.releaser = GitHubReleaser(repo=ctx.parent.repo,
                                   access_token=secrets.github_access_token())
+
+    ctx.pypi = PyPI(repository_url=pypi_url,
+                    test=pypi_test,
+                    username=secrets.twine_username(),
+                    password=secrets.twine_password())
 
 
 @click.group()
@@ -83,6 +92,19 @@ def pack(ctx, branch, local_repo_path):
                             access_token=access_token)
 
 
+@click.group()
+@click.pass_context
+@click.option('--test', is_flag=True)
+@click.option('--repository-url', required=False)
+@handle_exceptions
+def pypi(ctx, test, repository_url):
+
+    ctx.pypi = PyPI(repository_url=repository_url,
+                    test=test,
+                    username=secrets.twine_username(),
+                    password=secrets.twine_password())
+
+
 release.add_command(release_group.create)
 release.add_command(release_group.delete)
 release.add_command(release_group.bump)
@@ -90,8 +112,11 @@ release.add_command(release_group.bump)
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)
 
+pypi.add_command(pypi_group.upload)
+
 app.add_command(release)
 app.add_command(pack)
+app.add_command(pypi)
 
 # allows running the application as a single executable
 # created by pyinstaller

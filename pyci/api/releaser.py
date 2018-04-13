@@ -20,19 +20,18 @@ import semver
 from boltons.cacheutils import cachedproperty
 from github import Github
 from github import GithubObject
+from github import InputGitAuthor
+from github import InputGitTreeElement
 from github.GithubException import GithubException
 from github.GithubException import UnknownObjectException
-from github import InputGitTreeElement
-from github import InputGitAuthor
 from github.GithubObject import NotSet
 
-from pyci.api import exceptions, constants
+from pyci.api import exceptions
 from pyci.api import logger
+from pyci.api import setup
 from pyci.api import utils
 from pyci.api.downloader import download
-from pyci.api import setup
 from pyci.api.runner import LocalCommandRunner
-
 
 log = logger.get_logger(__name__)
 
@@ -61,7 +60,13 @@ class GitHubReleaser(object):
         log.debug('Fetched branch: {0}'.format(branch))
         return branch
 
-    def bump(self, version=None, patch=False, minor=False, major=False, dry=False, branch_name=None):
+    def bump(self,
+             version=None,
+             patch=False,
+             minor=False,
+             major=False,
+             dry=False,
+             branch_name=None):
         return _GitHubBranchReleaser(repo=self._repo,
                                      branch_name=branch_name).bump(version=version,
                                                                    patch=patch,
@@ -69,9 +74,10 @@ class GitHubReleaser(object):
                                                                    major=major,
                                                                    dry=dry)
 
-    def release(self, branch_name=None):
+    def release(self, branch_name=None, sha=None):
         return _GitHubBranchReleaser(repo=self._repo,
-                                     branch_name=branch_name).release()
+                                     branch_name=branch_name,
+                                     sha=sha).release()
 
     def upload(self, asset, release):
 
@@ -113,21 +119,20 @@ class GitHubReleaser(object):
 # pylint: disable=too-few-public-methods
 class _GitHubBranchReleaser(object):
 
-    def __init__(self, repo, branch_name=None):
+    def __init__(self, repo, branch_name=None, sha=None):
         self._repo = repo
-        self._branch_name = branch_name or self._repo.default_branch
+        self._sha = sha
+        self.__branch_name = branch_name
         self._runner = LocalCommandRunner()
 
-    def _clear(self):
-        delattr(self, '_commit')
-        delattr(self, '_pr')
-        delattr(self, '_issue')
-        delattr(self, '_labels')
+    @cachedproperty
+    def _branch_name(self):
+        return self.__branch_name or self._repo.default_branch
 
     @cachedproperty
     def _commit(self):
         log.debug('Fetching commit...')
-        commit = self._repo.get_commit(sha=self._branch_name)
+        commit = self._repo.get_commit(sha=self._sha or self._branch_name)
         log.debug('Fetched commit: {0}'.format(commit.sha))
         return commit
 
@@ -176,7 +181,8 @@ class _GitHubBranchReleaser(object):
                                    type='blob',
                                    content=file_contents)
 
-        base_tree = self._repo.get_git_tree(sha=self._commit.commit.tree.sha)
+        last_commit = self._repo.get_commit(sha=self._branch_name)
+        base_tree = self._repo.get_git_tree(sha=last_commit.commit.tree.sha)
         git_tree = self._repo.create_git_tree(tree=[tree], base_tree=base_tree)
 
         author = NotSet
@@ -191,7 +197,7 @@ class _GitHubBranchReleaser(object):
         commit = self._repo.create_git_commit(message=message,
                                               tree=git_tree,
                                               author=author,
-                                              parents=[self._commit.commit])
+                                              parents=[last_commit.commit])
 
         ref = self._repo.get_git_ref(ref='heads/{0}'.format(self._branch_name))
         ref.edit(sha=commit.sha)
@@ -263,22 +269,42 @@ class _GitHubBranchReleaser(object):
             # TODO document that this will create empty commits when concurrent builds
             # TODO are running on the same release commit.
             log.debug('Creating a version bump commit on branch: {0}'.format(self._branch_name))
-            self.bump(version=next_release)
-            # we need to clear the cached properties since we now have an additional commit on the
-            # branch, and therefore need to fetch again.
-            self._clear()
+            commit = self.bump(version=next_release)
             log.debug('Successfully bumped version to: {0}'.format(next_release))
 
             log.debug('Creating Github Release...')
             release = self._repo.create_git_release(
                 tag=next_release,
-                target_commitish=self._commit.sha,
+                target_commitish=commit.sha,
                 name=next_release,
                 message=changelog_body,
                 draft=False,
                 prerelease=False
             )
             log.debug('Successfully created release: {0}'.format(next_release))
+
+            for issue in changelog_issues:
+                self._comment_issue(issue, release)
+
+            log.debug('Fetching master ref...')
+            master = self._repo.get_git_ref('heads/master')
+            log.debug('Fetched ref: {0}'.format(master.ref))
+
+            log.debug('Updating master branch')
+            master.edit(sha=self._commit.sha, force=True)
+            log.debug('Successfully updated master branch to: {0}'.format(commit.sha))
+
+            try:
+                pull_request_ref = self._repo.get_git_ref('heads/{0}'.format(self._pr.head.ref))
+                log.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
+                pull_request_ref.delete()
+            except UnknownObjectException:
+                # this is ok, the branch doesn't necessarily have to be there.
+                # it might have been deleted when the pull request was merged
+                pass
+
+            return next_release
+
         except GithubException as e:
 
             if e.data['errors'][0]['code'] != 'already_exists':
@@ -303,29 +329,6 @@ class _GitHubBranchReleaser(object):
             raise exceptions.ReleaseConflictException(release=next_release,
                                                       our_sha=self._commit.sha,
                                                       their_sha=commit.sha)
-
-        for issue in changelog_issues:
-            self._comment_issue(issue, release)
-
-        log.debug('Fetching master ref...')
-        master = self._repo.get_git_ref('heads/master')
-        log.debug('Fetched ref: {0}'.format(master.ref))
-
-        log.debug('Updating master branch')
-        master.edit(sha=self._commit.sha, force=True)
-        log.debug('Successfully updated master branch to: {0}'.format(
-            self._commit.sha))
-
-        try:
-            pull_request_ref = self._repo.get_git_ref('heads/{0}'.format(self._pr.head.ref))
-            log.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
-            pull_request_ref.delete()
-        except UnknownObjectException:
-            # this is ok, the branch doesn't necessarily have to be there.
-            # it might have been deleted when the pull request was merged
-            pass
-
-        return next_release
 
     def _validate_commit(self):
 
@@ -438,7 +441,3 @@ class Task(object):
 
     def __hash__(self):
         return hash(self.url)
-
-
-rel = GitHubReleaser(repo='iliapolo/pyci', access_token='9828e71b03ff8f1550b5ba22421b152047b31781')
-rel.release('release')

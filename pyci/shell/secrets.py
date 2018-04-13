@@ -26,3 +26,19 @@ def github_access_token():
         return os.environ['GITHUB_ACCESS_TOKEN']
 
     return click.prompt('Enter Github access token:', hide_input=True)
+
+
+def twine_username():
+
+    if 'TWINE_USERNAME' in os.environ:
+        return os.environ['TWINE_USERNAME']
+
+    return click.prompt('Enter twine username:', hide_input=True)
+
+
+def twine_password():
+
+    if 'TWINE_PASSWORD' in os.environ:
+        return os.environ['TWINE_PASSWORD']
+
+    return click.prompt('Enter twine password:', hide_input=True)

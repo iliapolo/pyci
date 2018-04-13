@@ -36,10 +36,14 @@ log = logger.get_logger(__name__)
 class Packager(object):
 
     # pylint: disable=too-many-arguments
-    def __init__(self, repo, version, access_token=None, branch=None, local_repo_path=None):
+    def __init__(self, repo,
+                 access_token=None,
+                 branch=None,
+                 sha=None,
+                 local_repo_path=None):
         self._repo = repo
+        self.__sha = sha
         self.__branch_name = branch
-        self._version = version
         self._access_token = access_token
         self._local_repo_path = local_repo_path
         self._runner = LocalCommandRunner()
@@ -132,6 +136,10 @@ class Packager(object):
         return hub.get_repo(self._repo).default_branch
 
     @cachedproperty
+    def _sha(self):
+        return self.__sha or self._branch_name
+
+    @cachedproperty
     def _branch_name(self):
         return self.__branch_name or self._fetch_default_branch()
 
@@ -152,18 +160,13 @@ class Packager(object):
             log.debug('Successfully copied repo to: {0}'.format(repo_copy))
             return repo_copy
 
-        log.debug('Fetching repository...')
-        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._branch_name)
+        log.debug('Fetching repository ({0})...'.format(self._sha))
+        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
         archive = download(url)
         repo_dir = extract(archive=archive)
         log.debug('Successfully fetched repository: {0}'.format(repo_dir))
 
-        log.debug('Setting setup.py version of project at: {0}'.format(repo_dir))
-        setup_py = os.path.join(repo_dir, 'setup.py')
-        set_version(setup_py, self._version)
-        log.debug('Successfully set version to {0}'.format(self._version))
-
-        return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._branch_name))
+        return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
 
     def _find_name(self, repo_dir):
 
