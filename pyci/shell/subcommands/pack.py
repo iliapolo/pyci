@@ -33,7 +33,7 @@ log = logger.get_logger(__name__)
 @handle_exceptions
 def binary(ctx, name, entrypoint, target_dir):
 
-    log.infoo('Packaging... (this may take some time)')
+    log.info('Packaging... (this may take some time)')
     try:
         package_path = ctx.parent.packager.binary(entrypoint=entrypoint,
                                                   name=name,
@@ -43,7 +43,7 @@ def binary(ctx, name, entrypoint, target_dir):
             'Delete/Move the file and try again'
         ]
         raise e
-    log.infoo('Package created: {0}'.format(package_path))
+    log.info('Package created: {0}'.format(package_path))
 
 
 @click.command()
@@ -53,7 +53,7 @@ def binary(ctx, name, entrypoint, target_dir):
 @handle_exceptions
 def wheel(ctx, target_dir, universal):
 
-    log.infoo('Packaging... (this may take some time)')
+    log.info('Packaging... (this may take some time)')
     try:
         package_path = ctx.parent.packager.wheel(
             target_dir=target_dir,
@@ -64,4 +64,4 @@ def wheel(ctx, target_dir, universal):
             'Delete/Move the file and try again'
         ]
         raise e
-    log.infoo('Package created: {0}'.format(package_path))
+    log.info('Package created: {0}'.format(package_path))
