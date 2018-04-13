@@ -38,8 +38,6 @@ log = logger.get_logger(__name__)
 
 class GitHub(object):
 
-    _repo = None
-    _logger = None
     _hub = None
 
     def __init__(self, repo, access_token):
@@ -56,12 +54,12 @@ class GitHub(object):
     @cachedproperty
     def releases(self):
         log.debug('Fetching releases...')
-        return list(self._repo.get_releases())
+        return list(self.repo.get_releases())
 
     @cachedproperty
     def tags(self):
         log.debug('Fetching tags...')
-        return list(self._repo.get_tags())
+        return list(self.repo.get_tags())
 
     @cachedproperty
     def last_release(self):
@@ -73,7 +71,7 @@ class GitHub(object):
     @cachedproperty
     def default_branch(self):
         log.debug('Fetching default branch...')
-        branch = self._repo.default_branch
+        branch = self.repo.default_branch
         log.debug('Fetched branch: {0}'.format(branch))
         return branch
 
@@ -96,7 +94,7 @@ class GitHub(object):
 
     def upload(self, asset, release):
 
-        release = self._repo.get_release(id=release)
+        release = self.repo.get_release(id=release)
         release.upload_asset(path=asset, content_type='application/octet-stream')
 
         return 'https://github.com/{0}/releases/download/{1}/{2}'\
@@ -104,7 +102,7 @@ class GitHub(object):
 
     def delete(self, version):
 
-        releases = [r for r in list(self._repo.get_releases()) if r.title == version]
+        releases = [r for r in self.releases if r.title == version]
 
         if len(releases) > 1:
             raise exceptions.MultipleReleasesFoundException(release=version,
@@ -117,7 +115,7 @@ class GitHub(object):
         else:
             log.debug('Release {0} not found, skipping...'.format(version))
 
-        refs = [ref for ref in list(self._repo.get_git_refs()) if ref.ref == 'refs/tags/{0}'
+        refs = [ref for ref in list(self.repo.get_git_refs()) if ref.ref == 'refs/tags/{0}'
                 .format(version)]
 
         if len(refs) > 1:
