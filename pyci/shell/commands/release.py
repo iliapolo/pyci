@@ -92,7 +92,7 @@ def release(ctx,
         # be released.
         if release_title:
 
-            packager = Packager(repo=detect_repo(ci, repo), sha=sha)
+            packager = Packager(repo=repo, sha=sha)
 
             if not no_binary:
 
@@ -140,6 +140,8 @@ def release(ctx,
     else:
 
         try:
+
+            repo = detect_repo(ci, repo)
 
             github = GitHub(repo=repo, access_token=secrets.github_access_token())
 

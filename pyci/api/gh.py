@@ -46,7 +46,7 @@ class GitHub(object):
 
     @cachedproperty
     def repo(self):
-        log.debug('Fetching repo...')
+        log.debug('Fetching repo {0}...'.format(self._repo_name))
         repo = self._hub.get_repo(self._repo_name)
         log.debug('Fetched repo: {0}'.format(self._repo_name))
         return repo
