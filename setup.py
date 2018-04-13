@@ -37,7 +37,8 @@ setup(
         '{0}.resources'.format(BASE_PACKAGE_NAME),
         '{0}.api'.format(BASE_PACKAGE_NAME),
         '{0}.shell'.format(BASE_PACKAGE_NAME),
-        '{0}.shell.commands'.format(BASE_PACKAGE_NAME)
+        '{0}.shell.commands'.format(BASE_PACKAGE_NAME),
+        '{0}.shell.subcommands'.format(BASE_PACKAGE_NAME)
     ],
     license='LICENSE',
     description="Command Line Interface for releasing open source python libraries",

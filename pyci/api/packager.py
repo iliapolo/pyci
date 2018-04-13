@@ -21,7 +21,6 @@ import shutil
 import tempfile
 
 from boltons.cacheutils import cachedproperty
-from github import Github
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
@@ -29,23 +28,23 @@ from pyci.api.downloader import download
 from pyci.api.extractor import extract
 from pyci.api.runner import LocalCommandRunner
 
-
 log = logger.get_logger(__name__)
 
 
 class Packager(object):
 
     # pylint: disable=too-many-arguments
-    def __init__(self, repo,
-                 access_token=None,
-                 branch=None,
-                 sha=None,
-                 local_repo_path=None):
+    def __init__(self, repo, sha=None, path=None):
+
+        if sha and repo:
+            raise exceptions.BadArgumentException("Either 'sha' or 'path' is allowed")
+
+        if not sha and not repo:
+            raise exceptions.BadArgumentException("Either 'sha' or 'path' is required")
+
         self._repo = repo
-        self.__sha = sha
-        self.__branch_name = branch
-        self._access_token = access_token
-        self._local_repo_path = local_repo_path
+        self._sha = sha
+        self._path = path
         self._runner = LocalCommandRunner()
 
     def binary(self, entrypoint=None, name=None, target_dir=None):
@@ -54,7 +53,7 @@ class Packager(object):
         try:
 
             target_dir = target_dir or os.getcwd()
-            name = name or self._find_name(repo_dir=self._repo_dir)
+            name = name or self._find_name(repo_dir=self.repo_dir)
             entrypoint = self._find_entrypoint(name, entrypoint=entrypoint)
 
             destination = os.path.join(target_dir, '{0}-{1}-{2}'.format(name,
@@ -109,7 +108,7 @@ class Packager(object):
             if universal:
                 command = '{0} --universal'.format(command)
 
-            result = self._runner.run(command, cwd=self._repo_dir)
+            result = self._runner.run(command, cwd=self.repo_dir)
 
             if result.std_err:
                 log.debug('wheel command error: {0}'.format(result.std_err))
@@ -131,34 +130,19 @@ class Packager(object):
         finally:
             shutil.rmtree(temp_dir)
 
-    def _fetch_default_branch(self):
-        hub = Github(self._access_token)
-        return hub.get_repo(self._repo).default_branch
-
     @cachedproperty
-    def _sha(self):
-        return self.__sha or self._branch_name
+    def repo_dir(self):
 
-    @cachedproperty
-    def _branch_name(self):
-        return self.__branch_name or self._fetch_default_branch()
-
-    @cachedproperty
-    def _repo_dir(self):
-
-        repo_base_name = '/'.join(self._repo.split('/')[1:])
-
-        if self._local_repo_path:
-
-            # pylint: disable=fixme
-            # TODO document and explain that the 'branch' argument is ignored here
+        if self._path:
 
             log.debug('Copying local repository to temp directory...')
             temp_dir = tempfile.mkdtemp()
-            repo_copy = os.path.join(temp_dir, repo_base_name)
-            shutil.copytree(self._local_repo_path, repo_copy)
+            repo_copy = os.path.join(temp_dir, 'repo')
+            shutil.copytree(self._path, repo_copy)
             log.debug('Successfully copied repo to: {0}'.format(repo_copy))
             return repo_copy
+
+        repo_base_name = '/'.join(self._repo.split('/')[1:])
 
         log.debug('Fetching repository ({0})...'.format(self._sha))
         url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
@@ -189,7 +173,7 @@ class Packager(object):
     def _find_entrypoint(self, name, entrypoint=None):
 
         spec_file_name = '{0}.spec'.format(name)
-        spec_file = os.path.join(self._repo_dir, spec_file_name)
+        spec_file = os.path.join(self.repo_dir, spec_file_name)
 
         if entrypoint is None and os.path.exists(spec_file):
             return spec_file
@@ -198,7 +182,7 @@ class Packager(object):
 
         entrypoint = entrypoint or script_file
 
-        full_path = os.path.join(self._repo_dir, entrypoint)
+        full_path = os.path.join(self.repo_dir, entrypoint)
         if not os.path.exists(full_path):
             raise exceptions.EntrypointNotFoundException(repo=self._repo,
                                                          expected_paths=[

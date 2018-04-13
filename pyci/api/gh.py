@@ -18,7 +18,7 @@ import os
 
 import semver
 from boltons.cacheutils import cachedproperty
-from github import Github
+import github
 from github import GithubObject
 from github import InputGitAuthor
 from github import InputGitTreeElement
@@ -36,22 +36,39 @@ from pyci.api.runner import LocalCommandRunner
 log = logger.get_logger(__name__)
 
 
-class GitHubReleaser(object):
+class GitHub(object):
 
     _repo = None
     _logger = None
     _hub = None
 
     def __init__(self, repo, access_token):
-        self._hub = Github(access_token)
+        self._hub = github.Github(access_token)
         self._repo_name = repo
 
     @cachedproperty
-    def _repo(self):
+    def repo(self):
         log.debug('Fetching repo...')
         repo = self._hub.get_repo(self._repo_name)
         log.debug('Fetched repo: {0}'.format(self._repo_name))
         return repo
+
+    @cachedproperty
+    def releases(self):
+        log.debug('Fetching releases...')
+        return list(self._repo.get_releases())
+
+    @cachedproperty
+    def tags(self):
+        log.debug('Fetching tags...')
+        return list(self._repo.get_tags())
+
+    @cachedproperty
+    def last_release(self):
+        log.debug('Extracting latest release')
+        last_release = utils.get_latest_release(self.releases)
+        log.debug('Extracted latest release: {0}'.format(last_release))
+        return last_release
 
     @cachedproperty
     def default_branch(self):
@@ -67,17 +84,15 @@ class GitHubReleaser(object):
              major=False,
              dry=False,
              branch_name=None):
-        return _GitHubBranchReleaser(repo=self._repo,
-                                     branch_name=branch_name).bump(version=version,
-                                                                   patch=patch,
-                                                                   minor=minor,
-                                                                   major=major,
-                                                                   dry=dry)
+        return _GitHubBranch(gh=self, branch_name=branch_name).bump(
+            version=version,
+            patch=patch,
+            minor=minor,
+            major=major,
+            dry=dry)
 
     def release(self, branch_name=None, sha=None):
-        return _GitHubBranchReleaser(repo=self._repo,
-                                     branch_name=branch_name,
-                                     sha=sha).release()
+        return _GitHubBranch(gh=self, branch_name=branch_name, sha=sha).release()
 
     def upload(self, asset, release):
 
@@ -117,62 +132,45 @@ class GitHubReleaser(object):
 
 
 # pylint: disable=too-few-public-methods
-class _GitHubBranchReleaser(object):
+class _GitHubBranch(object):
 
-    def __init__(self, repo, branch_name=None, sha=None):
-        self._repo = repo
+    def __init__(self, gh, branch_name=None, sha=None):
+        self._github = gh
         self._sha = sha
-        self.__branch_name = branch_name
+        self._branch_name = branch_name
         self._runner = LocalCommandRunner()
 
     @cachedproperty
-    def _branch_name(self):
-        return self.__branch_name or self._repo.default_branch
+    def branch_name(self):
+        return self._branch_name or self._github.default_branch
 
     @cachedproperty
-    def _commit(self):
+    def last_commit(self):
         log.debug('Fetching commit...')
-        commit = self._repo.get_commit(sha=self._sha or self._branch_name)
+        commit = self._github.repo.get_commit(sha=self._sha or self._branch_name)
         log.debug('Fetched commit: {0}'.format(commit.sha))
         return commit
 
     @cachedproperty
-    def _pr(self):
+    def pr(self):
         log.debug('Fetching pull request...')
-        pr = self._fetch_pr(self._commit)
+        pr = self._fetch_pr(self.last_commit)
         log.debug('Fetched pull request: {0}'.format(pr))
         return pr
 
     @cachedproperty
-    def _issue(self):
+    def issue(self):
         log.debug('Fetching issue...')
-        issue = self._fetch_issue(self._pr)
+        issue = self._fetch_issue(self.pr)
         log.debug('Fetched issue: {0}'.format(issue))
         return issue
 
     @cachedproperty
-    def _labels(self):
+    def labels(self):
         log.debug('Fetching issue labels...')
-        labels = list(self._issue.get_labels())
+        labels = list(self.issue.get_labels())
         log.debug('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
         return labels
-
-    @cachedproperty
-    def _releases(self):
-        log.debug('Fetching releases...')
-        return list(self._repo.get_releases())
-
-    @cachedproperty
-    def _tags(self):
-        log.debug('Fetching tags...')
-        return list(self._repo.get_tags())
-
-    @cachedproperty
-    def _last_release(self):
-        log.debug('Extracting latest release')
-        last_release = utils.get_latest_release(self._releases)
-        log.debug('Extracted latest release: {0}'.format(last_release))
-        return last_release
 
     def commit(self, file_path, file_contents, message, author_name=None, author_email=None):
 
@@ -181,9 +179,9 @@ class _GitHubBranchReleaser(object):
                                    type='blob',
                                    content=file_contents)
 
-        last_commit = self._repo.get_commit(sha=self._branch_name)
-        base_tree = self._repo.get_git_tree(sha=last_commit.commit.tree.sha)
-        git_tree = self._repo.create_git_tree(tree=[tree], base_tree=base_tree)
+        last_commit = self._github.repo.get_commit(sha=self.branch_name)
+        base_tree = self._github.repo.get_git_tree(sha=last_commit.commit.tree.sha)
+        git_tree = self._github.repo.create_git_tree(tree=[tree], base_tree=base_tree)
 
         author = NotSet
 
@@ -194,12 +192,12 @@ class _GitHubBranchReleaser(object):
         if author_email or author_name:
             author = InputGitAuthor(name=author_name, email=author_email)
 
-        commit = self._repo.create_git_commit(message=message,
-                                              tree=git_tree,
-                                              author=author,
-                                              parents=[last_commit.commit])
+        commit = self._github.repo.create_git_commit(message=message,
+                                                     tree=git_tree,
+                                                     author=author,
+                                                     parents=[last_commit.commit])
 
-        ref = self._repo.get_git_ref(ref='heads/{0}'.format(self._branch_name))
+        ref = self._github.repo.get_git_ref(ref='heads/{0}'.format(self.branch_name))
         ref.edit(sha=commit.sha)
 
         return commit
@@ -227,7 +225,7 @@ class _GitHubBranchReleaser(object):
         commit_message = 'Bump version to {0}'.format(version)
 
         setup_py_url = 'https://raw.githubusercontent.com/{0}/{1}/setup.py'.format(
-            self._repo.full_name, self._branch_name)
+            self._github.repo.full_name, self.branch_name)
         log.debug('Downloading setup.py from: {0}'.format(setup_py_url))
         setup_py_path = download(url=setup_py_url)
 
@@ -248,9 +246,9 @@ class _GitHubBranchReleaser(object):
 
         self._validate_commit()
 
-        label_names = [label.name for label in self._labels]
+        label_names = [label.name for label in self.labels]
 
-        next_release = utils.get_next_release(self._last_release, label_names)
+        next_release = utils.get_next_release(self._github.last_release, label_names)
 
         log.debug('Next version will be: {0}'.format(next_release))
 
@@ -268,12 +266,12 @@ class _GitHubBranchReleaser(object):
 
             # TODO document that this will create empty commits when concurrent builds
             # TODO are running on the same release commit.
-            log.debug('Creating a version bump commit on branch: {0}'.format(self._branch_name))
+            log.debug('Creating a version bump commit on branch: {0}'.format(self.branch_name))
             commit = self.bump(version=next_release)
             log.debug('Successfully bumped version to: {0}'.format(next_release))
 
             log.debug('Creating Github Release...')
-            release = self._repo.create_git_release(
+            release = self._github.repo.create_git_release(
                 tag=next_release,
                 target_commitish=commit.sha,
                 name=next_release,
@@ -287,15 +285,16 @@ class _GitHubBranchReleaser(object):
                 self._comment_issue(issue, release)
 
             log.debug('Fetching master ref...')
-            master = self._repo.get_git_ref('heads/master')
+            master = self._github.repo.get_git_ref('heads/master')
             log.debug('Fetched ref: {0}'.format(master.ref))
 
             log.debug('Updating master branch')
-            master.edit(sha=self._commit.sha, force=True)
+            master.edit(sha=commit.sha, force=True)
             log.debug('Successfully updated master branch to: {0}'.format(commit.sha))
 
             try:
-                pull_request_ref = self._repo.get_git_ref('heads/{0}'.format(self._pr.head.ref))
+                pull_request_ref = self._github.repo.get_git_ref(
+                    'heads/{0}'.format(self.pr.head.ref))
                 log.debug('Deleting ref: {0}'.format(pull_request_ref.ref))
                 pull_request_ref.delete()
             except UnknownObjectException:
@@ -310,14 +309,14 @@ class _GitHubBranchReleaser(object):
             if e.data['errors'][0]['code'] != 'already_exists':
                 raise
 
-            release = self._repo.get_release(id=next_release)
+            release = self._github.repo.get_release(id=next_release)
             commit = self._fetch_commit(release.tag_name)
 
-            if commit.sha == self._commit.sha:
+            if commit.sha == self.last_commit.sha:
                 # we already checked if this commit is released in _validate_commit(),
                 # how can this be? well, there might be concurrent executions running on the
                 # same commit (two different CI systems for example)
-                raise exceptions.CommitIsAlreadyReleasedException(sha=self._commit.sha,
+                raise exceptions.CommitIsAlreadyReleasedException(sha=self.last_commit.sha,
                                                                   release=next_release)
 
             # if we get here, its bad. the release already exists but with a different commit than
@@ -327,30 +326,30 @@ class _GitHubBranchReleaser(object):
             # pylint: disable=fixme
             # TODO what should we do here? what are the implications of this?
             raise exceptions.ReleaseConflictException(release=next_release,
-                                                      our_sha=self._commit.sha,
+                                                      our_sha=self.last_commit.sha,
                                                       their_sha=commit.sha)
 
     def _validate_commit(self):
 
-        if self._pr is None:
-            raise exceptions.CommitNotRelatedToPullRequestException(sha=self._commit.sha)
+        if self.pr is None:
+            raise exceptions.CommitNotRelatedToPullRequestException(sha=self.last_commit.sha)
 
-        if self._issue is None:
-            raise exceptions.PullRequestNotRelatedToIssueException(sha=self._commit.sha,
-                                                                   pr=self._pr.number)
+        if self.issue is None:
+            raise exceptions.PullRequestNotRelatedToIssueException(sha=self.last_commit.sha,
+                                                                   pr=self.pr.number)
 
-        label_names = [label.name for label in self._labels]
+        label_names = [label.name for label in self.labels]
 
-        next_release = utils.get_next_release(self._last_release, label_names)
+        next_release = utils.get_next_release(self._github.last_release, label_names)
         if next_release is None:
-            raise exceptions.IssueIsNotLabeledAsReleaseException(issue=self._issue.number,
-                                                                 sha=self._commit.sha,
-                                                                 pr=self._pr.number)
+            raise exceptions.IssueIsNotLabeledAsReleaseException(issue=self.issue.number,
+                                                                 sha=self.last_commit.sha,
+                                                                 pr=self.pr.number)
 
-        if self._last_release:
-            tag = [t for t in list(self._tags) if t.name == self._last_release][0]
-            if self._commit.sha == tag.commit.sha:
-                raise exceptions.CommitIsAlreadyReleasedException(sha=self._commit.sha,
+        if self._github.last_release:
+            tag = [t for t in list(self._github.tags) if t.name == self._github.last_release][0]
+            if self.last_commit.sha == tag.commit.sha:
+                raise exceptions.CommitIsAlreadyReleasedException(sha=self.last_commit.sha,
                                                                   release=tag.name)
 
     def _comment_issue(self, issue, release):
@@ -358,41 +357,41 @@ class _GitHubBranchReleaser(object):
         issue_comment = 'This issue is part of release [{0}]({1})'.format(release.title,
                                                                           release.html_url)
 
-        log.debug('Adding a comment to issue: {0}'.format(self._issue))
+        log.debug('Adding a comment to issue: {0}'.format(self.issue))
         issue.create_comment(body=issue_comment)
         log.debug('Added comment: {0}'.format(issue_comment))
 
     def _fetch_issue(self, pull_request):
 
         issue_number = utils.get_issue_number(pull_request.body)
-        return self._repo.get_issue(number=int(issue_number)) if issue_number else None
+        return self._github.repo.get_issue(number=int(issue_number)) if issue_number else None
 
     def _fetch_pr(self, commit):
 
         pr_number = utils.get_pull_request_number(commit.commit.message)
-        return self._repo.get_pull(number=pr_number) if pr_number else None
+        return self._github.repo.get_pull(number=pr_number) if pr_number else None
 
     def _fetch_commit(self, tag_name):
 
-        tag = self._repo.get_git_ref(ref='tags/{0}'.format(tag_name))
+        tag = self._github.repo.get_git_ref(ref='tags/{0}'.format(tag_name))
 
         # pylint: disable=fixme
         # TODO this looks like internal github API. see if we can do better
         sha = tag.raw_data['object']['sha']
 
-        return self._repo.get_commit(sha=sha)
+        return self._github.repo.get_commit(sha=sha)
 
     def _generate_changelog(self):
 
         since = GithubObject.NotSet
         latest_sha = None
-        if self._last_release:
+        if self._github.last_release:
 
-            latest_commit = self._fetch_commit(tag_name=self._last_release)
+            latest_commit = self._fetch_commit(tag_name=self._github.last_release)
             since = latest_commit.commit.committer.date
             latest_sha = latest_commit.sha
 
-        commits = list(self._repo.get_commits(sha=self._commit.sha, since=since))
+        commits = list(self._github.repo.get_commits(sha=self.last_commit.sha, since=since))
 
         features = set()
         bugs = set()

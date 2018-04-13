@@ -15,6 +15,17 @@
 #
 #############################################################################
 
+import click
 
-def test_release():
-    pass
+from pyci.shell import handle_exceptions
+
+
+@click.command()
+@handle_exceptions
+@click.pass_context
+@click.option('--wheel', required=True)
+def upload(ctx, wheel):
+
+    click.echo('Uploading wheel...')
+    ctx.parent.pypi.upload(wheel)
+    click.echo('Done')

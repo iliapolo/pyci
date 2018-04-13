@@ -21,7 +21,7 @@ import pytest
 
 import pyci
 from pyci.api import utils
-from pyci.api.releaser import Task
+from pyci.api.gh import Task
 
 
 def test_get_pull_request_number():

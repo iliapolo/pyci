@@ -15,31 +15,15 @@
 #
 #############################################################################
 
-import shlex
+import re
 
-from click.testing import CliRunner
-
-from pyci.api import logger
-from pyci.shell.main import app
-
-log = logger.get_logger(__name__)
+from pyci.api import exceptions
 
 
-# pylint: disable=too-few-public-methods
-class Runner(object):
+def generate(setup_py, version):
 
-    def __init__(self):
-        super(Runner, self).__init__()
-        self._runner = CliRunner()
-
-    def run(self, command, catch_exceptions=False):
-
-        log.info('Invoking command: {0}'.format(command))
-
-        result = self._runner.invoke(app, shlex.split(command)[1:],
-                                     catch_exceptions=catch_exceptions)
-
-        if isinstance(result.exception, SystemExit) and not catch_exceptions:
-            raise SystemExit(result.output)
-
-        return result
+    p = re.compile('.*(version=.*),?')
+    match = p.search(setup_py)
+    if match:
+        return setup_py.replace(match.group(1), "version='{0}',".format(version))
+    raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)

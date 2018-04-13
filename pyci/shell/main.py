@@ -19,25 +19,24 @@ import sys
 
 import click
 
-from pyci.api import utils
 from pyci.api.ci import CIDetector
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
-from pyci.api.releaser import GitHubReleaser
+from pyci.api.gh import GitHub
 from pyci.api import logger
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
-from pyci.shell.commands import pack as pack_group
-from pyci.shell.commands import release as release_group
-from pyci.shell.commands import pypi as pypi_group
+from pyci.shell.subcommands import pack as pack_group
+from pyci.shell.subcommands import github as github_group
+from pyci.shell.subcommands import pypi as pypi_group
+from pyci.shell.commands import release
 
 
 @click.group()
-@click.option('--repo', required=False)
 @click.option('--debug', is_flag=True)
 @click.pass_context
 @handle_exceptions
-def app(ctx, repo, debug):
+def app(ctx, debug):
 
     if debug:
         logger.setup_loggers('DEBUG')
@@ -47,49 +46,36 @@ def app(ctx, repo, debug):
     if ctx.ci:
         click.echo('Detected CI: {0}'.format(ctx.ci.name))
 
-    repo = repo or (ctx.ci.repo if ctx.ci else utils.get_local_repo())
 
-    if repo is None:
-        raise click.ClickException(message='Failed detecting repository name. Please provide it '
-                                           'using the "--repo" option.\nIf you are running '
-                                           'locally, you can also execute this command from your '
-                                           'project root directory (repository will be detected '
-                                           'using git).')
+@click.group()
+@click.option('--repo', required=False)
+@click.pass_context
+@handle_exceptions
+def github(ctx, repo):
 
-    ctx.repo = repo
+    repo = release.detect_repo(ctx.parent.ci, repo)
+
+    ctx.github = GitHub(repo=repo, access_token=secrets.github_access_token())
 
 
 @click.group()
 @click.pass_context
-@click.option('--pypi-test', is_flag=True)
-@click.option('--pypi-url', is_flag=True)
+@click.option('--repo', required=False)
+@click.option('--sha', required=False)
+@click.option('--path', required=False)
 @handle_exceptions
-def release(ctx, pypi_test, pypi_url):
+def pack(ctx, repo, sha, path):
 
-    ctx.releaser = GitHubReleaser(repo=ctx.parent.repo,
-                                  access_token=secrets.github_access_token())
+    if sha and path:
+        raise click.ClickException("Either '--sha' or '--path' is allowed (not both)")
 
-    ctx.pypi = PyPI(repository_url=pypi_url,
-                    test=pypi_test,
-                    username=secrets.twine_username(),
-                    password=secrets.twine_password())
+    if not sha and not path:
+        raise click.ClickException("Either '--sha' or '--path' is required")
 
+    if not path:
+        repo = release.detect_repo(ctx.parent.ci, repo)
 
-@click.group()
-@click.pass_context
-@click.option('--branch', required=False)
-@click.option('--local-repo-path', required=False)
-@handle_exceptions
-def pack(ctx, branch, local_repo_path):
-
-    access_token = None
-    if branch is None:
-        access_token = secrets.github_access_token()
-
-    ctx.packager = Packager(repo=ctx.parent.repo,
-                            local_repo_path=local_repo_path,
-                            branch=branch,
-                            access_token=access_token)
+    ctx.packager = Packager(repo=repo, path=path, sha=sha)
 
 
 @click.group()
@@ -105,18 +91,19 @@ def pypi(ctx, test, repository_url):
                     password=secrets.twine_password())
 
 
-release.add_command(release_group.create)
-release.add_command(release_group.delete)
-release.add_command(release_group.bump)
+github.add_command(github_group.delete)
+github.add_command(github_group.bump)
+github.add_command(github_group.release)
 
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)
 
 pypi.add_command(pypi_group.upload)
 
-app.add_command(release)
+app.add_command(github)
 app.add_command(pack)
 app.add_command(pypi)
+app.add_command(release.release)
 
 # allows running the application as a single executable
 # created by pyinstaller

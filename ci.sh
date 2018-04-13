@@ -58,6 +58,6 @@ echo "Running tests"
 py.test --cov-report term-missing --cov=${DIR}/${program} ${DIR}/${program}/tests
 
 echo "Running release"
-${program} --debug release create
+${program} --debug release
 
 echo "Done!"

@@ -15,49 +15,65 @@
 #
 #############################################################################
 
+
 import click
 
 from pyci.api import exceptions
+from pyci.api.gh import GitHub
+from pyci.api import logger
+from pyci.api import utils
 from pyci.api.packager import Packager
-from pyci.shell import handle_exceptions
+from pyci.api.pypi import PyPI
+from pyci.shell import handle_exceptions, secrets
 
 
+log = logger.get_logger(__name__)
+
+# we disable it here because this really is a big function
+# that does plenty of stuff, not many like these..
 # pylint: disable=too-many-arguments
 @click.command()
 @handle_exceptions
 @click.pass_context
+@click.option('--repo', required=False)
 @click.option('--branch', required=False)
 @click.option('--sha', required=False)
 @click.option('--no-binary', is_flag=True)
 @click.option('--no-wheel', is_flag=True)
+@click.option('--pypi-test', is_flag=True)
+@click.option('--pypi-url', is_flag=True)
 @click.option('--binary-entrypoint', required=False)
 @click.option('--binary-name', required=False)
 @click.option('--force', is_flag=True)
-def create(ctx,
-           branch,
-           sha,
-           no_binary,
-           no_wheel,
-           binary_entrypoint,
-           binary_name,
-           force):
+def release(ctx,
+            repo,
+            branch,
+            sha,
+            no_binary,
+            no_wheel,
+            binary_entrypoint,
+            binary_name,
+            pypi_test,
+            pypi_url,
+            force):
 
-    ci = ctx.parent.parent.ci
+    ci = ctx.parent.ci
 
     def _do_release():
 
+        github = GitHub(repo=repo, access_token=secrets.github_access_token())
+
         release_title = None
         try:
-            click.echo('Creating release...')
-            release_title = ctx.parent.releaser.release(branch_name=branch_name,
-                                                        sha=sha)
-            click.echo('Successfully created release: {0}'.format(release_title))
+            log.info('Creating release...')
+            release_title = github.release(branch_name=branch_name, sha=sha)
+            log.info('Successfully created release: {0}'.format(release_title))
         except exceptions.CommitIsAlreadyReleasedException as e:
 
             # this is ok, maybe someone is running the command on the same commit
             # over and over again. no need to error here since we still might have things
             # to do later on.
-            click.echo('The commit is already released: {0}, Moving on...'.format(e.release))
+            log.info('The commit is already released: {0}, Moving on...'.format(e.release))
 
             # pylint: disable=fixme
             # TODO can there be a scenario where to concurrent releases
@@ -68,59 +84,62 @@ def create(ctx,
                 exceptions.IssueIsNotLabeledAsReleaseException) as e:
             # not all commits are eligible for release, this is such a case.
             # we should just break and do nothing...
-            click.echo('Not releasing: {0}'.format(str(e)))
+            log.info('Not releasing: {0}'.format(str(e)))
 
         # release_title may be None in case this commit should not
         # be released.
         if release_title:
 
-            packager = Packager(repo=ctx.parent.parent.repo,
-                                branch=branch_name,
-                                sha=sha)
+            packager = Packager(repo=detect_repo(ci, repo), sha=sha)
 
             if not no_binary:
 
                 try:
-                    click.echo('Creating binary package...')
+                    log.info('Creating binary package...')
                     package = packager.binary(entrypoint=binary_entrypoint,
                                               name=binary_name)
-                    click.echo('Successfully created binary package: {0}'.format(package))
+                    log.info('Successfully created binary package: {0}'.format(package))
 
-                    click.echo('Uploading binary package to release...')
-                    asset_url = ctx.parent.releaser.upload(asset=package, release=release_title)
-                    click.echo('Successfully uploaded binary package to release: {0}'
-                               .format(asset_url))
+                    log.info('Uploading binary package to release...')
+                    asset_url = github.upload(asset=package, release=release_title)
+                    log.info('Successfully uploaded binary package to release: {0}'
+                             .format(asset_url))
 
                 except exceptions.EntrypointNotFoundException as ene:
                     # this is ok, the package doesn't contain an entrypoint in the
                     # expected default location. we should however print a log
                     # since the user might have expected the binary package (since the default is
                     #  to create one)
-                    click.echo('Binary package will not be created because an entrypoint was not '
-                               'found in the expected path: {0}. \nYou can specify a custom '
-                               'entrypoint path by using the "--binary-entrypoint" option.\n'
-                               'If your package is not meant to be an executable binary, '
-                               'use the "--no-binary" flag to avoid seeing this message'
-                               .format(ene.expected_paths))
+                    log.info('Binary package will not be created because an entrypoint was not '
+                             'found in the expected path: {0}. \nYou can specify a custom '
+                             'entrypoint path by using the "--binary-entrypoint" option.\n'
+                             'If your package is not meant to be an executable binary, '
+                             'use the "--no-binary" flag to avoid seeing this message'
+                             .format(ene.expected_paths))
 
             if not no_wheel:
 
-                click.echo('Creating wheel...')
+                log.info('Creating wheel...')
                 package = packager.wheel()
-                click.echo('Successfully created wheel: {0}'.format(package))
+                log.info('Successfully created wheel: {0}'.format(package))
 
-                click.echo('Uploading wheel to PyPI...')
-                wheel_url = ctx.parent.pypi.upload(wheel=package)
-                click.echo('Successfully uploaded wheel to PyPI: {0}'.format(wheel_url))
+                pypi = PyPI(repository_url=pypi_url,
+                            test=pypi_test,
+                            username=secrets.twine_username(),
+                            password=secrets.twine_password())
+
+                log.info('Uploading wheel to PyPI...')
+                wheel_url = pypi.upload(wheel=package)
+                log.info('Successfully uploaded wheel to PyPI: {0}'.format(wheel_url))
 
     if ci is None and not force:
-        click.echo('No CI system detected. If you wish to release nevertheless, '
-                   'use the "--force" option.')
+        log.info('No CI system detected. If you wish to release nevertheless, '
+                 'use the "--force" option.')
     else:
 
         try:
 
-            branch_name = branch or ctx.parent.releaser.default_branch
+            branch_name = branch or ctx.parent.github.default_branch
 
             if ci:
 
@@ -129,46 +148,16 @@ def create(ctx,
             _do_release()
 
         except exceptions.NotReleaseCandidateException as nrce:
-            click.echo('No need to release this commit: {0}'.format(str(nrce)))
+            log.info('No need to release this commit: {0}'.format(str(nrce)))
 
 
-@click.command()
-@handle_exceptions
-@click.pass_context
-@click.option('--version', required=True)
-def delete(ctx, version):
+def detect_repo(ci, repo):
 
-    click.echo('Deleting release {0}...'.format(version))
-    ctx.parent.releaser.delete(version)
-    click.echo('Done')
-
-
-@click.command()
-@handle_exceptions
-@click.pass_context
-@click.option('--branch', required=False)
-@click.option('--version', required=False)
-@click.option('--patch', is_flag=True)
-@click.option('--minor', is_flag=True)
-@click.option('--major', is_flag=True)
-@click.option('--dry', is_flag=True)
-def bump(ctx, branch, version, patch, minor, major, dry):
-
-    if version and (patch or minor or major):
-        raise click.ClickException("When specifying '--version' you cannot "
-                                   "specify any additional version options (patch, minor, major)")
-
-    click.echo('Bumping version...')
-    try:
-        setup_py = ctx.parent.releaser.bump(branch_name=branch,
-                                            version=version,
-                                            patch=patch,
-                                            minor=minor,
-                                            major=major,
-                                            dry=dry)
-    except ValueError as e:
-        raise click.ClickException(str(e))
-    if dry:
-        click.echo('\n\n**Running in Dry Mode**\n\n')
-        click.echo('Here is what setup.py will look like: \n\n{0}'.format(setup_py))
-    click.echo('Done')
+    repo = repo or (ci.repo if ci else utils.get_local_repo())
+    if repo is None:
+        raise click.ClickException(message='Failed detecting repository name. Please provide it '
+                                           'using the "--repo" option.\nIf you are running '
+                                           'locally, you can also execute this command from your '
+                                           'project root directory (repository will be detected '
+                                           'using git).')
+    return repo
