@@ -23,7 +23,7 @@ PROGRAM_NAME = 'pyci'
 
 setup(
     name=PROGRAM_NAME,
-    version='1.0.1',
+    version='0.1.2',
     author='Eli Polonsky',
     author_email='eli.polonsky@gmail.com',
     packages=[
