@@ -33,6 +33,7 @@ log = logger.get_logger(__name__)
 # we disable it here because this really is a big function
 # that does plenty of stuff, not many like these..
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 @click.command()
 @handle_exceptions
 @click.pass_context
