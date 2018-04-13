@@ -29,6 +29,7 @@ from pyci.shell import handle_exceptions, secrets
 
 log = logger.get_logger(__name__)
 
+
 # we disable it here because this really is a big function
 # that does plenty of stuff, not many like these..
 # pylint: disable=too-many-arguments
@@ -60,8 +61,6 @@ def release(ctx,
     ci = ctx.parent.ci
 
     def _do_release():
-
-        github = GitHub(repo=repo, access_token=secrets.github_access_token())
 
         release_title = None
         try:
@@ -139,7 +138,9 @@ def release(ctx,
 
         try:
 
-            branch_name = branch or ctx.parent.github.default_branch
+            github = GitHub(repo=repo, access_token=secrets.github_access_token())
+
+            branch_name = branch or github.default_branch
 
             if ci:
 
