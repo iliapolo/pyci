@@ -236,3 +236,25 @@ class NotReleaseCandidateException(ApiException):
 
     def __str__(self):
         return self.reason
+
+
+class FailedGeneratingSetupPyException(ApiException):
+
+    def __init__(self, setup_py, version):
+        self.setup_py = setup_py
+        self.version = version
+        super(FailedGeneratingSetupPyException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Failed generating a setup.py file with version: {0}. ' \
+               '\nThe original file is: \n{1}'.format(self.version, self.setup_py)
+
+
+class BadArgumentException(ApiException):
+
+    def __init__(self, message):
+        self.message = message
+        super(BadArgumentException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return self.message

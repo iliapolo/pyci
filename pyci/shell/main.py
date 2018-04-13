@@ -68,23 +68,24 @@ def release(ctx):
 
 @click.group()
 @click.pass_context
-@click.option('--sha', required=False)
+@click.option('--branch', required=False)
 @click.option('--local-repo-path', required=False)
 @handle_exceptions
-def pack(ctx, sha, local_repo_path):
+def pack(ctx, branch, local_repo_path):
 
     access_token = None
-    if sha is None:
+    if branch is None:
         access_token = secrets.github_access_token()
 
     ctx.packager = Packager(repo=ctx.parent.repo,
                             local_repo_path=local_repo_path,
-                            sha=sha,
+                            branch=branch,
                             access_token=access_token)
 
 
 release.add_command(release_group.create)
 release.add_command(release_group.delete)
+release.add_command(release_group.bump)
 
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)

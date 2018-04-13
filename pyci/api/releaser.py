@@ -16,15 +16,22 @@
 #############################################################################
 import os
 
+import semver
 from boltons.cacheutils import cachedproperty
 from github import Github
 from github import GithubObject
 from github.GithubException import GithubException
 from github.GithubException import UnknownObjectException
+from github import InputGitTreeElement
+from github import InputGitAuthor
+from github.GithubObject import NotSet
 
-from pyci.api import exceptions
+from pyci.api import exceptions, constants
 from pyci.api import logger
 from pyci.api import utils
+from pyci.api.downloader import download
+from pyci.api import setup
+from pyci.api.runner import LocalCommandRunner
 
 
 log = logger.get_logger(__name__)
@@ -54,9 +61,17 @@ class GitHubReleaser(object):
         log.debug('Fetched branch: {0}'.format(branch))
         return branch
 
-    def release(self, sha=None):
+    def bump(self, version=None, patch=False, minor=False, major=False, dry=False, branch_name=None):
         return _GitHubBranchReleaser(repo=self._repo,
-                                     sha=sha).release()
+                                     branch_name=branch_name).bump(version=version,
+                                                                   patch=patch,
+                                                                   minor=minor,
+                                                                   major=major,
+                                                                   dry=dry)
+
+    def release(self, branch_name=None):
+        return _GitHubBranchReleaser(repo=self._repo,
+                                     branch_name=branch_name).release()
 
     def upload(self, asset, release):
 
@@ -98,14 +113,21 @@ class GitHubReleaser(object):
 # pylint: disable=too-few-public-methods
 class _GitHubBranchReleaser(object):
 
-    def __init__(self, repo, sha=None):
+    def __init__(self, repo, branch_name=None):
         self._repo = repo
-        self._sha = sha or self._repo.default_branch
+        self._branch_name = branch_name or self._repo.default_branch
+        self._runner = LocalCommandRunner()
+
+    def _clear(self):
+        delattr(self, '_commit')
+        delattr(self, '_pr')
+        delattr(self, '_issue')
+        delattr(self, '_labels')
 
     @cachedproperty
     def _commit(self):
         log.debug('Fetching commit...')
-        commit = self._repo.get_commit(sha=self._sha)
+        commit = self._repo.get_commit(sha=self._branch_name)
         log.debug('Fetched commit: {0}'.format(commit.sha))
         return commit
 
@@ -124,6 +146,13 @@ class _GitHubBranchReleaser(object):
         return issue
 
     @cachedproperty
+    def _labels(self):
+        log.debug('Fetching issue labels...')
+        labels = list(self._issue.get_labels())
+        log.debug('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
+        return labels
+
+    @cachedproperty
     def _releases(self):
         log.debug('Fetching releases...')
         return list(self._repo.get_releases())
@@ -140,12 +169,74 @@ class _GitHubBranchReleaser(object):
         log.debug('Extracted latest release: {0}'.format(last_release))
         return last_release
 
-    @cachedproperty
-    def _labels(self):
-        log.debug('Fetching issue labels...')
-        labels = list(self._issue.get_labels())
-        log.debug('Fetched labels: {0}'.format(','.join([label.name for label in labels])))
-        return labels
+    def commit(self, file_path, file_contents, message, author_name=None, author_email=None):
+
+        tree = InputGitTreeElement(path=file_path,
+                                   mode='100644',
+                                   type='blob',
+                                   content=file_contents)
+
+        base_tree = self._repo.get_git_tree(sha=self._commit.commit.tree.sha)
+        git_tree = self._repo.create_git_tree(tree=[tree], base_tree=base_tree)
+
+        author = NotSet
+
+        if (author_name is None) ^ (author_email is None):
+            raise exceptions.BadArgumentException('author name and author email must be given '
+                                                  'simultaneously')
+
+        if author_email or author_name:
+            author = InputGitAuthor(name=author_name, email=author_email)
+
+        commit = self._repo.create_git_commit(message=message,
+                                              tree=git_tree,
+                                              author=author,
+                                              parents=[self._commit.commit])
+
+        ref = self._repo.get_git_ref(ref='heads/{0}'.format(self._branch_name))
+        ref.edit(sha=commit.sha)
+
+        return commit
+
+    def bump(self, version=None, patch=False, minor=False, major=False, dry=False):
+
+        if version:
+            log.debug('Validating the given version string ({0}) is a legal semver...'
+                      .format(version))
+            semver.parse(version)
+
+        def _bump_current_version():
+            current_version = self._runner.run('python {0} --version'
+                                               .format(setup_py_path)).std_out
+            result = current_version
+            if patch:
+                result = semver.bump_patch(result)
+            if minor:
+                result = semver.bump_minor(result)
+            if major:
+                result = semver.bump_major(result)
+
+            return result
+
+        commit_message = 'Bump version to {0}'.format(version)
+
+        setup_py_url = 'https://raw.githubusercontent.com/{0}/{1}/setup.py'.format(
+            self._repo.full_name, self._branch_name)
+        log.debug('Downloading setup.py from: {0}'.format(setup_py_url))
+        setup_py_path = download(url=setup_py_url)
+
+        next_version = version or _bump_current_version()
+
+        with open(setup_py_path) as stream:
+            setup_py = stream.read()
+
+        setup_py = setup.generate(setup_py, next_version)
+
+        if not dry:
+            return self.commit(file_path='setup.py',
+                               file_contents=setup_py,
+                               message=commit_message)
+        return setup_py
 
     def release(self):
 
@@ -168,6 +259,16 @@ class _GitHubBranchReleaser(object):
         log.debug('Successfully fetched changelog')
 
         try:
+
+            # TODO document that this will create empty commits when concurrent builds
+            # TODO are running on the same release commit.
+            log.debug('Creating a version bump commit on branch: {0}'.format(self._branch_name))
+            self.bump(version=next_release)
+            # we need to clear the cached properties since we now have an additional commit on the
+            # branch, and therefore need to fetch again.
+            self._clear()
+            log.debug('Successfully bumped version to: {0}'.format(next_release))
+
             log.debug('Creating Github Release...')
             release = self._repo.create_git_release(
                 tag=next_release,
@@ -337,3 +438,7 @@ class Task(object):
 
     def __hash__(self):
         return hash(self.url)
+
+
+rel = GitHubReleaser(repo='iliapolo/pyci', access_token='9828e71b03ff8f1550b5ba22421b152047b31781')
+rel.release('release')

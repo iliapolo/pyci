@@ -19,24 +19,31 @@
 from setuptools import setup
 
 
+BASE_PACKAGE_NAME = 'pyci'
+
 PROGRAM_NAME = 'pyci'
 
+# this is different because it determines the name of the project
+# in PyPi, and unfortunately 'pyci' is taken :(
+PROJECT_NAME = 'py-ci'
+
 setup(
-    name=PROGRAM_NAME,
-    version='0.1',
+    name=PROJECT_NAME,
+    version='0.0.1',
     author='Eli Polonsky',
     author_email='eli.polonsky@gmail.com',
     packages=[
-        PROGRAM_NAME,
-        '{0}.api'.format(PROGRAM_NAME),
-        '{0}.shell'.format(PROGRAM_NAME),
-        '{0}.shell.commands'.format(PROGRAM_NAME),
+        BASE_PACKAGE_NAME,
+        '{0}.resources'.format(BASE_PACKAGE_NAME),
+        '{0}.api'.format(BASE_PACKAGE_NAME),
+        '{0}.shell'.format(BASE_PACKAGE_NAME),
+        '{0}.shell.commands'.format(BASE_PACKAGE_NAME)
     ],
     license='LICENSE',
     description="Command Line Interface for releasing open source python libraries",
     entry_points={
         'console_scripts': [
-            '{0} = {0}.shell.main:app'.format(PROGRAM_NAME)
+            '{0} = {1}.shell.main:app'.format(PROGRAM_NAME, BASE_PACKAGE_NAME)
         ]
     },
     install_requires=[
@@ -49,6 +56,7 @@ setup(
         'requests==2.18.4',
         'jinja2==2.10',
         'boltons==18.0.0',
-        'wheel==0.29.0'
+        'wheel==0.29.0',
+        'twine==1.11.0'
     ]
 )
