@@ -18,7 +18,11 @@
 import click
 
 from pyci.api import exceptions
+from pyci.api import logger
 from pyci.shell import handle_exceptions
+
+
+log = logger.get_logger(__name__)
 
 
 @click.command()
@@ -29,7 +33,7 @@ from pyci.shell import handle_exceptions
 @handle_exceptions
 def binary(ctx, name, entrypoint, target_dir):
 
-    click.echo('Packaging... (this may take some time)')
+    log.infoo('Packaging... (this may take some time)')
     try:
         package_path = ctx.parent.packager.binary(entrypoint=entrypoint,
                                                   name=name,
@@ -39,7 +43,7 @@ def binary(ctx, name, entrypoint, target_dir):
             'Delete/Move the file and try again'
         ]
         raise e
-    click.echo('Package created: {0}'.format(package_path))
+    log.infoo('Package created: {0}'.format(package_path))
 
 
 @click.command()
@@ -49,7 +53,7 @@ def binary(ctx, name, entrypoint, target_dir):
 @handle_exceptions
 def wheel(ctx, target_dir, universal):
 
-    click.echo('Packaging... (this may take some time)')
+    log.infoo('Packaging... (this may take some time)')
     try:
         package_path = ctx.parent.packager.wheel(
             target_dir=target_dir,
@@ -60,4 +64,4 @@ def wheel(ctx, target_dir, universal):
             'Delete/Move the file and try again'
         ]
         raise e
-    click.echo('Package created: {0}'.format(package_path))
+    log.infoo('Package created: {0}'.format(package_path))

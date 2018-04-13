@@ -61,6 +61,8 @@ def release(ctx,
 
     ci = ctx.parent.ci
 
+    sha = sha or (ci.sha if ci else None)
+
     def _do_release():
 
         release_title = None
@@ -141,7 +143,7 @@ def release(ctx,
 
             github = GitHub(repo=repo, access_token=secrets.github_access_token())
 
-            branch_name = branch or github.default_branch
+            branch_name = branch or (ci.branch if ci else github.default_branch)
 
             if ci:
 

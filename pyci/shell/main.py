@@ -32,6 +32,9 @@ from pyci.shell.subcommands import pypi as pypi_group
 from pyci.shell.commands import release
 
 
+log = logger.get_logger(__name__)
+
+
 @click.group()
 @click.option('--debug', is_flag=True)
 @click.pass_context
@@ -44,7 +47,7 @@ def app(ctx, debug):
     ctx.ci = CIDetector().detect()
 
     if ctx.ci:
-        click.echo('Detected CI: {0}'.format(ctx.ci.name))
+        log.info('Detected CI: {0}'.format(ctx.ci.name))
 
 
 @click.group()

@@ -17,7 +17,11 @@
 
 import click
 
+from pyci.api import logger
 from pyci.shell import handle_exceptions
+
+
+log = logger.get_logger(__name__)
 
 
 @click.command()
@@ -26,6 +30,6 @@ from pyci.shell import handle_exceptions
 @click.option('--wheel', required=True)
 def upload(ctx, wheel):
 
-    click.echo('Uploading wheel...')
+    log.info('Uploading wheel...')
     ctx.parent.pypi.upload(wheel)
-    click.echo('Done')
+    log.info('Done')
