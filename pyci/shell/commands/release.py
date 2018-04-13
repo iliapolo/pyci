@@ -34,11 +34,13 @@ log = logger.get_logger(__name__)
 # that does plenty of stuff, not many like these..
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
 @click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--repo', required=False)
 @click.option('--branch', required=False)
+@click.option('--release-branch', required=False)
 @click.option('--sha', required=False)
 @click.option('--no-binary', is_flag=True)
 @click.option('--no-wheel', is_flag=True)
@@ -50,6 +52,7 @@ log = logger.get_logger(__name__)
 def release(ctx,
             repo,
             branch,
+            release_branch,
             sha,
             no_binary,
             no_wheel,
@@ -65,12 +68,12 @@ def release(ctx,
     sha = sha or (ci.sha if ci else None)
     log.debug('Sha detected: {0}'.format(sha))
 
-    def _do_release():
+    def _do_release(_branch_name):
 
         release_title = None
         try:
             log.info('Creating release...')
-            release_title = github.release(branch_name=branch_name, sha=sha)
+            release_title = github.release(branch_name=_branch_name, sha=sha)
             log.info('Successfully created release: {0}'.format(release_title))
         except exceptions.CommitIsAlreadyReleasedException as e:
 
@@ -149,17 +152,22 @@ def release(ctx,
 
             github = GitHub(repo=repo, access_token=secrets.github_access_token())
 
-            log.debug('Detecting branch name...')
-            branch_name = branch or (ci.branch if ci else github.default_branch)
-            log.debug('Branch name detected: {0}'.format(branch_name))
+            log.debug('Detecting release branch name...')
+            release_branch = release_branch or github.default_branch
+            log.debug('Release branch name detected: {0}'.format(release_branch))
+
+            log.debug('Detecting current branch name...')
+            current_branch_name = branch or (ci.branch if ci else github.default_branch)
+            log.debug('Current branch detected: {0}'.format(current_branch_name))
 
             if ci:
 
-                log.debug('Validating branch name with CI system: {0}'.format(branch_name))
-                ci.validate_rc(branch_name)
+                log.debug('Validating release candidacy with CI system for branch: {0}'
+                          .format(release_branch))
+                ci.validate_rc(release_branch)
                 log.debug('Validation passed')
 
-            _do_release()
+            _do_release(current_branch_name)
 
         except exceptions.NotReleaseCandidateException as nrce:
             log.info('No need to release this commit: {0}'.format(str(nrce)))

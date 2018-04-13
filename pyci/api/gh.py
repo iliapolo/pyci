@@ -145,7 +145,7 @@ class _GitHubBranch(object):
     @cachedproperty
     def last_commit(self):
         log.debug('Fetching commit...')
-        commit = self._github.repo.get_commit(sha=self._sha or self._branch_name)
+        commit = self._github.repo.get_commit(sha=self._sha or self.branch_name)
         log.debug('Fetched commit: {0}'.format(commit.sha))
         return commit
 
