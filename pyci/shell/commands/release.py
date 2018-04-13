@@ -61,7 +61,9 @@ def release(ctx,
 
     ci = ctx.parent.ci
 
+    log.debug('Detecting sha...')
     sha = sha or (ci.sha if ci else None)
+    log.debug('Sha detected: {0}'.format(sha))
 
     def _do_release():
 
@@ -141,15 +143,21 @@ def release(ctx,
 
         try:
 
+            log.debug('Detecting repo...')
             repo = detect_repo(ci, repo)
+            log.debug('Repo detected: {0}'.format(repo))
 
             github = GitHub(repo=repo, access_token=secrets.github_access_token())
 
+            log.debug('Detecting branch name...')
             branch_name = branch or (ci.branch if ci else github.default_branch)
+            log.debug('Branch name detected: {0}'.format(branch_name))
 
             if ci:
 
+                log.debug('Validating branch name with CI system: {0}'.format(branch_name))
                 ci.validate_rc(branch_name)
+                log.debug('Validation passed')
 
             _do_release()
 
