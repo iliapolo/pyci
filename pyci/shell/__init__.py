@@ -52,7 +52,6 @@ def handle_exceptions(func):
                       'free to report it to https://github.com/iliapolo/pyci/issues')
             sys.exit(1)
 
-
     return wrapper
 
 
@@ -68,3 +67,26 @@ def build_info(exception):
                '\n'.join(['    - ' + solution + '.' for solution in exception.possible_solutions])
 
     return info
+
+
+RELEASE_BRANCH_HELP = 'The name of the branch you want to release. The defaulting heuristics ' \
+                      'are as follows: ' \
+                      '1) The branch the build was triggered on. ' \
+                      '2) The default branch name of the repository.'
+
+RELEASE_SHA_HELP = 'The sha of the commit you want to release. The defaulting heuristics ' \
+                   'are as follows: ' \
+                   '1) The value of --branch. ' \
+                   '2) The branch that triggered the build. ' \
+                   '3) The name of the default branch'
+
+
+RELEASE_VERSION_HELP = 'The version you want the release to have. Note that this is ' \
+                       'automatically calculated using the current setup.py version and the ' \
+                       'commit changelog. Only use this option if you really know what ' \
+                       'you are doing.'
+
+
+REPO_HELP = 'Github repository full name (i.e: <owner>/<repo>). When running inside a CI ' \
+            'system, this will be automatically detected using environment variables. ' \
+            'When running locally from your repository root directory, detected via git commands.'

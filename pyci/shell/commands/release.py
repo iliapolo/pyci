@@ -27,6 +27,10 @@ from pyci.api.gh import GitHub
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.shell import handle_exceptions, secrets
+from pyci.shell import RELEASE_BRANCH_HELP
+from pyci.shell import RELEASE_SHA_HELP
+from pyci.shell import RELEASE_VERSION_HELP
+from pyci.shell import REPO_HELP
 
 log = logger.get_logger(__name__)
 
@@ -39,22 +43,48 @@ log = logger.get_logger(__name__)
 @click.command()
 @handle_exceptions
 @click.pass_context
-@click.option('--repo', required=False)
-@click.option('--sha', required=False)
-@click.option('--branch', required=False)
-@click.option('--release-branch', required=False)
-@click.option('--no-binary', is_flag=True)
-@click.option('--no-wheel', is_flag=True)
-@click.option('--pypi-test', is_flag=True)
-@click.option('--pypi-url', is_flag=True)
-@click.option('--binary-entrypoint', required=False)
-@click.option('--binary-name', required=False)
-@click.option('--no-ci', is_flag=True)
-@click.option('--no-issue', is_flag=True)
+@click.option('--repo', required=False,
+              help=REPO_HELP)
+@click.option('--branch', required=False,
+              help=RELEASE_BRANCH_HELP)
+@click.option('--sha', required=False,
+              help=RELEASE_SHA_HELP)
+@click.option('--version', required=False,
+              help=RELEASE_VERSION_HELP)
+@click.option('--release-branch', required=False,
+              help='The name of the branch from which releases should be made. Defaults to the '
+                   'repository default branch. This is needed in order to silently ignore this '
+                   'command when running on different branches.')
+@click.option('--no-binary', is_flag=True,
+              help='Do not create and upload a binary executable as part of the release process.')
+@click.option('--binary-entrypoint', required=False,
+              help='Path (relative to the repository root) of the file to be used as the '
+                   'executable entry point. This corresponds to the positional script argument '
+                   'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+@click.option('--binary-name', required=False,
+              help='The base name of the binary executable to be created. Note that the full '
+                   'name will be a suffixed with platform specific info. This corresponds to '
+                   'the --name option used by '
+                   'PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+@click.option('--no-wheel', is_flag=True,
+              help='Do not create and upload a wheel package to PyPI as part of the release '
+                   'process.')
+@click.option('--pypi-test', is_flag=True,
+              help='Use PyPI test index. This option is ignored if --no-wheel is used.')
+@click.option('--pypi-url', is_flag=True,
+              help='Specify a custom PyPI index url. This option is ignored if --no-wheel is '
+                   'used.')
+@click.option('--no-ci', is_flag=True,
+              help='Instructs me to execute this command even though its not running inside a CI '
+                   'system.')
+@click.option('--force', is_flag=True,
+              help='Instructs me to execute this command even if the specific commit does not '
+                   'meet the release requirements.')
 def release(ctx,
             repo,
             sha,
             branch,
+            version,
             release_branch,
             no_binary,
             no_wheel,
@@ -63,32 +93,55 @@ def release(ctx,
             pypi_test,
             pypi_url,
             no_ci,
-            no_issue):
+            force):
 
-    ci = ctx.parent.ci
+    """
+    Execute a complete release process.
+
+    This command wil have the following affects:
+
+        1. Github release with the version as its title. (With changelog)
+
+        2. A version bump commit to setup.py in the corresponding branch.
+
+        3. Platform dependent binary executable uploaded to the release. (Optional)
+
+        4. Wheel package uploaded to PyPI (Optional)
+
+    In order for the commit to be released, it must meet the following requirements:
+
+        - The current build is a not a PR build. (Applicable only in CI)
+
+        - The current build is a not a tag build (Applicable only in CI)
+
+        - The current build branch differs from the release branch (Applicable only in CI)
+
+        - The commit is not related to any issue.
+
+        - The issue related to the commit is not a release candidate.
+
+    If the commit does not meet any of these requirements, the command will simply return
+    successfully and won't do anything. (it will not fail).
+
+    """
 
     # pylint: disable=too-many-branches
-    def _do_release(_branch_name):
+    def _do_release():
 
         release_title = None
-        release_sha = sha
         try:
 
-            # pylint: disable=fixme
-            # TODO raise an exception if we are in ci and --sha is passed (this is dangerous)
+            log.debug('Releasing sha: {0}'.format(sha))
 
-            if ci and not release_sha:
-                release_sha = ci.sha
-
-            log.debug('Releasing sha: {0}'.format(release_sha))
-
-            if not no_issue:
+            if not force:
                 log.debug('Validating this commit is eligible for release...')
-                github.validate(branch_name=_branch_name, sha=release_sha)
+                github.validate(branch_name=branch, sha=sha)
                 log.debug('Validation passed')
 
             log.info('Creating release...')
-            release_title = github.release(branch_name=_branch_name, sha=release_sha)
+            release_title = github.release(branch_name=branch,
+                                           sha=sha,
+                                           version=version)
             log.info('Successfully created release: {0}'.format(release_title))
 
         except exceptions.CommitIsAlreadyReleasedException as e:
@@ -165,6 +218,8 @@ def release(ctx,
                 finally:
                     os.remove(package)
 
+    ci = ctx.parent.ci
+
     if ci is None and not no_ci:
         log.info('No CI system detected. If you wish to release nevertheless, '
                  'use the "--no-ci" option.')
@@ -178,22 +233,27 @@ def release(ctx,
 
             github = GitHub(repo=repo, access_token=secrets.github_access_token())
 
+            branch = branch or (ci.branch if ci else None) or github.default_branch_name
+            sha = sha or branch or ci.sha or github.default_branch_name
+
             log.debug('Detecting release branch name...')
             release_branch = release_branch or github.default_branch_name
             log.debug('Release branch name detected: {0}'.format(release_branch))
 
-            log.debug('Detecting current branch name...')
-            current_branch_name = branch or (ci.branch if ci else github.default_branch_name)
-            log.debug('Current branch detected: {0}'.format(current_branch_name))
-
-            if ci:
+            if ci and not force:
 
                 log.debug('Validating release candidacy with CI system for branch: {0}'
                           .format(release_branch))
                 ci.validate_rc(release_branch)
                 log.debug('Validation passed')
 
-            _do_release(current_branch_name)
+            if not ci:
+                log.debug('Skipped CI validation since we are not running inside a CI system.')
+
+            if not force:
+                log.debug('Skipped CI validation since --force was used.')
+
+            _do_release()
             log.info('Done!')
 
         except exceptions.NotReleaseCandidateException as nrce:

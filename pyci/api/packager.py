@@ -62,8 +62,7 @@ class Packager(object):
             if platform.system().lower() == 'windows':
                 destination = '{0}.exe'.format(destination)
 
-            if os.path.exists(destination):
-                raise exceptions.BinaryAlreadyExists(path=destination)
+            utils.validate_does_not_exist(path=destination)
 
             log.debug('Binary path will be: {0}'.format(destination))
             log.debug('Entrypoint assumed as: {0}'.format(entrypoint))

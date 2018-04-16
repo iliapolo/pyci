@@ -316,6 +316,16 @@ class FileDoesntExistException(ApiException):
         return 'File does not exist: {0}'.format(self.path)
 
 
+class FileExistException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(FileExistException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'File exist: {0}'.format(self.path)
+
+
 class FileIsADirectoryException(ApiException):
 
     def __init__(self, path):

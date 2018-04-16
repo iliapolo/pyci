@@ -139,7 +139,7 @@ def validate_file_exists(path):
 
 def validate_does_not_exist(path):
 
-    if os.path.exists(path):
-        raise exceptions.FileDoesntExistException(path=path)
+    if os.path.isfile(path):
+        raise exceptions.FileExistException(path=path)
     if os.path.isdir(path):
         raise exceptions.FileIsADirectoryException(path=path)

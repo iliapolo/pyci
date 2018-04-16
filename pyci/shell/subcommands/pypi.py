@@ -27,9 +27,18 @@ log = logger.get_logger(__name__)
 @click.command()
 @handle_exceptions
 @click.pass_context
-@click.option('--wheel', required=True)
+@click.option('--wheel', required=True,
+              help='Path to the wheel file.')
 def upload(ctx, wheel):
 
+    """
+
+    Upload a wheel to PyPI.
+
+    Not much more to say here really :)
+
+    """
+
     log.info('Uploading wheel...')
-    ctx.parent.pypi.upload(wheel)
-    log.info('Done')
+    wheel_url = ctx.parent.pypi.upload(wheel)
+    log.info('Wheel uploaded: {0}'.format(wheel_url))

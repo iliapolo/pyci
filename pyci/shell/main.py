@@ -30,16 +30,37 @@ from pyci.shell.subcommands import pack as pack_group
 from pyci.shell.subcommands import github as github_group
 from pyci.shell.subcommands import pypi as pypi_group
 from pyci.shell.commands import release
+from pyci.shell import REPO_HELP
 
 
 log = logger.get_logger(__name__)
 
 
 @click.group()
-@click.option('--debug', is_flag=True)
+@click.option('--debug', is_flag=True,
+              help='Show debug messages')
 @click.pass_context
 @handle_exceptions
 def app(ctx, debug):
+
+    """
+    Welcome to pyci!
+
+    I can make the release process of your python project very easy :)
+
+    Environment Variables:
+
+    Note that some of the commands require credentials. They are not available as command line
+    options but rather as environment variables. If the necessary env variable is not defined,
+    you will be prompted to securely input the credentials.
+
+        - GITHUB_ACCESS_TOKEN (Used to access GitHub API)
+
+        - TWINE_USERNAME (Used to connect to PyPI)
+
+        - TWINE_PASSWORD (Used to connect to PyPI)
+
+    """
 
     if debug:
         logger.setup_loggers(level='DEBUG')
@@ -51,10 +72,15 @@ def app(ctx, debug):
 
 
 @click.group()
-@click.option('--repo', required=False)
+@click.option('--repo', required=False,
+              help=REPO_HELP)
 @click.pass_context
 @handle_exceptions
 def github(ctx, repo):
+
+    """
+    Sub-command for Github operations.
+    """
 
     repo = release.detect_repo(ctx.parent.ci, repo)
 
@@ -63,19 +89,35 @@ def github(ctx, repo):
 
 @click.group()
 @click.pass_context
-@click.option('--repo', required=False)
-@click.option('--sha', required=False)
-@click.option('--path', required=False)
+@click.option('--repo', required=False,
+              help='Github repository full name (i.e: <owner>/<repo>). '
+                   'When running inside a CI system, this will be '
+                   'automatically detected using environment variables. '
+                   'When running locally from your repository root directory, '
+                   'detected via git commands.')
+@click.option('--sha', required=False,
+              help='Sha of the commit you wish to pack. Cannot be used in conjunction with --path')
+@click.option('--path', required=False,
+              help='Path to the root directory of the project. Cannot be used in '
+                   'conjunction with --sha')
 @handle_exceptions
 def pack(ctx, repo, sha, path):
+
+    """
+    Sub-command for packing source code.
+
+    Notice that in case neither --sha nor --path are provided, the last commit from your
+    repository's default branch will be
+    used.
+
+    """
+
+    repo = release.detect_repo(ctx.parent.ci, repo)
 
     if sha and path:
         raise click.ClickException("Either '--sha' or '--path' is allowed (not both)")
 
-    if not path:
-        repo = release.detect_repo(ctx.parent.ci, repo)
-
-    if not sha and not path and repo:
+    if not sha and not path:
         sha = GitHub(repo=repo, access_token=secrets.github_access_token()).default_branch_name
 
     ctx.packager = Packager(repo=repo, path=path, sha=sha)
@@ -83,10 +125,16 @@ def pack(ctx, repo, sha, path):
 
 @click.group()
 @click.pass_context
-@click.option('--test', is_flag=True)
-@click.option('--repository-url', required=False)
+@click.option('--test', is_flag=True,
+              help='Use PyPI test repository (https://test.pypi.org/legacy/)')
+@click.option('--repository-url', required=False,
+              help='Specify a custom PyPI URL')
 @handle_exceptions
 def pypi(ctx, test, repository_url):
+
+    """
+    Sub-command for PyPI operations.
+    """
 
     ctx.pypi = PyPI(repository_url=repository_url,
                     test=test,
