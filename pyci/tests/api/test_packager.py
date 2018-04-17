@@ -75,7 +75,7 @@ def test_entrypoint_script():
     packager = Packager(repo='iliapolo/pyci-guinea-pig',
                         sha='0596d82b4786a531b7370448e2b5d0de9922f01a')
 
-    assert 'pyci_guinea_pig/shell/main.py' in packager.entrypoint
+    assert os.path.join('pyci_guinea_pig', 'shell', 'main.py') in packager.entrypoint
 
 
 def test_entrypoint_spec():
@@ -115,6 +115,9 @@ def test_binary(packager, runner, temp_dir):
     expected = os.path.join(temp_dir, 'py-ci-{0}-{1}'.format(
         platform.machine(), platform.system()))
 
+    if platform.system() == 'Windows':
+        expected = '{0}.exe'.format(expected)
+
     actual = packager.binary(target_dir=temp_dir)
 
     assert expected == actual
@@ -136,8 +139,11 @@ def test_binary_custom_entrypoint_and_name(request, runner, temp_dir):
                                                            platform.machine(),
                                                            platform.system()))
 
+    if platform.system() == 'Windows':
+        expected = '{0}.exe'.format(expected)
+
     actual = packager.binary(target_dir=temp_dir, name=name,
-                             entrypoint='pyci_guinea_pig/shell/custom_main.py')
+                             entrypoint=os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
 
     assert expected == actual
 
