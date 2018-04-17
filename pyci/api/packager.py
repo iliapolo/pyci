@@ -24,8 +24,7 @@ from boltons.cacheutils import cachedproperty
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
-from pyci.api.downloader import download
-from pyci.api.extractor import extract
+from pyci.api.utils import extract, download
 from pyci.api.runner import LocalCommandRunner
 
 log = logger.get_logger(__name__)
@@ -33,13 +32,13 @@ log = logger.get_logger(__name__)
 
 class Packager(object):
 
-    def __init__(self, repo, sha=None, path=None):
+    def __init__(self, repo=None, sha=None, path=None):
 
         if sha and path:
-            raise exceptions.BadArgumentException("Either 'sha' or 'path' is allowed")
+            raise exceptions.InvalidArgumentsException("Either 'sha' or 'path' is allowed")
 
         if not sha and not path:
-            raise exceptions.BadArgumentException("Either 'sha' or 'path' is required")
+            raise exceptions.InvalidArgumentsException("Either 'sha' or 'path' is required")
 
         self._repo = repo
         self._sha = sha
@@ -52,8 +51,8 @@ class Packager(object):
         try:
 
             target_dir = target_dir or os.getcwd()
-            name = name or self._find_name(repo_dir=self.repo_dir)
-            entrypoint = self._find_entrypoint(name, entrypoint=entrypoint)
+            name = name or self.name
+            entrypoint = entrypoint or self.entrypoint
 
             destination = os.path.join(target_dir, '{0}-{1}-{2}'.format(name,
                                                                         platform.machine(),
@@ -70,11 +69,19 @@ class Packager(object):
             dist_dir = os.path.join(temp_dir, 'dist')
             build_dir = os.path.join(temp_dir, 'build')
 
+            script = os.path.join(self.repo_dir, entrypoint)
+
+            if not os.path.exists(script):
+                raise exceptions.EntrypointNotFoundException(repo=self._repo,
+                                                             entrypoint=entrypoint)
+
             result = self._runner.run('pyinstaller --onefile --distpath {0} '
                                       '--workpath {1} --specpath {2} {3}'
-                                      .format(dist_dir, build_dir, temp_dir, entrypoint),
-                                      stdout_pipe=False,
-                                      exit_on_failure=True)
+                                      .format(dist_dir,
+                                              build_dir,
+                                              temp_dir,
+                                              script),
+                                      stdout_pipe=False)
 
             if result.std_err:
                 log.debug('pyinstaller command error: {0}'.format(result.std_err))
@@ -149,14 +156,54 @@ class Packager(object):
 
         return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
 
-    def _find_name(self, repo_dir):
+    @cachedproperty
+    def name(self):
 
-        directories = utils.lsd(repo_dir)
+        setup_py_file = os.path.join(self.repo_dir, 'setup.py')
+
+        try:
+            utils.validate_file_exists(setup_py_file)
+        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
+            raise exceptions.NotPythonProjectException(repo=self._repo, cause=str(e))
+
+        return self._runner.run('python {0} --name'.format(setup_py_file)).std_out
+
+    @cachedproperty
+    def entrypoint(self):
+
+        # first look for a spec file in the repository root.
+        spec_file_basename = '{0}.spec'.format(self.name)
+        spec_file_path = os.path.join(self.repo_dir, spec_file_basename)
+        try:
+            utils.validate_file_exists(path=spec_file_path)
+            return spec_file_path
+        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException):
+            pass
+
+        # now look for a main.py file
+        top_level_pacakge = self._find_top_level_package()
+        script_file = os.path.join(top_level_pacakge, 'shell', 'main.py')
+        full_path = os.path.join(self.repo_dir, script_file)
+        try:
+            utils.validate_file_exists(path=full_path)
+            return full_path
+        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException):
+            pass
+
+        raise exceptions.DefaultEntrypointNotFoundException(repo=self._repo,
+                                                            expected_paths=[
+                                                                spec_file_basename,
+                                                                script_file
+                                                            ])
+
+    def _find_top_level_package(self):
+
+        directories = utils.lsd(self.repo_dir)
 
         possibles = set()
 
         for directory in directories:
-            if os.path.exists(os.path.join(repo_dir, directory, '__init__.py')):
+            if os.path.exists(os.path.join(self.repo_dir, directory, '__init__.py')):
                 possibles.add(directory)
 
         if not possibles:
@@ -166,25 +213,3 @@ class Packager(object):
             raise exceptions.MultiplePackagesFound(repo=self._repo, packages=possibles)
 
         return possibles.pop()
-
-    def _find_entrypoint(self, name, entrypoint=None):
-
-        spec_file_name = '{0}.spec'.format(name)
-        spec_file = os.path.join(self.repo_dir, spec_file_name)
-
-        if entrypoint is None and os.path.exists(spec_file):
-            return spec_file
-
-        script_file = os.path.join(name, 'shell', 'main.py')
-
-        entrypoint = entrypoint or script_file
-
-        full_path = os.path.join(self.repo_dir, entrypoint)
-        if not os.path.exists(full_path):
-            raise exceptions.EntrypointNotFoundException(repo=self._repo,
-                                                         expected_paths=[
-                                                             spec_file_name,
-                                                             script_file
-                                                         ])
-
-        return full_path

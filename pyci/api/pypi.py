@@ -33,7 +33,7 @@ class PyPI(object):
     def __init__(self, username, password, repository_url=None, test=False):
 
         if repository_url and test:
-            raise exceptions.BadArgumentException('Either repository_url or test is allowed')
+            raise exceptions.InvalidArgumentsException('Either repository_url or test is allowed')
 
         self.test = test
         self.repository_url = repository_url

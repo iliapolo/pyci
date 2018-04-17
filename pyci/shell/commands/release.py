@@ -186,7 +186,7 @@ def release(ctx,
                     finally:
                         os.remove(package)
 
-                except exceptions.EntrypointNotFoundException as ene:
+                except exceptions.DefaultEntrypointNotFoundException as ene:
                     # this is ok, the package doesn't contain an entrypoint in the
                     # expected default location. we should however print a log
                     # since the user might have expected the binary package (since the default is

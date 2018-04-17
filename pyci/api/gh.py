@@ -27,11 +27,10 @@ from github.GithubException import UnknownObjectException
 
 from pyci.api import exceptions
 from pyci.api import logger
-from pyci.api import setup
 from pyci.api import utils
 from pyci.api.changelog import Changelog
-from pyci.api.downloader import download
 from pyci.api.runner import LocalCommandRunner
+from pyci.api.utils import download
 
 log = logger.get_logger(__name__)
 
@@ -276,7 +275,7 @@ class _GitHubBranch(object):
 
         next_version = version or _bump_current_version()
 
-        setup_py = setup.generate(setup_py, next_version)
+        setup_py = utils.generate_setup_py(setup_py, next_version)
 
         commit_message = BUMP_COMMIT_MESSAGE_FORMAT.format(next_version, sha)
 

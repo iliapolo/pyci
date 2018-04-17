@@ -1,4 +1,3 @@
-#############################################################################
 # Copyright (c) 2018 Eli Polonsky. All rights reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,16 +14,50 @@
 #
 #############################################################################
 
-import zipfile
+import os
+import shutil
 import tempfile
 
+import pytest
 
-def extract(archive, target=None):
+from pyci.api.runner import LocalCommandRunner
 
-    target = target or tempfile.mkdtemp()
 
-    zip_ref = zipfile.ZipFile(archive, 'r')
-    zip_ref.extractall(target)
-    zip_ref.close()
+@pytest.fixture()
+def temp_file():
 
-    return target
+    file_path = tempfile.mkstemp()[1]
+
+    yield file_path
+
+    # cleanup
+    os.remove(file_path)
+
+
+@pytest.fixture()
+def temp_dir():
+
+    dir_path = tempfile.mkdtemp()
+
+    yield dir_path
+
+    # cleanup
+    shutil.rmtree(dir_path)
+
+
+@pytest.fixture()
+def home_dir():
+
+    homedir = tempfile.mkdtemp()
+    os.environ['HOME'] = homedir
+
+    yield homedir
+
+    # cleanup
+    shutil.rmtree(homedir)
+
+
+@pytest.fixture()
+def runner():
+
+    yield LocalCommandRunner()

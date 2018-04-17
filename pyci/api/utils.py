@@ -17,7 +17,11 @@
 
 import os
 import re
+import tempfile
+import uuid
+import zipfile
 
+import requests
 import semver
 from jinja2 import Template
 
@@ -143,3 +147,40 @@ def validate_does_not_exist(path):
         raise exceptions.FileExistException(path=path)
     if os.path.isdir(path):
         raise exceptions.FileIsADirectoryException(path=path)
+
+
+def extract(archive, target=None):
+
+    target = target or tempfile.mkdtemp()
+
+    zip_ref = zipfile.ZipFile(archive, 'r')
+    zip_ref.extractall(target)
+    zip_ref.close()
+
+    return target
+
+
+def download(url, target=None):
+
+    target = target or _create_random_file_name()
+
+    r = requests.get(url, stream=True)
+    with open(target, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+    return target
+
+
+def _create_random_file_name():
+
+    return os.path.join(tempfile.mkdtemp(), str(uuid.uuid4()))
+
+
+def generate_setup_py(setup_py, version):
+
+    p = re.compile('.*(version=.*),?')
+    match = p.search(setup_py)
+    if match:
+        return setup_py.replace(match.group(1), "version='{0}',".format(version))
+    raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)

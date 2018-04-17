@@ -147,16 +147,27 @@ class PackageNotFound(ApiException):
         return 'No python packages found at the root level of your repo ({0})'.format(self.repo)
 
 
-class EntrypointNotFoundException(ApiException):
+class DefaultEntrypointNotFoundException(ApiException):
 
     def __init__(self, repo, expected_paths):
         self.expected_paths = expected_paths
         self.repo = repo
-        super(EntrypointNotFoundException, self).__init__(self.__str__())
+        super(DefaultEntrypointNotFoundException, self).__init__(self.__str__())
 
     def __str__(self):
         return 'No entrypoint found for repo ({0}): Looked in --> [{1}]'.format(
             self.repo, ', '.join(self.expected_paths))
+
+
+class EntrypointNotFoundException(ApiException):
+
+    def __init__(self, repo, entrypoint):
+        self.entrypoint = entrypoint
+        self.repo = repo
+        super(EntrypointNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Entrypoint not found for repo ({0}): {1}'.format(self.repo, self.entrypoint)
 
 
 class CommitNotRelatedToIssueException(ApiException):
@@ -228,11 +239,11 @@ class FailedGeneratingSetupPyException(ApiException):
                '\nThe original file is: \n{1}'.format(self.version, self.setup_py)
 
 
-class BadArgumentException(ApiException):
+class InvalidArgumentsException(ApiException):
 
     def __init__(self, message):
         self.message = message
-        super(BadArgumentException, self).__init__(self.__str__())
+        super(InvalidArgumentsException, self).__init__(self.__str__())
 
     def __str__(self):
         return self.message
@@ -377,3 +388,17 @@ class IssueNotFoundException(ApiException):
             message = 'commit ({0}) --> issue ({1})'.format(self.commit_message, self.issue_number)
 
         return 'Issue not found: {0}'.format(message)
+
+
+class NotPythonProjectException(ApiException):
+
+    def __init__(self, repo, cause):
+        self.cause = cause
+        self.repo = repo
+        super(NotPythonProjectException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'It seems like the repository ({0}) does not contain a valid python project: {1}.' \
+               'Please follow the instructions to create a standard python project --> ' \
+               'https://packaging.python.org/tutorials/distributing-packages/'.format(self.repo,
+                                                                                      self.cause)
