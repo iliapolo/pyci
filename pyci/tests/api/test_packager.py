@@ -27,6 +27,8 @@ from pyci.api import logger, exceptions
 import pyci
 
 
+log = logger.get_logger('test')
+
 logger.setup_loggers('DEBUG')
 
 
@@ -34,7 +36,7 @@ logger.setup_loggers('DEBUG')
 def pack():
 
     local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
-    packager = Packager(path=local_repo_path)
+    packager = Packager(repo='iliapolo/pyci-guinea-pig', path=local_repo_path)
 
     yield packager
 

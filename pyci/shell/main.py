@@ -19,7 +19,7 @@ import sys
 
 import click
 
-from pyci.api.ci import CIDetector
+from pyci.api import ci
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.api.gh import GitHub
@@ -65,7 +65,7 @@ def app(ctx, debug):
     if debug:
         logger.setup_loggers(level='DEBUG')
 
-    ctx.ci = CIDetector().detect()
+    ctx.ci = ci.detect()
 
     if ctx.ci:
         log.info('Detected CI: {0}'.format(ctx.ci.name))

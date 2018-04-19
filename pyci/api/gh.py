@@ -40,13 +40,10 @@ BUMP_COMMIT_MESSAGE_FORMAT = 'Bump version to {0} following commit {1}'
 
 class GitHub(object):
 
-    __branches = {}
-
-    _hub = None
-
     def __init__(self, repo, access_token, master_branch='master'):
         self._hub = Github(access_token)
         self._repo_name = repo
+        self.__branches = {}
         self.master_branch_name = master_branch
 
     @cachedproperty
@@ -107,13 +104,21 @@ class GitHub(object):
             asset_name = os.path.basename(asset)
             raise exceptions.AssetAlreadyPublishedException(asset=asset_name,
                                                             release=git_release.title)
+        except GithubException as e:
+
+            if e.data['errors'][0]['code'] == 'already_exists':
+                asset_name = os.path.basename(asset)
+                raise exceptions.AssetAlreadyPublishedException(asset=asset_name,
+                                                                release=git_release.title)
+
+            raise
 
         return 'https://github.com/{0}/releases/download/{1}/{2}' \
             .format(self._repo_name, git_release.title, os.path.basename(asset))
 
     def issue(self, sha=None, commit_message=None):
 
-        assert sha or commit_message
+        assert sha or commit_message, 'sha or commit_message is required'
         assert not (sha and commit_message)
 
         if not commit_message:
@@ -207,11 +212,10 @@ class GitHub(object):
 
 class _GitHubBranch(object):
 
-    __commits = {}
-
     def __init__(self, gh, branch_name):
         self.github = gh
         self.branch_name = branch_name
+        self.__commits = {}
         self._runner = LocalCommandRunner()
 
     def validate(self, sha):
@@ -279,12 +283,14 @@ class _GitHubBranch(object):
 
         commit_message = BUMP_COMMIT_MESSAGE_FORMAT.format(next_version, sha)
 
-        if not dry and current_version != next_version:
+        if dry:
+            return setup_py
+
+        if current_version != next_version:
             return self.commit(file_path='setup.py',
                                file_contents=setup_py,
                                message=commit_message)
-
-        return setup_py
+        return None
 
     def _get_or_create_commit(self, sha):
         if sha not in self.__commits:
@@ -301,10 +307,13 @@ class _GitHubCommit(object):
 
     @cachedproperty
     def commit(self):
-        log.debug('Fetching commit [sha={0}]'.format(self._sha))
-        commit = self._branch.github.repo.get_commit(sha=self._sha)
-        log.debug('Fetched commit [commit={0}]'.format(commit.url))
-        return commit
+        try:
+            log.debug('Fetching commit [sha={0}]'.format(self._sha))
+            commit = self._branch.github.repo.get_commit(sha=self._sha)
+            log.debug('Fetched commit [commit={0}]'.format(commit.url))
+            return commit
+        except UnknownObjectException:
+            raise exceptions.CommitNotFoundException(sha=self._sha)
 
     @cachedproperty
     def pr(self):
@@ -388,7 +397,7 @@ class _GitHubCommit(object):
         release = self._create_release(version)
         log.debug('Successfully created release: {0}'.format(version))
 
-        for issue in changelog.issues:
+        for issue in changelog.all_issues:
             self._close_issue(issue, release)
 
         log.debug('Creating a version bump commit on branch: {0}'.format(self._branch.branch_name))
@@ -451,8 +460,7 @@ class _GitHubCommit(object):
             # this means the issue will not cause a version bump.
             # which means its not labeled as a release candidate.
             raise exceptions.IssueIsNotLabeledAsReleaseException(issue=self.issue.number,
-                                                                 sha=self.commit.sha,
-                                                                 pr=self.pr.number)
+                                                                 sha=self.commit.sha)
 
     def changelog(self):
 
@@ -471,10 +479,7 @@ class _GitHubCommit(object):
         commits = list(self._branch.github.repo.get_commits(sha=self.commit.sha, since=since))
         log.debug('Fetched {0} commits'.format(len(commits)))
 
-        features = set()
-        bugs = set()
-        internals = set()
-        dangling_commits = []
+        changelog = Changelog(current_version=self.setup_py_version)
 
         for commit in commits:
 
@@ -486,25 +491,21 @@ class _GitHubCommit(object):
                 continue
 
             if issue is None:
-                dangling_commits.append(commit.commit)
+                changelog.add_dangling_commit(commit.commit)
                 continue
 
             labels = [label.name for label in list(issue.get_labels())]
 
             if 'feature' in labels:
-                features.add(issue)
+                changelog.add_feature(issue)
 
-            if 'bug' in labels:
-                bugs.add(issue)
+            elif 'bug' in labels:
+                changelog.add_bug(issue)
 
-            if 'internal' in labels:
-                internals.add(issue)
+            else:
+                changelog.add_issue(issue)
 
-        return Changelog(features=features,
-                         bugs=bugs,
-                         internals=internals,
-                         dangling_commits=dangling_commits,
-                         current_version=self.setup_py_version)
+        return changelog
 
     def _create_release(self, next_release):
         try:

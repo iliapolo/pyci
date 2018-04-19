@@ -270,11 +270,11 @@ def changelog(ctx, sha, branch):
         bugs_table = _build_table(change_log.bugs)
 
     internals_table = None
-    if change_log.internals:
-        internals_table = _build_table(change_log.internals)
+    if change_log.other_issues:
+        internals_table = _build_table(change_log.other_issues)
 
     dangling_commits_table = None
-    if change_log.internals:
+    if change_log.other_issues:
         dangling_commits_table = _build_table(change_log.dangling_commits)
 
     next_version = change_log.next_version

@@ -16,11 +16,11 @@
 {% endfor %}
 {% endif %}
 
-{% if internals %}
-**Internals:**
+{% if issues %}
+**Issues:**
 
-{% for internal in internals %}
-- {{internal.title}} ([Issue]({{internal.url}}))
+{% for issue in issues %}
+- {{issue.title}} ([Issue]({{issue.url}}))
 {% endfor %}
 {% endif %}
 

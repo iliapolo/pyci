@@ -26,26 +26,6 @@ from pyci.api import utils
 from pyci.api.changelog import Change
 
 
-def test_get_pull_request_number():
-
-    actual = utils.get_pull_request_number('Implemented feature 1 (#6)')
-
-    expected = 6
-
-    assert expected == actual
-
-
-@pytest.mark.parametrize("keyword", utils.SUPPORTED_KEYWORDS)
-def test_get_issue_number(keyword):
-
-    pr_body = 'This pull request {0} #3 more text'.format(keyword)
-    actual = utils.get_issue_number(pr_body)
-
-    expected = '3'
-
-    assert expected == actual
-
-
 @pytest.mark.parametrize("last_release,labels,expected", [
     ("1.2.3", ['nothing'], "1.2.3"),
     ("1.2.3", ['patch'], "1.2.4"),

@@ -32,7 +32,7 @@ log = logger.get_logger(__name__)
 
 class Packager(object):
 
-    def __init__(self, repo=None, sha=None, path=None):
+    def __init__(self, repo, sha=None, path=None):
 
         if sha and path:
             raise exceptions.InvalidArgumentsException("Either 'sha' or 'path' is allowed")
@@ -191,10 +191,8 @@ class Packager(object):
             pass
 
         raise exceptions.DefaultEntrypointNotFoundException(repo=self._repo,
-                                                            expected_paths=[
-                                                                spec_file_basename,
-                                                                script_file
-                                                            ])
+                                                            name=self.name,
+                                                            top_level_package=top_level_pacakge)
 
     def _find_top_level_package(self):
 

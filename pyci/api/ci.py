@@ -134,7 +134,7 @@ class _AppVeyor(_CI):
         return os.environ.get('APPVEYOR')
 
 
-class CIDetector(object):
+class _CIDetector(object):
 
     _ci_systems = []
 
@@ -150,3 +150,7 @@ class CIDetector(object):
                 ci = system
 
         return ci
+
+
+def detect():
+    return _CIDetector().detect()

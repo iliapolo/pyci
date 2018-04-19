@@ -16,49 +16,34 @@
 #############################################################################
 
 from boltons.cacheutils import cachedproperty
+from jinja2 import Template
 
 from pyci.api import utils
+from pyci.resources import get_resource
 
 
 class Changelog(object):
 
-    def __init__(self, features, bugs, internals, dangling_commits, current_version):
+    def __init__(self, current_version):
         self._current_version = current_version
-        self._features = features
-        self._bugs = bugs
-        self._internals = internals
-        self._dangling_commits = dangling_commits
+        self.features = set()
+        self.bugs = set()
+        self.issues = set()
+        self.dangling_commits = set()
 
     @property
-    def features(self):
-        return self._sort_issues(self._features or [])
-
-    @property
-    def bugs(self):
-        return self._sort_issues(self._bugs or [])
-
-    @property
-    def internals(self):
-        return self._sort_issues(self._internals or [])
-
-    @property
-    def dangling_commits(self):
-        return self._sort_commits(self._dangling_commits or [])
-
-    @property
-    def issues(self):
-        all_issues = []
-        all_issues.extend(self.features)
-        all_issues.extend(self.bugs)
-        all_issues.extend(self.internals)
-        return self._sort_issues(all_issues)
+    def all_issues(self):
+        the_lot = []
+        the_lot.extend(self.features)
+        the_lot.extend(self.bugs)
+        the_lot.extend(self.issues)
+        return self._sort_issues(the_lot)
 
     @property
     def empty(self):
         return not (self.features or
                     self.bugs or
-                    self.dangling_commits or
-                    self.internals or
+                    self.issues or
                     self.dangling_commits)
 
     @cachedproperty
@@ -66,23 +51,38 @@ class Changelog(object):
 
         result = self._current_version
 
-        for issue in self._sort_issues(self.issues, reverse=False):
+        for issue in self._sort_issues(self.all_issues, reverse=False):
             label_names = [label.name for label in list(issue.get_labels())]
             result = utils.get_next_release(result, label_names)
 
         return None if result == self._current_version else result
 
+    def add_feature(self, feature):
+        self.features.add(feature)
+
+    def add_bug(self, bug):
+        self.bugs.add(bug)
+
+    def add_issue(self, other_issue):
+        self.issues.add(other_issue)
+
     def add_dangling_commit(self, commit):
-        self._dangling_commits.append(commit)
-        self._dangling_commits = self._sort_commits(self._dangling_commits)
+        self.dangling_commits.add(commit)
 
     def render(self):
-        return utils.render_changelog(
-            features=[self._issue_to_change(feature) for feature in self.features],
-            bugs=[self._issue_to_change(bug) for bug in self.bugs],
-            internals=[self._issue_to_change(internal) for internal in self.internals],
-            dangling_commits=[self._commit_to_change(dangling_commit) for dangling_commit in
-                              self.dangling_commits]
+
+        features = {self._issue_to_change(feature) for feature in self._sort_issues(self.features)}
+        bugs = {self._issue_to_change(bug) for bug in self._sort_issues(self.bugs)}
+        issues = {self._issue_to_change(other_issue) for other_issue in self._sort_issues(
+            self.issues)}
+        dangling_commits = {self._commit_to_change(commit) for commit in self._sort_commits(
+            self.dangling_commits)}
+
+        return Template(get_resource('changelog.jinja')).render(
+            features=features,
+            bugs=bugs,
+            issues=issues,
+            dangling_commits=dangling_commits
         )
 
     @staticmethod

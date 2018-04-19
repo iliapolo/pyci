@@ -30,45 +30,6 @@ from pyci.resources import get_resource
 from pyci.api.runner import LocalCommandRunner
 
 
-# see https://help.github.com/articles/closing-issues-using-keywords/
-SUPPORTED_KEYWORDS = [
-
-    'close',
-    'closes',
-    'closed',
-    'fix',
-    'fixes',
-    'fixed',
-    'resolve',
-    'resolves',
-    'resolved'
-
-]
-
-
-def get_issue_number(pr_body):
-
-    # pylint: disable=anomalous-backslash-in-string
-    p = re.compile('.* ?({0}) #(\d+)'.format('|'.join(SUPPORTED_KEYWORDS)))
-    match = p.match(pr_body)
-
-    if match:
-        return match.group(2)
-
-    return None
-
-
-def get_pull_request_number(commit_message):
-
-    # pylint: disable=anomalous-backslash-in-string
-    p = re.compile('.* ?\(#(\d+)\)')
-    match = p.match(commit_message)
-    if match:
-        return int(match.group(1))
-
-    return None
-
-
 def get_href(commit_message):
 
     # pylint: disable=anomalous-backslash-in-string

@@ -14,36 +14,24 @@
 #   * limitations under the License.
 #
 #############################################################################
+import os
 
 
 class ApiException(BaseException):
     pass
 
 
-class InvalidCommitMessage(ApiException):
-
-    def __init__(self, commit_message):
-        self.commit_message = commit_message
-        super(InvalidCommitMessage, self).__init__(self.__str__())
-
-    def __str__(self):
-        return "Invalid commit message ({0}: Must contain a reference to the pull request by " \
-               "using the '(#<pull-request-id)' string inside the message>"\
-               .format(self.commit_message)
-
-
-class InvalidPullRequestBody(ApiException):
-
-    def __init__(self, body):
-        self.body = body
-        super(InvalidPullRequestBody, self).__init__(self.__str__())
-
-    def __str__(self):
-        return "Invalid pull request body ({0}): Must contain a reference to the issue number by " \
-               "using the '#<issue-id>' string inside the body"
-
-
 class ReleaseNotFoundException(ApiException):
+
+    """
+
+    Raised when the release id does not match any existing github releases.
+
+    Args:
+
+        release (str): The id of the release
+
+    """
 
     def __init__(self, release):
         self.release = release
@@ -51,17 +39,6 @@ class ReleaseNotFoundException(ApiException):
 
     def __str__(self):
         return 'Release not found: {0}'.format(self.release)
-
-
-class MultipleReleasesFoundException(ApiException):
-
-    def __init__(self, release, how_many):
-        self.how_many = how_many
-        self.release = release
-        super(MultipleReleasesFoundException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Multiple releases found ({0}): {1}'.format(self.release, self.how_many)
 
 
 class RefNotFoundException(ApiException):
@@ -74,29 +51,20 @@ class RefNotFoundException(ApiException):
         return 'Ref not found: {0}'.format(self.ref)
 
 
-class MultipleRefsFoundException(ApiException):
-
-    def __init__(self, ref, how_many):
-        self.how_many = how_many
-        self.ref = ref
-        super(MultipleRefsFoundException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Multiple refs found ({0}): {1}'.format(self.ref, self.how_many)
-
-
-class TagNotFoundException(ApiException):
-
-    def __init__(self, tag, release):
-        self.tag = tag
-        self.release = release
-        super(TagNotFoundException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Tag ({0}) not found for release: {1}'.format(self.tag, self.release)
-
-
 class CommandExecutionException(ApiException):
+
+    """
+
+    Raised when a local command execution failed to complete successfully.
+
+    Args:
+
+        command (str): The command to execute.
+        error (str): The error output of the execution.
+        output (str): The standard output of the execution.
+        code (int): The exit code of the execution.
+
+    """
 
     def __init__(self, command, error, output, code):
         self.command = command
@@ -115,17 +83,20 @@ class CommandExecutionException(ApiException):
                     self.output or None)
 
 
-class BinaryAlreadyExists(ApiException):
-
-    def __init__(self, path):
-        self.path = path
-        super(BinaryAlreadyExists, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Binary file already exists: {0}'.format(self.path)
-
-
 class MultiplePackagesFound(ApiException):
+
+    """
+
+    Raised when multiple top level python packages are found in the repository.
+    A properly structured python project should contain a top level package, usually named
+    after the project name. All other python packages should reside under it.
+
+    Args:
+
+        repo (str): The repository in question.
+        packages (set): All the top level packages found.
+
+    """
 
     def __init__(self, repo, packages):
         self.repo = repo
@@ -139,6 +110,17 @@ class MultiplePackagesFound(ApiException):
 
 class PackageNotFound(ApiException):
 
+    """
+    Raised when no top level python package was found in the repository.
+    A properly structured python project should contain a top level package, usually named
+    after the project name. All other python packages should reside under it.
+
+    Args:
+
+        repo (str): The repository in question.
+
+    """
+
     def __init__(self, repo):
         self.repo = repo
         super(PackageNotFound, self).__init__(self.__str__())
@@ -149,17 +131,48 @@ class PackageNotFound(ApiException):
 
 class DefaultEntrypointNotFoundException(ApiException):
 
-    def __init__(self, repo, expected_paths):
-        self.expected_paths = expected_paths
+    """
+
+    Raised when attempting to locate a default entrypoint for building a binary package.
+    This process takes place if the user does not provide a specific entrypoint. In which case,
+    pyci will look for a .spec or a main.py file.
+
+    Args:
+
+        repo (str): The repository in question.
+        name (str): The project name as defined in the setup.py file.
+        top_level_package (str): The name of the top level python package.
+
+    """
+
+    def __init__(self, repo, name, top_level_package):
+        self.top_level_package = top_level_package
+        self.name = name
         self.repo = repo
         super(DefaultEntrypointNotFoundException, self).__init__(self.__str__())
 
     def __str__(self):
+
+        expected_paths = [
+            os.path.join(self.top_level_package, 'shell', 'main.py'),
+            '{0}.spec'.format(self.name)
+        ]
+
         return 'No entrypoint found for repo ({0}): Looked in --> [{1}]'.format(
-            self.repo, ', '.join(self.expected_paths))
+            self.repo, ', '.join(expected_paths))
 
 
 class EntrypointNotFoundException(ApiException):
+
+    """
+
+    Raised when the entrypoint a user provided does not exist.
+
+    Args:
+
+        repo (str): THe repository in question.
+
+    """
 
     def __init__(self, repo, entrypoint):
         self.entrypoint = entrypoint
@@ -172,6 +185,16 @@ class EntrypointNotFoundException(ApiException):
 
 class CommitNotRelatedToIssueException(ApiException):
 
+    """
+
+    Raised when the commit we want to release is not related to any issue (i.e dangling commit).
+
+    Args:
+
+        sha (str): The sha of the commit.
+
+    """
+
     def __init__(self, sha):
         self.sha = sha
         super(CommitNotRelatedToIssueException, self).__init__(self.__str__())
@@ -182,18 +205,40 @@ class CommitNotRelatedToIssueException(ApiException):
 
 class IssueIsNotLabeledAsReleaseException(ApiException):
 
-    def __init__(self, sha, pr, issue):
-        self.pr = pr
+    """
+
+    Raised when the issue related to the commit we want to release, is not labeled with any release
+    labels (e.g patch, minor, major)
+
+    Args:
+
+        sha (str): The sha of the commit.
+        issue (int): The issue number.
+
+    """
+
+    def __init__(self, sha, issue):
         self.sha = sha
         self.issue = issue
         super(IssueIsNotLabeledAsReleaseException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Issue is not labeled with any release labels: {0} (commit {1}, pr {2})'\
-            .format(self.issue, self.sha, self.pr)
+        return 'Issue ({0}) of commit ({1} is not labeled with any release labels'\
+            .format(self.issue, self.sha)
 
 
 class CommitIsAlreadyReleasedException(ApiException):
+
+    """
+
+    Raised when the commit we want to release is already released.
+
+    Args:
+
+        sha (str): The sha of the commit to release.
+        release (str): The id of the release its released in.
+
+    """
 
     def __init__(self, sha, release):
         self.sha = sha
@@ -204,7 +249,31 @@ class CommitIsAlreadyReleasedException(ApiException):
         return 'Commit is already released: {0} (release {1})'.format(self.sha, self.release)
 
 
+class CommitNotFoundException(ApiException):
+
+    """
+
+    Raised when the commit sha specified does not exist.
+
+    Args:
+
+        sha (str): The sha of the commit.
+
+    """
+
+    def __init__(self, sha):
+        self.sha = sha
+        super(CommitNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Commit not found: {0}'.format(self.sha)
+
+
 class ReleaseConflictException(ApiException):
+
+    """
+
+    """
 
     def __init__(self, our_sha, their_sha, release):
         self.our_sha = our_sha
@@ -219,6 +288,16 @@ class ReleaseConflictException(ApiException):
 
 class NotReleaseCandidateException(ApiException):
 
+    """
+
+    Raised when the current build should not trigger a release process.
+
+    Args:
+
+         reason (str): The reason why a release should not take place.
+
+    """
+
     def __init__(self, reason):
         self.reason = reason
         super(NotReleaseCandidateException, self).__init__(self.__str__())
@@ -228,6 +307,12 @@ class NotReleaseCandidateException(ApiException):
 
 
 class FailedGeneratingSetupPyException(ApiException):
+
+    """
+
+    Raised when the setup.py file
+
+    """
 
     def __init__(self, setup_py, version):
         self.setup_py = setup_py
@@ -244,16 +329,6 @@ class InvalidArgumentsException(ApiException):
     def __init__(self, message):
         self.message = message
         super(InvalidArgumentsException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return self.message
-
-
-class FailedReleasingCommitException(ApiException):
-
-    def __init__(self, message):
-        self.message = message
-        super(FailedReleasingCommitException, self).__init__(self.__str__())
 
     def __str__(self):
         return self.message
