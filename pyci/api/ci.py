@@ -28,34 +28,96 @@ APPVEYOR = 'AppVeyor'
 
 class _CI(object):
 
+    """
+    Represents a specific CI system. It provides access to various data that CI systems can
+    offer us using environment variables. Neither this class nor its children are meant for
+    direct instantiation.
+    Instead, use the 'detect()' function of this module to automatically get the appropriate
+    implementation for the current execution environment.
+
+    However, have a look at the public properties of this class to get an idea of what
+    information get you access.
+
+    """
+
     @property
     def name(self):
+
+        """
+        Returns:
+            str: The name of the CI system. (e.g Travis-CI)
+        """
         raise NotImplementedError()
 
     @property
     def repo(self):
+
+        """
+        Returns:
+            str: The name of the repository the build is running for.
+        """
         raise NotImplementedError()
 
     @property
     def sha(self):
+
+        """
+        Returns:
+            str: The commit sha that triggered the build.
+        """
         raise NotImplementedError()
 
     @property
     def branch(self):
+
+        """
+        Returns:
+            str: The name of the branch the commit was pushed to.
+        """
         raise NotImplementedError()
 
     @property
     def pull_request(self):
+
+        """
+        Returns:
+            int: If this build is a PR build, gives the PR number. Otherwise will return None.
+        """
         raise NotImplementedError()
 
     @property
     def tag(self):
+
+        """
+        Returns:
+            str: If this build is a TAG build, gives the TAG name. Otherwise will return None.
+        """
         raise NotImplementedError()
 
     def detect(self):
+
+        """
+        Returns:
+            bool: Check if the specific implementation is the correct one.
+        """
         raise NotImplementedError()
 
     def validate_rc(self, release_branch):
+
+        """
+        Validates the current build should trigger a release process. There are a few conditions
+        for that:
+
+            1. The current build is not a PR build.
+
+            2. The current build is not a TAG build.
+
+            3. The current build branch is the same as the release branch.
+
+        Raises:
+              NotReleaseCandidateException: Raised when the current build is deemed as not
+              release worthy. That is, the current build should not trigger a release process.
+        """
 
         if self.pull_request:
             raise exceptions.NotReleaseCandidateException(reason='Build is a Pull Request ({0})'
@@ -153,4 +215,12 @@ class _CIDetector(object):
 
 
 def detect():
+
+    """
+    Detects which CI system we are currently running on.
+
+    Returns:
+         _CI: The specific implementation for the detected system.
+    """
+
     return _CIDetector().detect()

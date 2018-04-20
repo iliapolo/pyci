@@ -24,13 +24,10 @@ class ApiException(BaseException):
 class ReleaseNotFoundException(ApiException):
 
     """
-
     Raised when the release id does not match any existing github releases.
 
     Args:
-
         release (str): The id of the release
-
     """
 
     def __init__(self, release):
@@ -54,16 +51,13 @@ class RefNotFoundException(ApiException):
 class CommandExecutionException(ApiException):
 
     """
-
     Raised when a local command execution failed to complete successfully.
 
     Args:
-
         command (str): The command to execute.
         error (str): The error output of the execution.
         output (str): The standard output of the execution.
         code (int): The exit code of the execution.
-
     """
 
     def __init__(self, command, error, output, code):
@@ -86,16 +80,13 @@ class CommandExecutionException(ApiException):
 class MultiplePackagesFound(ApiException):
 
     """
-
     Raised when multiple top level python packages are found in the repository.
     A properly structured python project should contain a top level package, usually named
     after the project name. All other python packages should reside under it.
 
     Args:
-
         repo (str): The repository in question.
         packages (set): All the top level packages found.
-
     """
 
     def __init__(self, repo, packages):

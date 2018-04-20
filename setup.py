@@ -59,6 +59,8 @@ setup(
         'boltons==18.0.0',
         'wheel==0.29.0',
         'twine==1.11.0',
-        'prettytable==0.7.2'
+        'prettytable==0.7.2',
+        'Sphinx==1.7.2',
+        'sphinx-autobuild==0.7.1'
     ]
 )
