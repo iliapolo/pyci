@@ -18,7 +18,14 @@
 import pkgutil
 
 
-def get_resource(name):
+def get_resource(path):
 
-    resource_binary = pkgutil.get_data(__name__, name)
+    """
+    Fetch a resource file as a string.
+
+    Args:
+          path (str): The path of the resource relative to this package.
+    """
+
+    resource_binary = pkgutil.get_data(__name__, path)
     return resource_binary.decode('UTF-8', 'ignore')

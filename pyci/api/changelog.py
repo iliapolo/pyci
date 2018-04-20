@@ -15,11 +15,13 @@
 #
 #############################################################################
 
+import copy
 from boltons.cacheutils import cachedproperty
 from jinja2 import Template
 
 from pyci.api import utils
 from pyci.resources import get_resource
+from pyci.api import exceptions
 from pyci.api import logger
 
 
@@ -62,12 +64,23 @@ class Changelog(object):
     """
 
     def __init__(self, sha, current_version):
+
+        if not sha:
+            raise exceptions.InvalidArgumentsException('sha cannot be None')
+
+        if not current_version:
+            raise exceptions.InvalidArgumentsException('current_version cannot be None')
+
         self._current_version = current_version
         self.sha = sha
         self.features = set()
         self.bugs = set()
         self.issues = set()
         self.dangling_commits = set()
+        self._log_ctx = {
+            'sha': self.sha,
+            'current_version': self._current_version
+        }
 
     @property
     def all_issues(self):
@@ -75,7 +88,7 @@ class Changelog(object):
         """
         Returns:
             list: A list containing all issues associated with this changelog. Regardless of
-            their label.
+                their label.
         """
 
         the_lot = []
@@ -90,7 +103,7 @@ class Changelog(object):
         """
         Returns:
              bool: True if the changelog is empty (i.e does not contain any commits nor issues),
-             False otherwise
+                False otherwise
         """
 
         return not (self.features or
@@ -112,19 +125,17 @@ class Changelog(object):
 
         result = self._current_version
 
-        log.debug('Determining next version. [current_version={}]'.format(self._current_version))
+        self._debug('Determining next version...')
 
         for issue in self._sort_issues(self.all_issues, reverse=False):
             label_names = [label.name for label in list(issue.get_labels())]
-            log.debug('Applying issue on incremental result. [issue={}, result={}]'.format(
-                issue.number, result))
-            result = utils.get_next_release(result, label_names)
-            log.debug('Applied issue on incremental result. [issue={}, result={}]'
-                      .format(issue, result))
+            self._debug('Applying issue on incremental result.', issue=issue.number, result=result)
+            result = utils.bump_version(result, label_names)
+            self._debug('Applied issue on incremental result.', issue=issue.number, result=result)
 
         result = None if result == self._current_version else result
 
-        log.debug('Determined next version. [next_version={}]'.format(result))
+        self._debug('Determined next version.', next_version=result)
 
         return result
 
@@ -132,6 +143,9 @@ class Changelog(object):
 
         """
         Add a feature to this changelog.
+
+        Args:
+            feature (github.Issue): The feature to add.
         """
 
         self.features.add(feature)
@@ -140,22 +154,31 @@ class Changelog(object):
 
         """
         Add a bug to this changelog.
+
+        Args:
+            bug (github.Issue): The bug to add.
         """
 
         self.bugs.add(bug)
 
-    def add_issue(self, other_issue):
+    def add_issue(self, issue):
 
         """
         Add an issue to this changelog.
+
+        Args:
+            issue (github.Issue): The issue to add.
         """
 
-        self.issues.add(other_issue)
+        self.issues.add(issue)
 
     def add_dangling_commit(self, commit):
 
         """
         Add a dangling commit to this changelog.
+
+        Args:
+            commit (github.Commit): The commit to add.
         """
 
         self.dangling_commits.add(commit)
@@ -178,20 +201,29 @@ class Changelog(object):
         dangling_commits = {self._commit_to_change(commit) for commit in self._sort_commits(
             self.dangling_commits)}
 
-        return Template(get_resource('changelog.jinja')).render(
-            features=features,
-            bugs=bugs,
-            issues=issues,
-            dangling_commits=dangling_commits
-        )
+        kw = {
+            'features': features,
+            'bugs': bugs,
+            'issues': issues,
+            'dangling_commits': dangling_commits
+        }
 
-    @staticmethod
-    def _issue_to_change(issue):
-        return Change(title=issue.title, url=issue.html_url)
+        self._debug('Rendering changelog markdown file', **kw)
+        markdown = Template(get_resource('changelog.jinja')).render(**kw)
+        self._debug('Rendered markdown', changelog=markdown, **kw)
+        return markdown
 
-    @staticmethod
-    def _commit_to_change(commit):
-        return Change(title=commit.message, url=commit.html_url)
+    def _issue_to_change(self, issue):
+        self._debug('Transforming issue to Change', issue=issue.number)
+        change = Change(title=issue.title, url=issue.html_url)
+        self._debug('Transformed issue to Change', issue=issue.number, change=change)
+        return change
+
+    def _commit_to_change(self, commit):
+        self._debug('Transforming commit to Change', commit=commit.sha)
+        change = Change(title=commit.message, url=commit.html_url)
+        self._debug('Transformed commit to Change', sha=commit.sha, change=change)
+        return change
 
     @staticmethod
     def _sort_issues(issues, reverse=True):
@@ -200,6 +232,11 @@ class Changelog(object):
     @staticmethod
     def _sort_commits(commits, reverse=True):
         return sorted(commits, key=lambda commit: commit.author.date, reverse=reverse)
+
+    def _debug(self, message, **kwargs):
+        kwargs = copy.deepcopy(kwargs)
+        kwargs.update(self._log_ctx)
+        log.debug(message, **kwargs)
 
 
 # pylint: disable=too-few-public-methods
@@ -214,3 +251,6 @@ class Change(object):
 
     def __hash__(self):
         return hash(self.url)
+
+    def __str__(self):
+        return 'Change[title={}, url={}]'.format(self.title, self.url)

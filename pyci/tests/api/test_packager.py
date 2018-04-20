@@ -67,7 +67,7 @@ def test_entrypoint_no_entrypoint():
                         sha='b22803b93eaca693db78f9d551ec295946765135')
 
     with pytest.raises(exceptions.DefaultEntrypointNotFoundException):
-        _ = packager.entrypoint
+        _ = packager._default_entrypoint
 
 
 def test_entrypoint_script():
@@ -77,7 +77,7 @@ def test_entrypoint_script():
     packager = Packager(repo='iliapolo/pyci-guinea-pig',
                         sha='0596d82b4786a531b7370448e2b5d0de9922f01a')
 
-    assert os.path.join('pyci_guinea_pig', 'shell', 'main.py') in packager.entrypoint
+    assert os.path.join('pyci_guinea_pig', 'shell', 'main.py') in packager._default_entrypoint
 
 
 def test_entrypoint_spec():
@@ -87,7 +87,7 @@ def test_entrypoint_spec():
     packager = Packager(repo='iliapolo/pyci-guinea-pig',
                         sha='6cadc14419e57549365ac4dabea59c4c08be581c')
 
-    assert 'pyci-guinea-pig.spec' in packager.entrypoint
+    assert 'pyci-guinea-pig.spec' in packager._default_entrypoint
 
 
 def test_wheel(packager, temp_dir):

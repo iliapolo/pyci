@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import copy
 import os
 import platform
 import shutil
@@ -24,7 +25,7 @@ from boltons.cacheutils import cachedproperty
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
-from pyci.api.utils import extract, download
+from pyci.api.utils import unzip, download
 from pyci.api.runner import LocalCommandRunner
 
 log = logger.get_logger(__name__)
@@ -32,27 +33,86 @@ log = logger.get_logger(__name__)
 
 class Packager(object):
 
-    def __init__(self, repo, sha=None, path=None):
+    """
+    Provides packaging capabilities.
+
+    A packager instance is associated with a specific version of your repository, and is capable
+    of packing various formats of it.
+
+    If you specify a sha, the packager will download your repository from that sha and
+    operate on it. If you specify a local path, it will create a copy of your local
+    repository version and operate on that, in which case, the sha argument is irrelevant.
+
+    Args:
+        repo (:`str`, optional): The repository full name.
+        sha (:`str`, optional): The of the repository.
+        path (:`str`, optional): The path to your local working copy of the repository.
+
+    """
+
+    def __init__(self, repo=None, sha=None, path=None):
+
+        if sha and not repo:
+            raise exceptions.InvalidArgumentsException('repo must be provided when using sha')
 
         if sha and path:
-            raise exceptions.InvalidArgumentsException("Either 'sha' or 'path' is allowed")
+            raise exceptions.InvalidArgumentsException("either 'sha' or 'path' is allowed")
 
         if not sha and not path:
-            raise exceptions.InvalidArgumentsException("Either 'sha' or 'path' is required")
+            raise exceptions.InvalidArgumentsException("either 'sha' or 'path' is required")
 
         self._repo = repo
         self._sha = sha
         self._path = path
         self._runner = LocalCommandRunner()
+        self._log_ctx = {
+            'repo': self._repo,
+            'sha': self._sha,
+            'path': self._path
+        }
 
-    def binary(self, entrypoint=None, name=None, target_dir=None):
+    def binary(self, name=None, entrypoint=None, target_dir=None):
+
+        """
+        Create a binary executable.
+
+        This method will create a self-contained, platform dependent, executable file. The
+        executable will include a full copy of the current python version, meaning you will be
+        able to run this executable even on environments that dont have python installed.
+
+        Under the hood, this uses the PyInstaller project.
+
+        Args:
+            name (str): The base name of the target file. The final name will be in the
+               form of: <name>-<platform-machine>-<platform-system> (e.g pyci-x86_64-Darwin).
+               Defaults to the 'name' specified in your setup.py file.
+            entrypoint (:`str`, optional): Path to a script file from which the executable
+               is built. This can either by a .py or a .spec file.
+               By default, the packager will look for the following files (in order):
+                   - <name>.spec
+                   - shell/main.py
+            target_dir (str): Path to a directory where the file will be placed.
+               Defaults to the current directory.
+
+        For more information please visit https://www.pyinstaller.org/.
+
+        Raises:
+            FileExistsException: Raised if the destination file already exists.
+            FileIsADirectoryException: Raised if the destination file already exists and is a
+                directory.
+            DefaultEntrypointNotFoundException: Raised when a custom entrypoint is not provided
+                and the default entry-points pyci looks for are also missing.
+            EntrypointNotFoundException: Raised when the custom entrypoint provided does not
+                exist in the repository.
+
+        """
 
         temp_dir = tempfile.mkdtemp()
         try:
 
             target_dir = target_dir or os.getcwd()
-            name = name or self.name
-            entrypoint = entrypoint or self.entrypoint
+            name = name or self._default_name
+            entrypoint = entrypoint or self._default_entrypoint
 
             destination = os.path.join(target_dir, '{0}-{1}-{2}'.format(name,
                                                                         platform.machine(),
@@ -63,18 +123,16 @@ class Packager(object):
 
             utils.validate_does_not_exist(path=destination)
 
-            log.debug('Binary path will be: {0}'.format(destination))
-            log.debug('Entrypoint assumed as: {0}'.format(entrypoint))
-
             dist_dir = os.path.join(temp_dir, 'dist')
             build_dir = os.path.join(temp_dir, 'build')
 
-            script = os.path.join(self.repo_dir, entrypoint)
+            script = os.path.join(self._repo_dir, entrypoint)
 
             if not os.path.exists(script):
                 raise exceptions.EntrypointNotFoundException(repo=self._repo,
                                                              entrypoint=entrypoint)
 
+            self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
             result = self._runner.run('pyinstaller --onefile --distpath {0} '
                                       '--workpath {1} --specpath {2} {3}'
                                       .format(dist_dir,
@@ -83,21 +141,47 @@ class Packager(object):
                                               script),
                                       stdout_pipe=False)
 
+            self._debug('Finished running pyinstaller', entrypoint=entrypoint, 
+                        destination=destination)
+
             if result.std_err:
-                log.debug('pyinstaller command error: {0}'.format(result.std_err))
+                self._debug(result.std_err)
 
             if result.std_out:
-                log.debug('pyinstaller command output: {0}'.format(result.std_out))
+                self._debug(result.std_out)
 
             actual_name = utils.lsf(dist_dir)[0]
 
-            shutil.copy(os.path.join(dist_dir, actual_name), destination)
-            log.debug('Packaged successfully: {0}'.format(destination))
+            package_path = os.path.join(dist_dir, actual_name)
+            self._debug('Copying package to destination...', src=package_path, dst=destination)
+            shutil.copy(package_path, destination)
+
+            self._debug('Packaged successfully.', package=destination)
             return os.path.abspath(destination)
         finally:
             shutil.rmtree(temp_dir)
 
     def wheel(self, target_dir=None, universal=False):
+
+        """
+        Create a wheel package.
+
+        This method will create a wheel package, according the the regular python wheel standards.
+
+        Under the hood, this uses the bdist_wheel command provider by the wheel project.
+
+        Args:
+            target_dir (str): Path to the directory the wheel will be placed in.
+            universal (bool): True if the created will should be universal, False otherwise.
+
+        Raises:
+            FileExistsException: Raised if the destination file already exists.
+            FileIsADirectoryException: Raised if the destination file already exists and is a
+                directory.
+
+        For more information please visit https://pythonwheels.com/.
+
+        """
 
         temp_dir = tempfile.mkdtemp()
         try:
@@ -113,13 +197,15 @@ class Packager(object):
             if universal:
                 command = '{0} --universal'.format(command)
 
-            result = self._runner.run(command, cwd=self.repo_dir)
+            self._debug('Running bdist_wheel...', universal=universal)
+            result = self._runner.run(command, cwd=self._repo_dir)
+            self._debug('Finished running bdist_wheel.', universal=universal)
 
             if result.std_err:
-                log.debug('wheel command error: {0}'.format(result.std_err))
+                self._debug(result.std_err)
 
             if result.std_out:
-                log.debug('wheel command output: {0}'.format(result.std_out))
+                self._debug(result.std_out)
 
             actual_name = utils.lsf(dist_dir)[0]
 
@@ -128,38 +214,38 @@ class Packager(object):
             utils.validate_does_not_exist(path=destination)
 
             shutil.copy(os.path.join(dist_dir, actual_name), destination)
-            log.debug('Packaged successfully: {0}'.format(destination))
+            self._debug('Packaged successfully.', package=destination)
             return os.path.abspath(destination)
 
         finally:
             shutil.rmtree(temp_dir)
 
     @cachedproperty
-    def repo_dir(self):
+    def _repo_dir(self):
 
         if self._path:
 
-            log.debug('Copying local repository to temp directory...')
+            self._debug('Copying local repository to temp directory...')
             temp_dir = tempfile.mkdtemp()
             repo_copy = os.path.join(temp_dir, 'repo')
             shutil.copytree(self._path, repo_copy)
-            log.debug('Successfully copied repo to: {0}'.format(repo_copy))
+            self._debug('Successfully copied repo.', repo_copy=repo_copy)
             return repo_copy
 
         repo_base_name = '/'.join(self._repo.split('/')[1:])
 
-        log.debug('Fetching repository ({0})...'.format(self._sha))
+        self._debug('Fetching repository...')
         url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
         archive = download(url)
-        repo_dir = extract(archive=archive)
-        log.debug('Successfully fetched repository: {0}'.format(repo_dir))
+        repo_dir = unzip(archive=archive)
+        self._debug('Successfully fetched repository.', repo_dir=repo_dir)
 
         return os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
 
     @cachedproperty
-    def name(self):
+    def _default_name(self):
 
-        setup_py_file = os.path.join(self.repo_dir, 'setup.py')
+        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
 
         try:
             utils.validate_file_exists(setup_py_file)
@@ -169,11 +255,11 @@ class Packager(object):
         return self._runner.run('python {0} --name'.format(setup_py_file)).std_out
 
     @cachedproperty
-    def entrypoint(self):
+    def _default_entrypoint(self):
 
         # first look for a spec file in the repository root.
-        spec_file_basename = '{0}.spec'.format(self.name)
-        spec_file_path = os.path.join(self.repo_dir, spec_file_basename)
+        spec_file_basename = '{0}.spec'.format(self._default_name)
+        spec_file_path = os.path.join(self._repo_dir, spec_file_basename)
         try:
             utils.validate_file_exists(path=spec_file_path)
             return spec_file_path
@@ -183,7 +269,7 @@ class Packager(object):
         # now look for a main.py file
         top_level_pacakge = self._find_top_level_package()
         script_file = os.path.join(top_level_pacakge, 'shell', 'main.py')
-        full_path = os.path.join(self.repo_dir, script_file)
+        full_path = os.path.join(self._repo_dir, script_file)
         try:
             utils.validate_file_exists(path=full_path)
             return full_path
@@ -191,17 +277,17 @@ class Packager(object):
             pass
 
         raise exceptions.DefaultEntrypointNotFoundException(repo=self._repo,
-                                                            name=self.name,
+                                                            name=self._default_name,
                                                             top_level_package=top_level_pacakge)
 
     def _find_top_level_package(self):
 
-        directories = utils.lsd(self.repo_dir)
+        directories = utils.lsd(self._repo_dir)
 
         possibles = set()
 
         for directory in directories:
-            if os.path.exists(os.path.join(self.repo_dir, directory, '__init__.py')):
+            if os.path.exists(os.path.join(self._repo_dir, directory, '__init__.py')):
                 possibles.add(directory)
 
         if not possibles:
@@ -211,3 +297,8 @@ class Packager(object):
             raise exceptions.MultiplePackagesFound(repo=self._repo, packages=possibles)
 
         return possibles.pop()
+
+    def _debug(self, message, **kwargs):
+        kwargs = copy.deepcopy(kwargs)
+        kwargs.update(self._log_ctx)
+        self._debug(message, **kwargs)

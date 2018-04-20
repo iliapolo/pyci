@@ -145,7 +145,7 @@ class GitHub(object):
             self._debug('Fetched commit message...', sha=sha, commit_message=commit_message)
 
         self._debug('Extracting link...', sha=sha, commit_message=commit_message)
-        ref = utils.get_href(commit_message)
+        ref = utils.extract_link(commit_message)
         self._debug('Extracted link.', sha=sha, commit_message=commit_message, link=ref)
 
         pr_number = None
@@ -164,7 +164,7 @@ class GitHub(object):
 
                 self._debug('Extracting issue number from pull request body...', sha=sha, 
                             commit_message=commit_message, ref=ref, pull_request_body=pull.body)
-                issue_number = utils.get_href(pull.body)
+                issue_number = utils.extract_link(pull.body)
                 self._debug('Extracted issue number from pull request body', sha=sha,
                             commit_message=commit_message, ref=ref, pull_request_body=pull.body,
                             issue_number=issue_number)
@@ -521,7 +521,7 @@ class _GitHubCommit(object):
             raise exceptions.CommitNotRelatedToIssueException(sha=self.commit.sha)
 
         test_release = '0.0.0'
-        next_release = utils.get_next_release('0.0.0', [label.name for label in self.labels])
+        next_release = utils.bump_version('0.0.0', [label.name for label in self.labels])
         if next_release == test_release:
             # this means the issue will not cause a version bump.
             # which means its not labeled as a release candidate.
@@ -645,7 +645,7 @@ class _GitHubCommit(object):
                 current_version=self.setup_py_version, target_version=version)
 
     def _fetch_pr(self, commit):
-        pr_number = utils.get_href(commit.commit.message)
+        pr_number = utils.extract_link(commit.commit.message)
         return self._branch.github.repo.get_pull(number=pr_number) if pr_number else None
 
     def _fetch_tag_commit(self, tag_name):

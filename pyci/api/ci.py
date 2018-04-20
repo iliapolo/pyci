@@ -16,14 +16,18 @@
 #############################################################################
 
 
-# pylint: disable=too-few-public-methods
-
 import os
 
+import copy
+
 from pyci.api import exceptions
+from pyci.api import logger
 
 TRAVIS = 'Travis-CI'
 APPVEYOR = 'AppVeyor'
+
+
+log = logger.get_logger(__name__)
 
 
 class _CI(object):
@@ -31,14 +35,20 @@ class _CI(object):
     """
     Represents a specific CI system. It provides access to various data that CI systems can
     offer us using environment variables. Neither this class nor its children are meant for
-    direct instantiation.
-    Instead, use the 'detect()' function of this module to automatically get the appropriate
-    implementation for the current execution environment.
+    direct instantiation. Instead, use the 'detect()' function of this module to automatically
+    get the appropriate implementation for the current execution environment.
 
     However, have a look at the public properties of this class to get an idea of what
-    information get you access.
+    information you can access.
 
     """
+
+    def __init__(self):
+        self._log_ctx = {
+            'repo': self.repo,
+            'sha': self.sha,
+            'branch': self.branch
+        }
 
     @property
     def name(self):
@@ -114,10 +124,15 @@ class _CI(object):
 
             3. The current build branch is the same as the release branch.
 
+        Args:
+            release_branch (str): What is the release branch to validate against. (e.g release)
+
         Raises:
               NotReleaseCandidateException: Raised when the current build is deemed as not
               release worthy. That is, the current build should not trigger a release process.
         """
+
+        self._debug('Validating build...', release_branch=release_branch)
 
         if self.pull_request:
             raise exceptions.NotReleaseCandidateException(reason='Build is a Pull Request ({0})'
@@ -131,6 +146,13 @@ class _CI(object):
             raise exceptions.NotReleaseCandidateException(
                 reason='The current build branch ({0}) does not match the release branch ({1})'
                 .format(self.branch, release_branch))
+
+        self._debug('Successfully validated build.', release_branch=release_branch)
+
+    def _debug(self, message, **kwargs):
+        kwargs = copy.deepcopy(kwargs)
+        kwargs.update(self._log_ctx)
+        log.debug(message, **kwargs)
 
 
 class _TravisCI(_CI):

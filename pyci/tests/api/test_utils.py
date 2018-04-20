@@ -38,7 +38,7 @@ from pyci.api.changelog import Change
 ])
 def test_get_next_release(last_release, labels, expected):
 
-    actual = utils.get_next_release(last_release=last_release, labels=labels)
+    actual = utils.bump_version(current_version=last_release, labels=labels)
 
     assert expected == actual
 
@@ -50,7 +50,7 @@ def test_get_next_release(last_release, labels, expected):
 ])
 def test_parse_repo(url, expected):
 
-    actual = utils.parse_repo(url)
+    actual = utils.extract_repo(url)
 
     assert expected == actual
 

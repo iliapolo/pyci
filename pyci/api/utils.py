@@ -23,14 +23,22 @@ import zipfile
 
 import requests
 import semver
-from jinja2 import Template
 
 from pyci.api import exceptions
-from pyci.resources import get_resource
 from pyci.api.runner import LocalCommandRunner
 
 
-def get_href(commit_message):
+def extract_link(commit_message):
+
+    """
+    Extracts the link number from a commit message. A link is considered as the first number
+    following the '#' sign.
+    For example:
+        "Implemented feature (#4)" --> link = 4
+
+    Returns:
+        int: The link number from the message or None if doesn't exist.
+    """
 
     # pylint: disable=anomalous-backslash-in-string
     p = re.compile('.* ?#(\d+)')
@@ -41,60 +49,112 @@ def get_href(commit_message):
     return None
 
 
-def get_next_release(last_release, labels):
+def bump_version(current_version, labels):
 
-    next_release = last_release
+    """
+    Bump the version number according to the given labels.
+        - 'patch' label will result in a patch bump.
+        - 'minor' label will result in a minor bump.
+        - 'major' label will result in a major bump.
+
+    Args:
+        current_version (str): The current version.
+        labels (list): A list of label names.
+
+    Returns:
+        str: The next version number.
+    """
+
+    next_release = current_version
 
     if 'patch' in labels:
-        next_release = semver.bump_patch(last_release)
+        next_release = semver.bump_patch(current_version)
 
     if 'minor' in labels:
-        next_release = semver.bump_minor(last_release)
+        next_release = semver.bump_minor(current_version)
 
     if 'major' in labels:
-        next_release = semver.bump_major(last_release)
+        next_release = semver.bump_major(current_version)
 
     return next_release
 
 
-def render_changelog(**kwargs):
-    return Template(get_resource('changelog.jinja')).render(**kwargs)
-
-
 def lsf(directory):
+
+    """
+    List file names in a given directory. Only first level files are returned and only the file
+    basename, i.e without the directory path.
+
+    Args:
+        directory (str): A directory path.
+
+    Returns:
+        list: A list of file names.
+    """
 
     return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
 
 
 def lsd(directory):
 
+    """
+    List directory names in a given directory. Only first level directories are returned and only
+    the directory basename, i.e without the parent directory path.
+
+    Args:
+        directory (str): A directory path.
+
+    Returns:
+        list: A list of directory names.
+    """
+
     return [f for f in os.listdir(directory) if os.path.isdir(os.path.join(directory, f))]
-
-
-def smkdir(directory):
-
-    if not os.path.exists(directory):
-        os.makedirs(directory)
 
 
 def get_local_repo():
 
+    """
+    Detect the git repository of the current directory.
+
+    Returns:
+        str: The repository full name. (e.g iliapolo/pyci).
+    """
+
     runner = LocalCommandRunner()
     try:
         result = runner.run('git remote -v')
-        return parse_repo(result.std_out.splitlines()[0])
+        return extract_repo(result.std_out.splitlines()[0])
     except exceptions.CommandExecutionException:
         return None
 
 
-def parse_repo(remote_url):
+def extract_repo(git_url):
+
+    """
+    Extracts the repository name from a git URL.
+
+    Args:
+        git_url (str): The git remote url.
+
+    Returns:
+        str: The full repository name or None if not found.
+    """
+
     try:
-        return remote_url.split(' ')[0].split('.git')[0].split('.com')[1][1:]
+        return git_url.split(' ')[0].split('.git')[0].split('.com')[1][1:]
     except IndexError:
         return None
 
 
 def validate_file_exists(path):
+
+    """
+    Validate that the given path points an existing file.
+
+    Raises:
+        FileDoesntExistException: Raised if the path does not exist.
+        FileIsADirectoryException: Raised if the given path points to a directory.
+    """
 
     if not os.path.exists(path):
         raise exceptions.FileDoesntExistException(path=path)
@@ -104,26 +164,60 @@ def validate_file_exists(path):
 
 def validate_does_not_exist(path):
 
+    """
+    Validate that the given path points an existing file.
+
+    Args:
+        path (str): The path to validate.
+
+    Raises:
+        FileExistException: Raised if the given path points to a file.
+        FileIsADirectoryException: Raised if the given path points to a directory.
+    """
+
     if os.path.isfile(path):
         raise exceptions.FileExistException(path=path)
     if os.path.isdir(path):
         raise exceptions.FileIsADirectoryException(path=path)
 
 
-def extract(archive, target=None):
+def unzip(archive, target_dir=None):
 
-    target = target or tempfile.mkdtemp()
+    """
+    Unzips a zip archive.
+
+    Args:
+        archive (str): Path to the zip archive.
+        target_dir (:`str`, optional): A directory to unzip the archive to. Defaults to a
+            temporary directory.
+
+    Returns:
+        str: A directory path to the extracted archive.
+    """
+
+    target_dir = target_dir or tempfile.mkdtemp()
 
     zip_ref = zipfile.ZipFile(archive, 'r')
-    zip_ref.extractall(target)
+    zip_ref.extractall(target_dir)
     zip_ref.close()
 
-    return target
+    return target_dir
 
 
 def download(url, target=None):
 
-    target = target or _create_random_file_name()
+    """
+    Download a URL to a file.
+
+    Args:
+        url (str): The URL to download.
+        target (:`str`, optional): The target file. Defaults to a temporary file.
+
+    Returns:
+        str: Path to the downloaded file.
+    """
+
+    target = target or os.path.join(tempfile.mkdtemp(), str(uuid.uuid4()))
 
     r = requests.get(url, stream=True)
     with open(target, 'wb') as f:
@@ -133,12 +227,19 @@ def download(url, target=None):
     return target
 
 
-def _create_random_file_name():
-
-    return os.path.join(tempfile.mkdtemp(), str(uuid.uuid4()))
-
-
 def generate_setup_py(setup_py, version):
+
+    """
+    Generate a setup.py file with the given version. This function replaces the current 'version'
+    section of the setup.py file with the specified version value.
+
+    Args:
+        setup_py (str): The current setup.py file contents.
+        version (str): The desired version the setup.py file should have.
+
+    Returns:
+        str: The modified contents of the setup.py file with the new version number.
+    """
 
     p = re.compile('.*(version=.*),?')
     match = p.search(setup_py)

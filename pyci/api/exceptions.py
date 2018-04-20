@@ -23,13 +23,6 @@ class ApiException(BaseException):
 
 class ReleaseNotFoundException(ApiException):
 
-    """
-    Raised when the release id does not match any existing github releases.
-
-    Args:
-        release (str): The id of the release
-    """
-
     def __init__(self, release):
         self.release = release
         super(ReleaseNotFoundException, self).__init__(self.__str__())
@@ -50,16 +43,6 @@ class RefNotFoundException(ApiException):
 
 class CommandExecutionException(ApiException):
 
-    """
-    Raised when a local command execution failed to complete successfully.
-
-    Args:
-        command (str): The command to execute.
-        error (str): The error output of the execution.
-        output (str): The standard output of the execution.
-        code (int): The exit code of the execution.
-    """
-
     def __init__(self, command, error, output, code):
         self.command = command
         self.error = error
@@ -79,16 +62,6 @@ class CommandExecutionException(ApiException):
 
 class MultiplePackagesFound(ApiException):
 
-    """
-    Raised when multiple top level python packages are found in the repository.
-    A properly structured python project should contain a top level package, usually named
-    after the project name. All other python packages should reside under it.
-
-    Args:
-        repo (str): The repository in question.
-        packages (set): All the top level packages found.
-    """
-
     def __init__(self, repo, packages):
         self.repo = repo
         self.packages = packages
@@ -101,17 +74,6 @@ class MultiplePackagesFound(ApiException):
 
 class PackageNotFound(ApiException):
 
-    """
-    Raised when no top level python package was found in the repository.
-    A properly structured python project should contain a top level package, usually named
-    after the project name. All other python packages should reside under it.
-
-    Args:
-
-        repo (str): The repository in question.
-
-    """
-
     def __init__(self, repo):
         self.repo = repo
         super(PackageNotFound, self).__init__(self.__str__())
@@ -121,20 +83,6 @@ class PackageNotFound(ApiException):
 
 
 class DefaultEntrypointNotFoundException(ApiException):
-
-    """
-
-    Raised when attempting to locate a default entrypoint for building a binary package.
-    This process takes place if the user does not provide a specific entrypoint. In which case,
-    pyci will look for a .spec or a main.py file.
-
-    Args:
-
-        repo (str): The repository in question.
-        name (str): The project name as defined in the setup.py file.
-        top_level_package (str): The name of the top level python package.
-
-    """
 
     def __init__(self, repo, name, top_level_package):
         self.top_level_package = top_level_package
@@ -155,16 +103,6 @@ class DefaultEntrypointNotFoundException(ApiException):
 
 class EntrypointNotFoundException(ApiException):
 
-    """
-
-    Raised when the entrypoint a user provided does not exist.
-
-    Args:
-
-        repo (str): THe repository in question.
-
-    """
-
     def __init__(self, repo, entrypoint):
         self.entrypoint = entrypoint
         self.repo = repo
@@ -176,16 +114,6 @@ class EntrypointNotFoundException(ApiException):
 
 class CommitNotRelatedToIssueException(ApiException):
 
-    """
-
-    Raised when the commit we want to release is not related to any issue (i.e dangling commit).
-
-    Args:
-
-        sha (str): The sha of the commit.
-
-    """
-
     def __init__(self, sha):
         self.sha = sha
         super(CommitNotRelatedToIssueException, self).__init__(self.__str__())
@@ -195,18 +123,6 @@ class CommitNotRelatedToIssueException(ApiException):
 
 
 class IssueIsNotLabeledAsReleaseException(ApiException):
-
-    """
-
-    Raised when the issue related to the commit we want to release, is not labeled with any release
-    labels (e.g patch, minor, major)
-
-    Args:
-
-        sha (str): The sha of the commit.
-        issue (int): The issue number.
-
-    """
 
     def __init__(self, sha, issue):
         self.sha = sha
@@ -220,17 +136,6 @@ class IssueIsNotLabeledAsReleaseException(ApiException):
 
 class CommitIsAlreadyReleasedException(ApiException):
 
-    """
-
-    Raised when the commit we want to release is already released.
-
-    Args:
-
-        sha (str): The sha of the commit to release.
-        release (str): The id of the release its released in.
-
-    """
-
     def __init__(self, sha, release):
         self.sha = sha
         self.release = release
@@ -242,16 +147,6 @@ class CommitIsAlreadyReleasedException(ApiException):
 
 class CommitNotFoundException(ApiException):
 
-    """
-
-    Raised when the commit sha specified does not exist.
-
-    Args:
-
-        sha (str): The sha of the commit.
-
-    """
-
     def __init__(self, sha):
         self.sha = sha
         super(CommitNotFoundException, self).__init__(self.__str__())
@@ -261,10 +156,6 @@ class CommitNotFoundException(ApiException):
 
 
 class ReleaseConflictException(ApiException):
-
-    """
-
-    """
 
     def __init__(self, our_sha, their_sha, release):
         self.our_sha = our_sha
@@ -279,16 +170,6 @@ class ReleaseConflictException(ApiException):
 
 class NotReleaseCandidateException(ApiException):
 
-    """
-
-    Raised when the current build should not trigger a release process.
-
-    Args:
-
-         reason (str): The reason why a release should not take place.
-
-    """
-
     def __init__(self, reason):
         self.reason = reason
         super(NotReleaseCandidateException, self).__init__(self.__str__())
@@ -298,12 +179,6 @@ class NotReleaseCandidateException(ApiException):
 
 
 class FailedGeneratingSetupPyException(ApiException):
-
-    """
-
-    Raised when the setup.py file
-
-    """
 
     def __init__(self, setup_py, version):
         self.setup_py = setup_py

@@ -15,10 +15,12 @@
 #
 #############################################################################
 
+import copy
 import json
 import os
 import shutil
 import tempfile
+import sh
 
 from pyci.api import exceptions
 from pyci.api import logger
@@ -30,41 +32,66 @@ log = logger.get_logger(__name__)
 # pylint: disable=too-few-public-methods
 class PyPI(object):
 
+    """
+    Provides access to PyPI API.
+
+    Every PyPI instance is associated with a set of credentials, as well as the repository URL.
+    You can specify test=True to use PyPI's test repostiory, or repository_url to use a custom
+    repository. If non are passed, the default PyPI repository is used.
+
+    Args:
+        username (str): The username for PyPI.
+        password (str): The password for PyPI.
+        repository_url (str): A custom repository url.
+        test (bool): True to use the test PyPI repository, False otherwise.
+    """
+
     def __init__(self, username, password, repository_url=None, test=False):
 
+        if not username:
+            raise exceptions.InvalidArgumentsException('username cannot be None')
+
+        if not password:
+            raise exceptions.InvalidArgumentsException('password cannot be None')
+
         if repository_url and test:
-            raise exceptions.InvalidArgumentsException('Either repository_url or test is allowed')
+            raise exceptions.InvalidArgumentsException('either repository_url or test is allowed')
 
         self.test = test
-        self.repository_url = repository_url
+        self.repository_url = 'https://test.pypi.org/legacy/' if self.test else repository_url
         self.username = username
         self.password = password
         self._runner = LocalCommandRunner()
+        self._site = 'test.pypi.org' if self.test else 'pypi.org'
+        self._log_ctx = {
+            'test': self.test,
+            'repository_url': self.repository_url,
+            'site': self._site
+        }
 
     def upload(self, wheel):
+
+        """
+        Upload a wheel to PyPI.
+
+        Args:
+            wheel (str): Path to a wheel package.
+
+        Raises:
+            WheelAlreadyPublishedException: Raised when the wheel already exists in the PyPI
+                repository.
+        """
 
         wheel = os.path.abspath(wheel)
 
         wheel_version = os.path.basename(wheel).split('-')[1]
 
-        site = 'pypi.org'
-        if self.test:
-            site = 'test.{0}'.format(site)
-
         wheel_url = 'https://{0}/manage/project/{1}/release/{2}/'.format(
-            site, self._extract_project_name(wheel), wheel_version)
-
-        log.debug('Wheel url will be: {0}'.format(wheel_url))
-
-        repository_url = None
-        if self.test:
-            repository_url = 'https://test.pypi.org/legacy/'
-        if self.repository_url:
-            repository_url = self.repository_url
+            self._site, self._extract_project_name(wheel), wheel_version)
 
         command = 'twine upload'
-        if repository_url:
-            command = '{0} --repository-url {1}'.format(command, repository_url)
+        if self.repository_url:
+            command = '{0} --repository-url {1}'.format(command, self.repository_url)
 
         env = {
             'TWINE_USERNAME': self.username,
@@ -72,16 +99,15 @@ class PyPI(object):
         }
 
         try:
-            log.debug('Uploading wheel to PyPI repository ({0}): {1}'
-                      .format(repository_url or 'default', wheel))
-            self._runner.run('{0} {1}'.format(command, wheel), execution_env=env)
-            log.debug('Successfully uploaded wheel')
+            self._debug('Uploading wheel to PyPI repository...', wheel=wheel)
+            sh.run('{0} {1}'.format(command, wheel), execution_env=env)
+            self._debug('Successfully uploaded wheel', wheel_url=wheel_url)
+            return wheel_url
         except exceptions.CommandExecutionException as e:
             if 'File already exists' in e.error:
                 wheel_name = os.path.basename(wheel)
                 raise exceptions.WheelAlreadyPublishedException(wheel=wheel_name, url=wheel_url)
-
-        return wheel_url
+            raise
 
     def _extract_project_name(self, wheel):
 
@@ -102,3 +128,8 @@ class PyPI(object):
                 return metadata['name']
         finally:
             shutil.rmtree(temp_dir)
+
+    def _debug(self, message, **kwargs):
+        kwargs = copy.deepcopy(kwargs)
+        kwargs.update(self._log_ctx)
+        self._debug(message, **kwargs)
