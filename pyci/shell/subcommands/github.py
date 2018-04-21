@@ -63,13 +63,13 @@ def release_(ctx, sha, version, branch):
     sha = sha or branch or (ci.sha if ci else None) or ctx.parent.github.default_branch_name
 
     try:
-        log.info('Creating release... (sha={0}, branch={1})'.format(sha, branch))
-        release_title = ctx.parent.github.release(branch_name=branch, sha=sha, version=version)
+        log.info('Creating release of sha {} from branch {}...'.format(sha, branch))
+        release_title = ctx.parent.github.create_release(branch=branch, sha=sha, version=version)
         log.info('Successfully created release: {0}'.format(release_title))
     except exceptions.CommitIsAlreadyReleasedException as e:
         # this is ok, maybe someone is running the command on the same commit
         # over and over again (#idempotant-cli)
-        log.info('The commit is already released: {0}, I can rest, yey :)'.format(e.release))
+        log.info('The commit is already released: {}, I can rest, yey :)'.format(e.release))
 
 
 @click.command()
@@ -97,13 +97,12 @@ def upload(ctx, asset, release):
 
     log.info('Uploading asset {0} to release {1}.. (this may take a while)'.format(asset, release))
     try:
-        ctx.parent.github.upload(asset=asset, release=release)
+        asset_url = ctx.parent.github.upload_asset(asset=asset, release=release)
+        log.info('Uploaded: {}'.format(asset_url))
     except exceptions.AssetAlreadyPublishedException:
         # this is ok, maybe someone is running the command on the same asset
         # over and over again (#idempotant-cli).
         log.info('Asset already published for release')
-
-    log.info('Done')
 
 
 @click.command()
@@ -128,7 +127,7 @@ def delete(ctx, release):
     """
 
     log.info('Deleting release {0}...'.format(release))
-    ctx.parent.github.delete(release=release)
+    ctx.parent.github.delete_release(release=release)
     log.info('Done')
 
 
@@ -184,9 +183,9 @@ def bump(ctx, sha, branch, version, patch, minor, major, dry):
     sha = sha or branch or (ci.sha if ci else None) or ctx.parent.github.default_branch_name
 
     log.info('Bumping version...')
-    setup_py = ctx.parent.github.bump(
+    setup_py = ctx.parent.github.bump_version(
         sha=sha,
-        branch_name=branch,
+        branch=branch,
         version=version,
         patch=patch,
         minor=minor,
@@ -245,7 +244,7 @@ def changelog(ctx, sha, branch):
                  .format(latest_release.title))
     else:
         log.info("Your project hasn't been released yet, generating first changelog...")
-    change_log = ctx.parent.github.changelog(branch_name=branch, sha=sha)
+    change_log = ctx.parent.github.generate_changelog(branch=branch, sha=sha)
 
     def _build_table(issues):
 
@@ -346,7 +345,7 @@ def issue(ctx, sha, message):
     if message:
         log.info('Detecting issue number from message: {0}'.format(message))
 
-    git_issue = ctx.parent.github.issue(sha=sha, commit_message=message)
+    git_issue = ctx.parent.github.detect_issue(sha=sha, commit_message=message)
     if git_issue is None:
         log.info('No issue detected')
     else:

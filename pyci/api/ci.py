@@ -57,7 +57,7 @@ class _CI(object):
         Returns:
             str: The name of the CI system. (e.g Travis-CI)
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def repo(self):
@@ -66,7 +66,7 @@ class _CI(object):
         Returns:
             str: The name of the repository the build is running for.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def sha(self):
@@ -75,7 +75,7 @@ class _CI(object):
         Returns:
             str: The commit sha that triggered the build.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def branch(self):
@@ -84,7 +84,7 @@ class _CI(object):
         Returns:
             str: The name of the branch the commit was pushed to.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def pull_request(self):
@@ -93,7 +93,7 @@ class _CI(object):
         Returns:
             int: If this build is a PR build, gives the PR number. Otherwise will return None.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def tag(self):
@@ -102,7 +102,7 @@ class _CI(object):
         Returns:
             str: If this build is a TAG build, gives the TAG name. Otherwise will return None.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def detect(self):
 
@@ -110,7 +110,7 @@ class _CI(object):
         Returns:
             bool: Check if the specific implementation is the correct one.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     def validate_rc(self, release_branch):
 
@@ -218,6 +218,7 @@ class _AppVeyor(_CI):
         return os.environ.get('APPVEYOR')
 
 
+# pylint: disable=too-few-public-methods
 class _CIDetector(object):
 
     _ci_systems = []

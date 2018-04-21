@@ -21,8 +21,8 @@ import tempfile
 import uuid
 import zipfile
 
+import datetime
 import requests
-import semver
 
 from pyci.api import exceptions
 from pyci.api.runner import LocalCommandRunner
@@ -47,36 +47,6 @@ def extract_link(commit_message):
         return int(match.group(1))
 
     return None
-
-
-def bump_version(current_version, labels):
-
-    """
-    Bump the version number according to the given labels.
-        - 'patch' label will result in a patch bump.
-        - 'minor' label will result in a minor bump.
-        - 'major' label will result in a major bump.
-
-    Args:
-        current_version (str): The current version.
-        labels (list): A list of label names.
-
-    Returns:
-        str: The next version number.
-    """
-
-    next_release = current_version
-
-    if 'patch' in labels:
-        next_release = semver.bump_patch(current_version)
-
-    if 'minor' in labels:
-        next_release = semver.bump_minor(current_version)
-
-    if 'major' in labels:
-        next_release = semver.bump_major(current_version)
-
-    return next_release
 
 
 def lsf(directory):
@@ -246,3 +216,17 @@ def generate_setup_py(setup_py, version):
     if match:
         return setup_py.replace(match.group(1), "version='{0}',".format(version))
     raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)
+
+
+def datetime_to_epoch(dt):
+
+    """
+    Convert a datetime object to epoch milliseconds.
+
+    Args:
+        dt (datetime.datetime): The datetime object.
+    """
+
+    epoch = datetime.datetime.utcfromtimestamp(0)
+
+    return (dt - epoch).total_seconds() * 1000.0

@@ -18,29 +18,12 @@
 import os
 import tempfile
 
+# noinspection PyPackageRequirements
 import pytest
 
 import pyci
 import pyci.api
 from pyci.api import utils
-from pyci.api.changelog import Change
-
-
-@pytest.mark.parametrize("last_release,labels,expected", [
-    ("1.2.3", ['nothing'], "1.2.3"),
-    ("1.2.3", ['patch'], "1.2.4"),
-    ("1.2.3", ['minor'], "1.3.0"),
-    ("1.2.3", ['major'], "2.0.0"),
-    ("1.2.3", ['major', 'minor', 'patch'], "2.0.0"),
-    ("1.2.3", ['major', 'minor'], "2.0.0"),
-    ("1.2.3", ['major', 'patch'], "2.0.0"),
-    ("1.2.3", ['minor', 'patch'], "1.3.0")
-])
-def test_get_next_release(last_release, labels, expected):
-
-    actual = utils.bump_version(current_version=last_release, labels=labels)
-
-    assert expected == actual
 
 
 @pytest.mark.parametrize("url,expected", [
@@ -71,67 +54,6 @@ def test_get_local_repo(cwd, expected):
         assert expected == actual
     finally:
         os.chdir(prev_cwd)
-
-
-@pytest.mark.parametrize("bugs,features,internals,dangling_commits,expected", [
-
-    ([], [Change(title='this is the feature', url='this is the feature url')], [], [], '''*Changes*
-
-
-**New Features:**
-
-
-- this is the feature ([Issue](this is the feature url))
-
-
-
-
-
-
-
-'''),
-
-    ([Change(title='this is the bug', url='this is the bug url')], [], [], [], '''*Changes*
-
-
-
-
-**Bug Fixes:**
-
-
-- this is the bug ([Issue](this is the bug url))
-
-
-
-
-
-'''),
-
-    ([], [], [Change(title='this is the internal', url='this is the internal url')], [],
-     '''*Changes*
-
-
-
-
-
-
-**Internals:**
-
-
-- this is the internal ([Issue](this is the internal url))
-
-
-
-''')
-
-
-])
-def test_render_changelog(bugs, features, internals, dangling_commits, expected):
-
-    actual = utils.render_changelog(features=features, bugs=bugs, internals=internals,
-                                    dangling_commits=dangling_commits)
-
-    assert expected == actual
 
 
 @pytest.mark.parametrize("setup_py,version,expected", [

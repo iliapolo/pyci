@@ -138,10 +138,9 @@ class Packager(object):
                                       .format(dist_dir,
                                               build_dir,
                                               temp_dir,
-                                              script),
-                                      stdout_pipe=False)
+                                              script))
 
-            self._debug('Finished running pyinstaller', entrypoint=entrypoint, 
+            self._debug('Finished running pyinstaller', entrypoint=entrypoint,
                         destination=destination)
 
             if result.std_err:
@@ -219,6 +218,16 @@ class Packager(object):
 
         finally:
             shutil.rmtree(temp_dir)
+
+    def clean(self):
+
+        """
+        Clean the resources this packager instance used.
+
+        """
+
+        shutil.rmtree(self._repo_dir)
+        delattr(self, '_repo_dir')
 
     @cachedproperty
     def _repo_dir(self):
@@ -301,4 +310,4 @@ class Packager(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        self._debug(message, **kwargs)
+        log.debug(message, **kwargs)

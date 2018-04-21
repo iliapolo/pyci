@@ -43,7 +43,7 @@ class Logger(object):
     def __init__(self, name, level=DEFAULT_LOG_LEVEL):
 
         if not name:
-            raise exceptions.InvalidArgumentsException('name cannot be None')
+            raise exceptions.InvalidArgumentsException('name cannot be empty')
 
         self._name = name
         self._logger = wryte.Wryte(name)
@@ -57,26 +57,24 @@ class Logger(object):
         self._logger.logger.isEnabledFor(level)
 
     def info(self, message, **kwargs):
-        self._logger.info('{} {}'.format(message, self._format_key_values(**kwargs)))
-
-    def warning(self, message, **kwargs):
-        self._logger.warning('{} {}'.format(message, self._format_key_values(**kwargs)))
-
-    def warn(self, message, **kwargs):
-        self._logger.warn('{} {}'.format(message, self._format_key_values(**kwargs)))
+        self._logger.info('{}{}'.format(message, self._format_key_values(**kwargs)))
 
     def error(self, message, **kwargs):
-        self._logger.error('{} {}'.format(message, self._format_key_values(**kwargs)))
+        self._logger.error('{}{}'.format(message, self._format_key_values(**kwargs)))
 
     def debug(self, message, **kwargs):
-        self._logger.debug('{} {}'.format(message, self._format_key_values(**kwargs)))
+        self._logger.debug('{}{}'.format(message, self._format_key_values(**kwargs)))
 
     @staticmethod
     def _format_key_values(**kwargs):
+
+        if not kwargs:
+            return ''
+
         kvs = []
         for key, value in kwargs.items():
             kvs.append('{}={}'.format(key, value))
-        return '[{}]'.format(','.join(kvs))
+        return ' [{}]'.format(', '.join(kvs))
 
 
 def get_logger(name):

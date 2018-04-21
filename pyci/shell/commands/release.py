@@ -135,14 +135,16 @@ def release(ctx,
 
             if not force:
                 log.debug('Validating this commit is eligible for release...')
-                github.validate(branch_name=branch, sha=sha)
+                github.validate_commit(branch=branch, sha=sha)
                 log.debug('Validation passed')
 
             log.info('Creating release...')
-            release_title = github.release(branch_name=branch,
-                                           sha=sha,
-                                           version=version)
+            release_title = github.create_release(branch=branch,
+                                                  sha=sha,
+                                                  version=version)
             log.info('Successfully created release: {0}'.format(release_title))
+
+            github.reset_branch(branch='master', sha=release.sha)
 
         except exceptions.CommitIsAlreadyReleasedException as e:
 
@@ -178,7 +180,7 @@ def release(ctx,
 
                     log.info('Uploading binary package to release...')
                     try:
-                        asset_url = github.upload(asset=package, release=release_title)
+                        asset_url = github.upload_asset(asset=package, release=release_title)
                         log.info('Successfully uploaded binary package to release: {0}'
                                  .format(asset_url))
                     except exceptions.AssetAlreadyPublishedException:
@@ -192,7 +194,7 @@ def release(ctx,
                     # since the user might have expected the binary package (since the default is
                     #  to create one)
                     log.info('Binary package will not be created because an entrypoint was not '
-                             'found in the expected path: {0}. \nYou can specify a custom '
+                             'found in the expected path: {}. \nYou can specify a custom '
                              'entrypoint path by using the "--binary-entrypoint" option.\n'
                              'If your package is not meant to be an executable binary, '
                              'use the "--no-binary" flag to avoid seeing this message'

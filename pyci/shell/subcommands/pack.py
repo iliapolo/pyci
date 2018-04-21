@@ -63,7 +63,7 @@ def binary(ctx, name, entrypoint, target_dir):
         package_path = ctx.parent.packager.binary(entrypoint=entrypoint,
                                                   name=name,
                                                   target_dir=target_dir)
-        log.info('Package created: {0}'.format(package_path))
+        log.info('Binary package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
         e.possible_solutions = [
             'Delete/Move the file and try again'
@@ -101,7 +101,7 @@ def wheel(ctx, target_dir, universal):
             target_dir=target_dir,
             universal=universal
         )
-        log.info('Package created: {0}'.format(package_path))
+        log.info('Wheel package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
         e.possible_solutions = [
             'Delete/Move the file and try again'

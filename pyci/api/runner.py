@@ -19,6 +19,8 @@ import shlex
 import os
 import subprocess
 
+import copy
+
 from pyci.api import logger
 from pyci.api import exceptions
 
@@ -62,7 +64,7 @@ class LocalCommandRunner(object):
 
         Raises:
             CommandExecutionException: Raised when the execution failed and the exist_on_failure
-                arguement is True.
+                argument is True.
 
         Returns:
             _CommandExecutionResponse: A response object containing necessary information about
@@ -118,7 +120,7 @@ class LocalCommandRunner(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        self._debug(message, **kwargs)
+        log.debug(message, **kwargs)
 
 
 def _shlex_split(command):

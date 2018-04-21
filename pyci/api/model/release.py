@@ -15,30 +15,10 @@
 #
 #############################################################################
 
-import click
 
-from pyci.api import logger
-from pyci.shell import handle_exceptions
+# pylint: disable=too-few-public-methods
+class Release(object):
 
-
-log = logger.get_logger(__name__)
-
-
-@click.command()
-@handle_exceptions
-@click.pass_context
-@click.option('--wheel', required=True,
-              help='Path to the wheel file.')
-def upload(ctx, wheel):
-
-    """
-
-    Upload a wheel to PyPI.
-
-    Not much more to say here really :)
-
-    """
-
-    log.info('Uploading wheel...(this may take some time)')
-    wheel_url = ctx.parent.pypi.upload_asset(wheel)
-    log.info('Wheel uploaded: {}'.format(wheel_url))
+    def __init__(self, title, changelog):
+        self.title = title
+        self.changelog = changelog

@@ -88,17 +88,15 @@ class DefaultEntrypointNotFoundException(ApiException):
         self.top_level_package = top_level_package
         self.name = name
         self.repo = repo
-        super(DefaultEntrypointNotFoundException, self).__init__(self.__str__())
-
-    def __str__(self):
-
-        expected_paths = [
+        self.expected_paths = [
             os.path.join(self.top_level_package, 'shell', 'main.py'),
             '{0}.spec'.format(self.name)
         ]
+        super(DefaultEntrypointNotFoundException, self).__init__(self.__str__())
 
+    def __str__(self):
         return 'No entrypoint found for repo ({0}): Looked in --> [{1}]'.format(
-            self.repo, ', '.join(expected_paths))
+            self.repo, ', '.join(self.expected_paths))
 
 
 class EntrypointNotFoundException(ApiException):
@@ -343,3 +341,23 @@ class NotPythonProjectException(ApiException):
                'Please follow the instructions to create a standard python project --> ' \
                'https://packaging.python.org/tutorials/distributing-packages/'.format(self.repo,
                                                                                       self.cause)
+
+
+class RepositoryNotFoundException(ApiException):
+
+    def __init__(self, repo):
+        self.repo = repo
+        super(RepositoryNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Repository not found: {}'.format(self.repo)
+
+
+class TagNotFoundException(ApiException):
+
+    def __init__(self, tag):
+        self.tag = tag
+        super(TagNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Tag not found: {}".format(self.tag)

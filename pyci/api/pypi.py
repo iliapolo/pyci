@@ -20,7 +20,6 @@ import json
 import os
 import shutil
 import tempfile
-import sh
 
 from pyci.api import exceptions
 from pyci.api import logger
@@ -100,7 +99,14 @@ class PyPI(object):
 
         try:
             self._debug('Uploading wheel to PyPI repository...', wheel=wheel)
-            sh.run('{0} {1}'.format(command, wheel), execution_env=env)
+            result = self._runner.run('{0} {1}'.format(command, wheel), execution_env=env)
+
+            if result.std_err:
+                self._debug(result.std_err)
+
+            if result.std_out:
+                self._debug(result.std_out)
+
             self._debug('Successfully uploaded wheel', wheel_url=wheel_url)
             return wheel_url
         except exceptions.CommandExecutionException as e:
@@ -132,4 +138,4 @@ class PyPI(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        self._debug(message, **kwargs)
+        log.debug(message, **kwargs)

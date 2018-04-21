@@ -24,10 +24,10 @@
 {% endfor %}
 {% endif %}
 
-{% if dangling_commits %}
+{% if commits %}
 **Dangling Commits:**
 
-{% for dangling_commit in dangling_commits %}
-- {{dangling_commit.title}} ([Commit]({{dangling_commit.url}}))
+{% for commit in commits %}
+- {{commit.title}} ([Commit]({{commit.url}}))
 {% endfor %}
 {% endif %}
