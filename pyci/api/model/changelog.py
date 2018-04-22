@@ -276,12 +276,10 @@ class ChangelogIssue(_Change):
     MINOR = 'minor'
     MAJOR = 'major'
 
-    def __init__(self, title, url, timestamp, kind_modifier=ISSUE,
-                 version_modifier=None,
-                 impl=None):
+    def __init__(self, title, url, timestamp, kind=ISSUE, semantic=None, impl=None):
         super(ChangelogIssue, self).__init__(title, url, timestamp)
-        self.kind_modifier = kind_modifier
-        self.version_modifier = version_modifier
+        self.kind_modifier = kind
+        self.version_modifier = semantic
         self.impl = impl
 
 

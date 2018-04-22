@@ -127,7 +127,7 @@ def delete(ctx, release):
     """
 
     log.info('Deleting release {0}...'.format(release))
-    ctx.parent.github.delete_release(release=release)
+    ctx.parent.github.delete_release(name=release)
     log.info('Done')
 
 
@@ -350,3 +350,29 @@ def issue(ctx, sha, message):
         log.info('No issue detected')
     else:
         log.info('Issue detected: {0}'.format(git_issue.html_url))
+
+
+@click.command('reset-branch')
+@handle_exceptions
+@click.pass_context
+@click.option('--name', required=True,
+              help='The branch name')
+@click.option('--sha', required=True,
+              help='The sha to reset the branch to.')
+def reset_branch(ctx, name, sha):
+
+    log.info('Resetting branch {} to sha {}'.format(name, sha))
+    ctx.parent.github.reset_branch(name=name, sha=sha)
+    log.info('Done!')
+
+
+@click.command('set-version')
+@handle_exceptions
+@click.pass_context
+@click.option('--value', required=True,
+              help='The semantic version value.')
+def set_version(ctx, value):
+
+    log.info('Setting version to {}'.format(value))
+    ctx.parent.github.set_version(value=value)
+    log.info('Done!')

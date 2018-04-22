@@ -361,3 +361,35 @@ class TagNotFoundException(ApiException):
 
     def __str__(self):
         return "Tag not found: {}".format(self.tag)
+
+
+class BranchNotFoundException(ApiException):
+
+    def __init__(self, branch, repo):
+        self.branch = branch
+        self.repo = repo
+        super(BranchNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Branch ({}) doesnt exist in repo ({})'.format(self.branch, self.repo)
+
+
+class ShaNotFoundException(ApiException):
+
+    def __init__(self, sha, repo):
+        self.sha = sha
+        self.repo = repo
+        super(ShaNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Sha ({}) doesnt exist in repo ({})'.format(self.sha, self.repo)
+
+
+class TargetVersionEqualsCurrentVersionException(ApiException):
+
+    def __init__(self, version):
+        self.version = version
+        super(TargetVersionEqualsCurrentVersionException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'The target version and current version are the same: {}'.format(self.version)

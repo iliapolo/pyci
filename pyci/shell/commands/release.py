@@ -23,7 +23,7 @@ import click
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
-from pyci.api.gh import GitHub
+from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.shell import handle_exceptions, secrets
@@ -144,7 +144,7 @@ def release(ctx,
                                                   version=version)
             log.info('Successfully created release: {0}'.format(release_title))
 
-            github.reset_branch(branch='master', sha=release.sha)
+            github.reset_branch(name='master', sha=release.sha)
 
         except exceptions.CommitIsAlreadyReleasedException as e:
 
@@ -233,7 +233,7 @@ def release(ctx,
             repo = detect_repo(ci, repo)
             log.debug('Repo detected: {0}'.format(repo))
 
-            github = GitHub(repo=repo, access_token=secrets.github_access_token())
+            github = GitHubRepository(repo=repo, access_token=secrets.github_access_token())
 
             branch = branch or (ci.branch if ci else None) or github.default_branch_name
             sha = sha or branch or ci.sha or github.default_branch_name

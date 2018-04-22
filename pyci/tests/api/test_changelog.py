@@ -57,7 +57,7 @@ def test_add_feature(request):
     feature = ChangelogIssue(title=request.node.name,
                              url='url',
                              timestamp=121234,
-                             kind_modifier=ChangelogIssue.FEATURE)
+                             kind=ChangelogIssue.FEATURE)
 
     changelog.add(feature)
 
@@ -78,7 +78,7 @@ def test_add_bug(request):
     bug = ChangelogIssue(title=request.node.name,
                          url='url',
                          timestamp=121234,
-                         kind_modifier=ChangelogIssue.BUG)
+                         kind=ChangelogIssue.BUG)
 
     changelog.add(bug)
 
@@ -99,7 +99,7 @@ def test_add_issue(request):
     bug = ChangelogIssue(title=request.node.name,
                          url='url',
                          timestamp=121234,
-                         kind_modifier=ChangelogIssue.ISSUE)
+                         kind=ChangelogIssue.ISSUE)
 
     changelog.add(bug)
 
@@ -140,7 +140,7 @@ def test_not_empty_features(request):
     feature = ChangelogIssue(title=request.node.name,
                              url='url',
                              timestamp=121234,
-                             kind_modifier=ChangelogIssue.FEATURE)
+                             kind=ChangelogIssue.FEATURE)
 
     changelog.add(feature)
 
@@ -154,7 +154,7 @@ def test_not_empty_bugs(request):
     bug = ChangelogIssue(title=request.node.name,
                          url='url',
                          timestamp=121234,
-                         kind_modifier=ChangelogIssue.BUG)
+                         kind=ChangelogIssue.BUG)
 
     changelog.add(bug)
 
@@ -168,7 +168,7 @@ def test_not_empty_issues(request):
     issue = ChangelogIssue(title=request.node.name,
                            url='url',
                            timestamp=121234,
-                           kind_modifier=ChangelogIssue.ISSUE)
+                           kind=ChangelogIssue.ISSUE)
 
     changelog.add(issue)
 
@@ -195,12 +195,12 @@ def test_add_identical_features():
     feature1 = ChangelogIssue(title='feature',
                               url='url',
                               timestamp=100,
-                              kind_modifier=ChangelogIssue.FEATURE)
+                              kind=ChangelogIssue.FEATURE)
 
     feature2 = ChangelogIssue(title='feature',
                               url='url',
                               timestamp=100,
-                              kind_modifier=ChangelogIssue.FEATURE)
+                              kind=ChangelogIssue.FEATURE)
 
     changelog.add(feature1)
     changelog.add(feature2)
@@ -217,12 +217,12 @@ def test_add_identical_bugs():
     bug1 = ChangelogIssue(title='bug',
                           url='url',
                           timestamp=100,
-                          kind_modifier=ChangelogIssue.BUG)
+                          kind=ChangelogIssue.BUG)
 
     bug2 = ChangelogIssue(title='bug',
                           url='url',
                           timestamp=100,
-                          kind_modifier=ChangelogIssue.BUG)
+                          kind=ChangelogIssue.BUG)
 
     changelog.add(bug1)
     changelog.add(bug2)
@@ -239,12 +239,12 @@ def test_add_identical_issues():
     issue1 = ChangelogIssue(title='issue',
                             url='url',
                             timestamp=100,
-                            kind_modifier=ChangelogIssue.ISSUE)
+                            kind=ChangelogIssue.ISSUE)
 
     issue2 = ChangelogIssue(title='issue',
                             url='url',
                             timestamp=100,
-                            kind_modifier=ChangelogIssue.ISSUE)
+                            kind=ChangelogIssue.ISSUE)
 
     changelog.add(issue1)
     changelog.add(issue2)
@@ -281,17 +281,17 @@ def test_next_version():
     patch_issue = ChangelogIssue(title='patch issue',
                                  url='url1',
                                  timestamp=100,
-                                 version_modifier=ChangelogIssue.PATCH)
+                                 semantic=ChangelogIssue.PATCH)
 
     minor_issue = ChangelogIssue(title='minor issue',
                                  url='url2',
                                  timestamp=50,
-                                 version_modifier=ChangelogIssue.MINOR)
+                                 semantic=ChangelogIssue.MINOR)
 
     major_issue = ChangelogIssue(title='major issue',
                                  url='url3',
                                  timestamp=10,
-                                 version_modifier=ChangelogIssue.MAJOR)
+                                 semantic=ChangelogIssue.MAJOR)
 
     changelog.add(patch_issue)
     changelog.add(minor_issue)
@@ -323,7 +323,7 @@ def test_render_only_issues(request):
     issue = ChangelogIssue(title=request.node.name,
                            url='url',
                            timestamp=121234,
-                           kind_modifier=ChangelogIssue.ISSUE)
+                           kind=ChangelogIssue.ISSUE)
 
     changelog.add(issue)
 
@@ -355,7 +355,7 @@ def test_render_only_bugs(request):
     bug = ChangelogIssue(title=request.node.name,
                          url='url',
                          timestamp=121234,
-                         kind_modifier=ChangelogIssue.BUG)
+                         kind=ChangelogIssue.BUG)
 
     changelog.add(bug)
 
@@ -387,7 +387,7 @@ def test_render_only_features(request):
     feature = ChangelogIssue(title=request.node.name,
                              url='url',
                              timestamp=121234,
-                             kind_modifier=ChangelogIssue.FEATURE)
+                             kind=ChangelogIssue.FEATURE)
 
     changelog.add(feature)
 
@@ -454,17 +454,17 @@ def test_render_all(request):
     bug = ChangelogIssue(title=request.node.name,
                          url='url',
                          timestamp=121234,
-                         kind_modifier=ChangelogIssue.FEATURE)
+                         kind=ChangelogIssue.FEATURE)
 
     issue = ChangelogIssue(title=request.node.name,
                            url='url',
                            timestamp=121234,
-                           kind_modifier=ChangelogIssue.ISSUE)
+                           kind=ChangelogIssue.ISSUE)
 
     feature = ChangelogIssue(title=request.node.name,
                              url='url',
                              timestamp=121234,
-                             kind_modifier=ChangelogIssue.FEATURE)
+                             kind=ChangelogIssue.FEATURE)
 
     changelog.add(commit)
     changelog.add(bug)

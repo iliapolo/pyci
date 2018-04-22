@@ -22,7 +22,7 @@ import click
 from pyci.api import ci
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
-from pyci.api.gh import GitHub
+from pyci.api.gh import GitHubRepository
 from pyci.api import logger
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
@@ -84,7 +84,7 @@ def github(ctx, repo):
 
     repo = release.detect_repo(ctx.parent.ci, repo)
 
-    ctx.github = GitHub(repo=repo, access_token=secrets.github_access_token())
+    ctx.github = GitHubRepository(repo=repo, access_token=secrets.github_access_token())
 
 
 @click.group()
@@ -118,7 +118,8 @@ def pack(ctx, repo, sha, path):
         raise click.ClickException("Either '--sha' or '--path' is allowed (not both)")
 
     if not sha and not path:
-        sha = GitHub(repo=repo, access_token=secrets.github_access_token()).default_branch_name
+        sha = GitHubRepository(repo=repo,
+                               access_token=secrets.github_access_token()).default_branch_name
 
     ctx.packager = Packager(repo=repo, path=path, sha=sha)
 
@@ -148,6 +149,8 @@ github.add_command(github_group.release_)
 github.add_command(github_group.changelog)
 github.add_command(github_group.upload)
 github.add_command(github_group.issue)
+github.add_command(github_group.reset_branch)
+github.add_command(github_group.set_version)
 
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)
