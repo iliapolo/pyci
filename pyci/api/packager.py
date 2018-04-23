@@ -158,7 +158,7 @@ class Packager(object):
             self._debug('Packaged successfully.', package=destination)
             return os.path.abspath(destination)
         finally:
-            shutil.rmtree(temp_dir)
+            utils.rmf(temp_dir)
 
     def wheel(self, target_dir=None, universal=False):
 
@@ -217,7 +217,7 @@ class Packager(object):
             return os.path.abspath(destination)
 
         finally:
-            shutil.rmtree(temp_dir)
+            utils.rmf(temp_dir)
 
     def clean(self):
 

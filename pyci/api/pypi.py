@@ -18,10 +18,9 @@
 import copy
 import json
 import os
-import shutil
 import tempfile
 
-from pyci.api import exceptions
+from pyci.api import exceptions, utils
 from pyci.api import logger
 from pyci.api.runner import LocalCommandRunner
 
@@ -133,7 +132,7 @@ class PyPI(object):
                 metadata = json.loads(stream.read())
                 return metadata['name']
         finally:
-            shutil.rmtree(temp_dir)
+            utils.rmf(temp_dir)
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)

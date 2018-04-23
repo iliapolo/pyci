@@ -15,11 +15,12 @@
 #############################################################################
 
 import os
-import shutil
 import tempfile
 
+# noinspection PyPackageRequirements
 import pytest
 
+from pyci.api import utils
 from pyci.api.runner import LocalCommandRunner
 
 
@@ -42,7 +43,7 @@ def temp_dir():
     yield dir_path
 
     # cleanup
-    shutil.rmtree(dir_path)
+    utils.rmf(dir_path)
 
 
 @pytest.fixture()
@@ -54,7 +55,7 @@ def home_dir():
     yield homedir
 
     # cleanup
-    shutil.rmtree(homedir)
+    utils.rmf(homedir)
 
 
 @pytest.fixture()
