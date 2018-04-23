@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import platform
 import os
 
 # noinspection PyPackageRequirements
@@ -52,14 +53,13 @@ def _pyci_guinea_pig(request):
 
     try:
         wet = getattr(request.node.function, 'wet')
+        current_commit = repo.get_commit(sha='release')
+
+        if platform.system() != 'Darwin':
+            pytest.skip('Wet tests should only run on the Darwin build')
+
     except AttributeError:
         pass
-
-    if wet:
-        # this test might will modify the state of the repository.
-        # save the current commit so we can rollback.
-        current_commit = repo.get_commit(sha='release')
-        wet = getattr(request.node.function, 'wet')
 
     try:
 
