@@ -15,6 +15,8 @@
 #
 #############################################################################
 
+import stat
+import shutil
 import os
 import re
 import tempfile
@@ -63,6 +65,24 @@ def lsf(directory):
     """
 
     return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+
+
+def rmf(directory):
+
+    """
+    Delete the entire directory. This function also handles windows "Access Denied" errors when the
+    directory contains read-only files. This function is equivalent to 'rm -rf' on linux systems.
+
+    Args:
+        directory (str): Path to the directory to delete.
+    """
+
+    def remove_read_only(func, path, _):
+        if not os.access(path, os.W_OK):
+            os.chmod(path, stat.S_IWRITE)
+        func(path)
+
+    shutil.rmtree(directory, onerror=remove_read_only)
 
 
 def lsd(directory):

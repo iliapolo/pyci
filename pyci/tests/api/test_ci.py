@@ -83,23 +83,14 @@ def test_detect(env,
                 expected_tag,
                 expected_pull_request):
 
-    try:
-        for key, value in env.items():
-            if value:
-                os.environ[key] = value
+    ci_system = ci.detect(env)
 
-        ci_system = ci.detect()
-
-        assert expected_name == ci_system.name
-        assert expected_repo == ci_system.repo
-        assert expected_branch == ci_system.branch
-        assert expected_sha == ci_system.sha
-        assert expected_tag == ci_system.tag
-        assert expected_pull_request == ci_system.pull_request
-    finally:
-        for key in env.keys():
-            if key in os.environ:
-                del os.environ[key]
+    assert expected_name == ci_system.name
+    assert expected_repo == ci_system.repo
+    assert expected_branch == ci_system.branch
+    assert expected_sha == ci_system.sha
+    assert expected_tag == ci_system.tag
+    assert expected_pull_request == ci_system.pull_request
 
 
 @pytest.mark.parametrize("env,expected_reason", [
@@ -205,21 +196,11 @@ def test_detect(env,
 ])
 def test_validate_rc(env, expected_reason):
 
-    try:
-        for key, value in env.items():
-            if value:
-                os.environ[key] = value
+    ci_system = ci.detect(env)
 
-        ci_system = ci.detect()
-
-        if expected_reason:
-            with pytest.raises(exceptions.NotReleaseCandidateException) as info:
-                ci_system.validate_rc(release_branch='release')
-            assert expected_reason == info.value.reason
-        else:
+    if expected_reason:
+        with pytest.raises(exceptions.NotReleaseCandidateException) as info:
             ci_system.validate_rc(release_branch='release')
-
-    finally:
-        for key in env.keys():
-            if key in os.environ:
-                del os.environ[key]
+        assert expected_reason == info.value.reason
+    else:
+        ci_system.validate_rc(release_branch='release')

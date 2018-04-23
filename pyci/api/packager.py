@@ -226,7 +226,7 @@ class Packager(object):
 
         """
 
-        shutil.rmtree(self._repo_dir)
+        utils.rmf(self._repo_dir)
         delattr(self, '_repo_dir')
 
     @cachedproperty

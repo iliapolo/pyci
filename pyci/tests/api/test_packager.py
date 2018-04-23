@@ -19,6 +19,7 @@ import os
 import platform
 
 import pkg_resources
+# noinspection PyPackageRequirements
 import pytest
 
 import pyci
@@ -35,9 +36,10 @@ def pack():
     local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
     packager = Packager(path=local_repo_path)
 
-    yield packager
-
-    packager.clean()
+    try:
+        yield packager
+    finally:
+        packager.clean()
 
 
 def test_wheel(packager, temp_dir):

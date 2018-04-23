@@ -43,7 +43,8 @@ class _CI(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, environ):
+        self.environ = environ
         self._log_ctx = {
             'repo': self.repo,
             'sha': self.sha,
@@ -165,27 +166,27 @@ class _TravisCI(_CI):
     def pull_request(self):
         # travis sets this env variable to the 'false' string in case this
         # build isn't a pull request... see https://docs.travis-ci.com/user/environment-variables/
-        pr = os.environ.get('TRAVIS_PULL_REQUEST')
+        pr = self.environ.get('TRAVIS_PULL_REQUEST')
         return pr if pr != 'false' else None
 
     @property
     def tag(self):
-        return os.environ.get('TRAVIS_TAG')
+        return self.environ.get('TRAVIS_TAG')
 
     @property
     def sha(self):
-        return os.environ.get('TRAVIS_COMMIT')
+        return self.environ.get('TRAVIS_COMMIT')
 
     @property
     def branch(self):
-        return os.environ.get('TRAVIS_BRANCH')
+        return self.environ.get('TRAVIS_BRANCH')
 
     @property
     def repo(self):
-        return os.environ.get('TRAVIS_REPO_SLUG')
+        return self.environ.get('TRAVIS_REPO_SLUG')
 
     def detect(self):
-        return os.environ.get('TRAVIS')
+        return self.environ.get('TRAVIS')
 
 
 class _AppVeyor(_CI):
@@ -196,26 +197,26 @@ class _AppVeyor(_CI):
 
     @property
     def pull_request(self):
-        return os.environ.get('APPVEYOR_PULL_REQUEST_NUMBER')
+        return self.environ.get('APPVEYOR_PULL_REQUEST_NUMBER')
 
     @property
     def tag(self):
-        return os.environ.get('APPVEYOR_REPO_TAG_NAME')
+        return self.environ.get('APPVEYOR_REPO_TAG_NAME')
 
     @property
     def sha(self):
-        return os.environ.get('APPVEYOR_REPO_COMMIT')
+        return self.environ.get('APPVEYOR_REPO_COMMIT')
 
     @property
     def branch(self):
-        return os.environ.get('APPVEYOR_REPO_BRANCH')
+        return self.environ.get('APPVEYOR_REPO_BRANCH')
 
     @property
     def repo(self):
-        return os.environ.get('APPVEYOR_REPO_NAME')
+        return self.environ.get('APPVEYOR_REPO_NAME')
 
     def detect(self):
-        return os.environ.get('APPVEYOR')
+        return self.environ.get('APPVEYOR')
 
 
 # pylint: disable=too-few-public-methods
@@ -223,9 +224,9 @@ class _CIDetector(object):
 
     _ci_systems = []
 
-    def __init__(self):
-        self._ci_systems.append(_TravisCI())
-        self._ci_systems.append(_AppVeyor())
+    def __init__(self, environ):
+        self._ci_systems.append(_TravisCI(environ))
+        self._ci_systems.append(_AppVeyor(environ))
 
     def detect(self):
 
@@ -237,7 +238,7 @@ class _CIDetector(object):
         return ci
 
 
-def detect():
+def detect(environ=None):
 
     """
     Detects which CI system we are currently running on.
@@ -246,4 +247,4 @@ def detect():
          _CI: The specific implementation for the detected system.
     """
 
-    return _CIDetector().detect()
+    return _CIDetector(environ or os.environ).detect()
