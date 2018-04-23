@@ -681,6 +681,7 @@ def test_create_branch_sha_doesnt_exist(pyci_guinea_pig):
         pyci_guinea_pig.create_branch(sha='1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e', name='name')
 
 
+@pytest.mark.wet(issues=False)
 def test_create_branch(request, pyci_guinea_pig):
 
     sha = 'e4f0041f7bac3a672db645377c720ff61ad2b22a'
