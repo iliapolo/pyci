@@ -15,10 +15,10 @@
 #
 #############################################################################
 
-import stat
-import shutil
 import os
 import re
+import shutil
+import stat
 import tempfile
 import uuid
 import zipfile

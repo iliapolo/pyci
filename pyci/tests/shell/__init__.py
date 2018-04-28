@@ -15,8 +15,8 @@
 #
 #############################################################################
 import os
-import shlex
 import platform
+import re
 
 from click.testing import CliRunner
 
@@ -35,10 +35,7 @@ class Runner(object):
 
     def run(self, command, catch_exceptions=False):
 
-        if platform.system().lower() == 'windows':
-            args = command
-        else:
-            args = shlex.split(command)
+        args = split(command)
 
         log.info('Invoking command: {}. [cwd={}, args={}]'.format(command, os.getcwd(), args))
 
@@ -48,3 +45,44 @@ class Runner(object):
             raise SystemExit(result.output)
 
         return result
+
+
+def split(command):
+
+    if platform.system().lower() != 'windows':
+        re_cmd_lex = r'"((?:\\["\\]|[^"])*)"|' \
+                     r"'([^']*)'|(\\.)|(&&?|\|\|?|\d?\>|[<])|([^\s'" \
+                     r'"\\&|<>]+)|(\s+)|(.)'
+    else:
+        re_cmd_lex = r'"((?:""|\\["\\]|[^"])*)"?()|(\\\\(?=\\*")|\\")|(&&?|\|\|' \
+                     r'?|\d?>|[<])|([^\s"&|<>]+)|(\s+)|(.)'
+
+    args = []
+    accu = None
+    for qs, qss, esc, pipe, word, white, fail in re.findall(re_cmd_lex, command):
+        if word:
+            pass
+        elif esc:
+            word = esc[1]
+        elif white or pipe:
+            if accu is not None:
+                args.append(accu)
+            if pipe:
+                args.append(pipe)
+            accu = None
+            continue
+        elif fail:
+            raise ValueError("invalid or incomplete shell string")
+        elif qs:
+            word = qs.replace('\\"', '"').replace('\\\\', '\\')
+            if platform == 0:
+                word = word.replace('""', '"')
+        else:
+            word = qss   # may be even empty; must be last
+
+        accu = (accu or '') + word
+
+    if accu is not None:
+        args.append(accu)
+
+    return args
