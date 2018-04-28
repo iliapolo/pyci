@@ -151,7 +151,7 @@ def validate_commit(ctx, branch, sha):
               help='Generate for the last commit of this branch.')
 @click.option('--sha', required=False,
               help='Generate for this specific commit.')
-@click.option('--target', required=False,
+@click.option('--target', required=False, type=click.Path(exists=False),
               help='Path to the destination file. Defaults to ./<sha/branch>-changelog.md')
 def generate_changelog(ctx, sha, branch, target):
 
