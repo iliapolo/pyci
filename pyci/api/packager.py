@@ -121,7 +121,7 @@ class Packager(object):
             if platform.system().lower() == 'windows':
                 destination = '{0}.exe'.format(destination)
 
-            utils.validate_does_not_exist(path=destination)
+            utils.validate_file_does_not_exist(path=destination)
 
             dist_dir = os.path.join(temp_dir, 'dist')
             build_dir = os.path.join(temp_dir, 'build')
@@ -210,7 +210,7 @@ class Packager(object):
 
             destination = os.path.join(target_dir, actual_name)
 
-            utils.validate_does_not_exist(path=destination)
+            utils.validate_file_does_not_exist(path=destination)
 
             shutil.copy(os.path.join(dist_dir, actual_name), destination)
             self._debug('Packaged successfully.', package=destination)
@@ -259,7 +259,7 @@ class Packager(object):
         try:
             utils.validate_file_exists(setup_py_file)
         except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
-            raise exceptions.NotPythonProjectException(repo=self._repo, cause=str(e))
+            raise exceptions.NotPythonProjectException(repo=self._repo, cause=str(e), sha=self._sha)
 
         return self._runner.run('python {0} --name'.format(setup_py_file)).std_out
 
@@ -311,3 +311,8 @@ class Packager(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         log.debug(message, **kwargs)
+
+
+def new(repo, path, sha):
+
+    return Packager(repo=repo, path=path, sha=sha)

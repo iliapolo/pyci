@@ -136,17 +136,15 @@ class _CI(object):
         self._debug('Validating build...', release_branch=release_branch)
 
         if self.pull_request:
-            raise exceptions.NotReleaseCandidateException(reason='Build is a Pull Request ({0})'
-                                                          .format(self.pull_request))
+            raise exceptions.BuildIsAPullRequestException(pull_request=self.pull_request)
 
         if self.tag:
-            raise exceptions.NotReleaseCandidateException(reason='Build is a Tag ({0})'
-                                                          .format(self.tag))
+            raise exceptions.BuildIsATagException(tag=self.tag)
 
         if self.branch != release_branch:
-            raise exceptions.NotReleaseCandidateException(
-                reason='The current build branch ({0}) does not match the release branch ({1})'
-                .format(self.branch, release_branch))
+            raise exceptions.BuildBranchDiffersFromReleaseBranchException(
+                branch=self.branch,
+                release_branch=release_branch)
 
         self._debug('Successfully validated build.', release_branch=release_branch)
 
@@ -222,9 +220,8 @@ class _AppVeyor(_CI):
 # pylint: disable=too-few-public-methods
 class _CIDetector(object):
 
-    _ci_systems = []
-
     def __init__(self, environ):
+        self._ci_systems = []
         self._ci_systems.append(_TravisCI(environ))
         self._ci_systems.append(_AppVeyor(environ))
 
@@ -234,6 +231,7 @@ class _CIDetector(object):
         for system in self._ci_systems:
             if system.detect():
                 ci = system
+                break
 
         return ci
 

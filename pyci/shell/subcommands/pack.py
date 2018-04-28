@@ -15,6 +15,8 @@
 #
 #############################################################################
 
+import sys
+
 import click
 
 from pyci.api import exceptions
@@ -42,7 +44,6 @@ log = logger.get_logger(__name__)
 def binary(ctx, name, entrypoint, target_dir):
 
     """
-
     Create a binary executable.
 
     This command creates a self-contained binary executable for your project.
@@ -59,21 +60,25 @@ def binary(ctx, name, entrypoint, target_dir):
     """
 
     try:
-        log.info('Packaging... (this may take some time)')
-        package_path = ctx.parent.packager.binary(entrypoint=entrypoint,
-                                                  name=name,
-                                                  target_dir=target_dir)
-        log.info('Binary package created: {}'.format(package_path))
+        binary_internal(entrypoint=entrypoint,
+                        name=name,
+                        target_dir=target_dir,
+                        packager=ctx.parent.packager)
     except exceptions.FileExistException as e:
-        e.possible_solutions = [
+        err = click.ClickException('Failed creating binary package: {}'.format(str(e)))
+        err.possible_solutions = [
             'Delete/Move the file and try again'
         ]
-        raise e
+        raise type(err), err, sys.exc_info()[2]
     except exceptions.FileIsADirectoryException as e:
-        e.possible_solutions = [
+        err = click.ClickException('Failed creating binary package: {}'.format(str(e)))
+        err.possible_solutions = [
             'Delete/Move the directory and try again'
         ]
-        raise e
+        raise type(err), err, sys.exc_info()[2]
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed creating binary package: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
 @click.command()
@@ -96,19 +101,38 @@ def wheel(ctx, target_dir, universal):
     """
 
     try:
-        log.info('Packaging... (this may take some time)')
-        package_path = ctx.parent.packager.wheel(
-            target_dir=target_dir,
-            universal=universal
-        )
-        log.info('Wheel package created: {}'.format(package_path))
+        wheel_internal(target_dir=target_dir, universal=universal, packager=ctx.parent.packager)
     except exceptions.FileExistException as e:
-        e.possible_solutions = [
+        err = click.ClickException('Failed creating wheel package: {}'.format(str(e)))
+        err.possible_solutions = [
             'Delete/Move the file and try again'
         ]
-        raise e
+        raise type(err), err, sys.exc_info()[2]
     except exceptions.FileIsADirectoryException as e:
-        e.possible_solutions = [
+        err = click.ClickException('Failed creating wheel package: {}'.format(str(e)))
+        err.possible_solutions = [
             'Delete/Move the directory and try again'
         ]
-        raise e
+        raise type(err), err, sys.exc_info()[2]
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed creating wheel package: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+def wheel_internal(target_dir, universal, packager):
+    log.info('Packaging... (this may take some time)')
+    package_path = packager.wheel(
+        target_dir=target_dir,
+        universal=universal
+    )
+    log.info('Wheel package created: {}'.format(package_path))
+    return package_path
+
+
+def binary_internal(entrypoint, name, target_dir, packager):
+    log.info('Packaging... (this may take some time)')
+    package_path = packager.binary(entrypoint=entrypoint,
+                                   name=name,
+                                   target_dir=target_dir)
+    log.info('Binary package created: {}'.format(package_path))
+    return package_path

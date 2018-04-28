@@ -15,9 +15,9 @@
 #
 #############################################################################
 
+import StringIO
 import sys
 import traceback
-import StringIO
 from functools import wraps
 
 import click

@@ -13,37 +13,60 @@
 #   * limitations under the License.
 #
 #############################################################################
-
+import logging
 import os
 import tempfile
 
 # noinspection PyPackageRequirements
 import pytest
+# noinspection PyPackageRequirements
+from testfixtures import LogCapture
 
 from pyci.api import utils
 from pyci.api.runner import LocalCommandRunner
+from pyci import shell
+from pyci.shell.subcommands import github
+from pyci.shell.subcommands import pack
+from pyci.shell.subcommands import pypi
+from pyci.api import logger
+
+
+@pytest.fixture(name='capture', autouse=True)
+def _capture():
+    names = (shell.__name__, github.__name__, pack.__name__, pypi.__name__)
+    with LogCapture(names=names) as capture:
+
+        # LogCapture removes all handlers from the given loggers.
+        # lets re-add the console handler, it makes it easier to debug.
+        for name in names:
+            log = logger.get_logger(name)
+            log.add_console_handler(logging.DEBUG)
+
+        yield capture
 
 
 @pytest.fixture()
-def temp_file():
+def temp_file(request):
 
-    file_path = tempfile.mkstemp()[1]
+    file_path = tempfile.mkstemp(suffix=request.node.name)[1]
 
-    yield file_path
-
-    # cleanup
-    os.remove(file_path)
+    try:
+        yield file_path
+    finally:
+        # cleanup
+        os.remove(file_path)
 
 
 @pytest.fixture()
-def temp_dir():
+def temp_dir(request):
 
-    dir_path = tempfile.mkdtemp()
+    dir_path = tempfile.mkdtemp(suffix=request.node.name)
 
-    yield dir_path
-
-    # cleanup
-    utils.rmf(dir_path)
+    try:
+        yield dir_path
+    finally:
+        # cleanup
+        utils.rmf(dir_path)
 
 
 @pytest.fixture()
@@ -52,13 +75,28 @@ def home_dir():
     homedir = tempfile.mkdtemp()
     os.environ['HOME'] = homedir
 
-    yield homedir
+    try:
+        yield homedir
 
-    # cleanup
-    utils.rmf(homedir)
+    finally:
+        # cleanup
+        utils.rmf(homedir)
 
 
 @pytest.fixture()
 def runner():
 
     yield LocalCommandRunner()
+
+
+@pytest.fixture()
+def isolated():
+
+    cwd = os.getcwd()
+    t = tempfile.mkdtemp()
+    os.chdir(t)
+    try:
+        yield t
+    finally:
+        os.chdir(cwd)
+        utils.rmf(t)

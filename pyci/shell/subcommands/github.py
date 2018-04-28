@@ -15,15 +15,19 @@
 #
 #############################################################################
 
+import os
+import sys
+import tempfile
+
 import click
-from prettytable import PrettyTable
 
 from pyci.api import exceptions
 from pyci.api import logger
-from pyci.shell import handle_exceptions
+from pyci.api import utils
+from pyci.api.model.changelog import ChangelogCommit
+from pyci.api.model.release import Release
 from pyci.shell import RELEASE_BRANCH_HELP
-from pyci.shell import RELEASE_SHA_HELP
-from pyci.shell import RELEASE_VERSION_HELP
+from pyci.shell import handle_exceptions
 
 log = logger.get_logger(__name__)
 
@@ -31,325 +35,397 @@ log = logger.get_logger(__name__)
 @click.command('release')
 @handle_exceptions
 @click.pass_context
-@click.option('--branch', required=False,
+@click.option('--branch-name', required=False,
               help=RELEASE_BRANCH_HELP)
-@click.option('--sha', required=False,
-              help=RELEASE_SHA_HELP)
-@click.option('--version', required=False,
-              help=RELEASE_VERSION_HELP)
-def release_(ctx, sha, version, branch):
+@click.option('--master-branch-name', required=False, default='master',
+              help='The master branch name. That is, the branch that should point to the latest '
+                   'stable release. Defaults to master.')
+@click.option('--release-branch-name', required=False, default='release',
+              help='The release branch name. That is, the branch that releases should be made '
+                   'from. This is used to silently ignore commits made to other branches. '
+                   'Defaults to the repository default branch.')
+@click.option('--force', is_flag=True,
+              help='Force release without any validations.')
+def release_branch(ctx, branch_name, master_branch_name, release_branch_name, force):
+
+    """
+    Release a branch.
+
+    This command will do the following:
+
+        1. Create a Github release with the version as its title. (With changelog)
+
+        2. Create a commit bumping the version of setup.py on top of the branch.
+
+        3. Update the master branch to point to the release commit.
+
+        4. Close any issues related included in the changelog.
+
+    The version is calculated automatically according to the changelog. Note that the release tag
+    will point to the above mentioned commit.
+
+    The command is mainly intended to be executed automatically using CI systems (as described
+    below), and implements certain heuristics in order to perform properly.
+
+    Note, the release process will only take place if the following conditions hold:
+
+        1. The current build passes validation. (see validate-build)
+
+        2. The tip of the branch passes validation. (see validate-commit)
+
+        3. The release does not yet exist.
+
+    If either of these conditions is not satisfied, the command will be silently ignored and
+    complete successfully. This is useful so that your builds will not fail when running on
+    commits that shouldn't be released.
+
+    This command is idempotent, given that the tip of your branch hasn't changed between
+    executions. You can also safely run this command in parallel, this is important when running
+    your CI process on multiple systems concurrently.
 
     """
 
-    Create a Github Release.
+    ci = ctx.parent.parent.ci
 
-    This command will have the following affects:
-
-        1. Github release with the version as its title. (With changelog)
-
-        2. A version bump commit to setup.py in the corresponding branch.
-
-    Notice that this command does not perform any validations on the sha or the branch.
-    (This is as opposed to 'pyci release').
-
-    However, if pyci detects that the sha is actually already released, it will log a
-    message and exit successfully. (#idempotent-cli)
-
-    """
-
-    ci = ctx.parent.ci
-
-    branch = branch or (ci.branch if ci else None) or ctx.parent.github.default_branch_name
-    sha = sha or branch or (ci.sha if ci else None) or ctx.parent.github.default_branch_name
+    sha = ci.sha if ci else None
+    branch_name = branch_name or (ci.branch if ci else None)
 
     try:
-        log.info('Creating release of sha {} from branch {}...'.format(sha, branch))
-        release_title = ctx.parent.github.create_release(branch=branch, sha=sha, version=version)
-        log.info('Successfully created release: {0}'.format(release_title))
-    except exceptions.CommitIsAlreadyReleasedException as e:
-        # this is ok, maybe someone is running the command on the same commit
-        # over and over again (#idempotant-cli)
-        log.info('The commit is already released: {}, I can rest, yey :)'.format(e.release))
+
+        release_branch_internal(branch_name=branch_name,
+                                master_branch_name=master_branch_name,
+                                release_branch_name=release_branch_name,
+                                force=force,
+                                gh=ctx.parent.github,
+                                ci=ci,
+                                sha=sha)
+
+    except exceptions.ReleaseValidationFailedException as e:
+        log.info('Not releasing: {}'.format(str(e)))
+
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed releasing: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
-@click.command()
+@click.command('validate-commit')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=False,
+              help='Validate the last commit of this branch.')
+@click.option('--sha', required=False,
+              help='Validate this specific commit.')
+def validate_commit(ctx, branch, sha):
+
+    """
+    Validate that a commit should be released.
+
+    The conditions for release are:
+
+        1. The commit is associated to an issue via the '#' sign in its message.
+
+        2. The issue is marked with at least one of the release labels. (patch, minor, major).
+
+    If the validation fails, this command will exit with error (1).
+
+    Note that --sha and --branch cannot be used simultaneously.
+
+    """
+
+    if sha and branch:
+        raise click.BadOptionUsage('Use either --sha or --branch, not both.')
+
+    if not sha and not branch:
+        raise click.BadOptionUsage('Must specify either --sha or --branch.')
+
+    try:
+        validate_commit_internal(branch, ctx, sha)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Validation failed: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('generate-changelog')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=False,
+              help='Generate for the last commit of this branch.')
+@click.option('--sha', required=False,
+              help='Generate for this specific commit.')
+@click.option('--target', required=False,
+              help='Path to the destination file. Defaults to ./<sha/branch>-changelog.md')
+def generate_changelog(ctx, sha, branch, target):
+
+    """
+    Generate a changelog file of a specific commit.
+
+    Determines the changelog of the given commit relative to the latest release available and
+    creates a .md file.
+
+    The output file may include the following sections:
+
+        1. Features - features that were introduced.
+
+        2. Bugs - bugs were fixed.
+
+        3. Issues - general issues that were implemented.
+
+        4. Dangling Commits - commits pushed to the branch that are not related to any issue.
+
+    """
+
+    if sha and branch:
+        raise click.BadOptionUsage('Use either --sha or --branch, not both.')
+
+    if not sha and not branch:
+        raise click.BadOptionUsage('Must specify either --sha or --branch.')
+
+    try:
+
+        destination = os.path.abspath(target or os.path.join(
+            os.getcwd(), '{}-changelog.md'.format(sha or branch)))
+
+        utils.validate_directory_exists(os.path.abspath(os.path.join(destination, os.pardir)))
+        utils.validate_file_does_not_exist(destination)
+
+        changelog = generate_changelog_internal(branch, ctx, sha)
+
+        with open(destination, 'w') as stream:
+            rendered = changelog.render()
+            stream.write(rendered)
+
+        log.info('Generated at {}'.format(destination))
+    except exceptions.FileExistException as e:
+        err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
+        err.possible_solutions = [
+            'Delete/Move the file and try again'
+        ]
+        raise type(err), err, sys.exc_info()[2]
+    except exceptions.FileIsADirectoryException as e:
+        err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
+        err.possible_solutions = [
+            'Delete/Move the directory and try again'
+        ]
+        raise type(err), err, sys.exc_info()[2]
+    except exceptions.DirectoryDoesntExistException as e:
+        err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
+        err.possible_solutions = [
+            'Create the directory and try again'
+        ]
+        raise type(err), err, sys.exc_info()[2]
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('create-release')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=False,
+              help='Release the last commit of this branch.')
+@click.option('--sha', required=False,
+              help='Release this specific commit.')
+def create_release(ctx, sha, branch):
+
+    """
+    Create a release from a commit.
+
+    The release title will be the version in setup.py of the specified commit.
+
+    This command is NOT idempotent.
+
+    """
+
+    if sha and branch:
+        raise click.BadOptionUsage('Use either --sha or --branch, not both.')
+
+    if not sha and not branch:
+        raise click.BadOptionUsage('Must specify either --sha or --branch.')
+
+    try:
+        create_release_internal(branch, ctx, sha)
+    except exceptions.NotPythonProjectException as e:
+        err = click.ClickException('Failed creating release: {}'.format(str(e)))
+        err.possible_solutions = [
+            'Please follow these instructions to create a standard '
+            'python project --> https://packaging.python.org/tutorials/distributing-packages/'
+        ]
+        raise type(err), err, sys.exc_info()[2]
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed creating release: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('upload-asset')
 @handle_exceptions
 @click.pass_context
 @click.option('--asset', required=True,
               help='Path to the asset you want to upload.')
 @click.option('--release', required=True,
               help='The name of the release you want to upload to.')
-def upload(ctx, asset, release):
+def upload_asset(ctx, asset, release):
+
+    """
+    Upload an asset to a release.
+
+    The name of the asset in the release will be the basename of the asset file.
 
     """
 
-    Upload an asset to a Github release.
-
-    This command will have the following affects:
-
-        1. Additional asset in the specified release. (The name of the asset in the release will
-        be the basename of the file path.)
-
-    Note that if an asset with the given name already exists in the release, the command will
-    log a message and exit successfully (#idempotent-cli)
-
-    """
-
-    log.info('Uploading asset {0} to release {1}.. (this may take a while)'.format(asset, release))
     try:
-        asset_url = ctx.parent.github.upload_asset(asset=asset, release=release)
-        log.info('Uploaded: {}'.format(asset_url))
-    except exceptions.AssetAlreadyPublishedException:
-        # this is ok, maybe someone is running the command on the same asset
-        # over and over again (#idempotant-cli).
-        log.info('Asset already published for release')
+        upload_asset_internal(asset, ctx, release)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed uploading asset: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
-@click.command()
+@click.command('upload-changelog')
 @handle_exceptions
 @click.pass_context
+@click.option('--changelog', required=True,
+              help='Path to the changelog file you want to upload.')
 @click.option('--release', required=True,
-              help='The name of the release you want to delete.')
-def delete(ctx, release):
+              help='The name of the release you want to upload to.')
+def upload_changelog(ctx, changelog, release):
+
+    """
+    Upload a changelog to a release.
+
+    Note that this will override any existing changelog.
 
     """
 
-    Delete a Github release.
-
-    This command will have the following affects:
-
-        1. The release will be deleted from the 'releases' tab.
-        2. The tag associated with the release will also be deleted.
-
-    Note that if the release (and or tag) does not exist, the command will log a message and
-    exit successfully (#idempotent-cli)
-
-    """
-
-    log.info('Deleting release {0}...'.format(release))
-    ctx.parent.github.delete_release(name=release)
-    log.info('Done')
+    try:
+        upload_changelog_internal(changelog, ctx, release)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed uploading changelog: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
-@click.command()
-@handle_exceptions
-@click.pass_context
-@click.option('--branch', required=False,
-              help='The name of the branch you want to commit to. The defaulting heuristics are as '
-                   'follows: 1) The branch the build was triggered on. 2) '
-                   'The default branch name of the repository.')
-@click.option('--sha', required=False,
-              help='The sha of the commit used to download setup.py. The defaulting heuristics are '
-                   'as follows: 1) The value of --branch. 2) The '
-                   'branch that triggered the build. 3) The name of the default branch')
-@click.option('--version', required=False,
-              help='The version you want setup.py to have. Cannot be used in conjunction with '
-                   '--patch nor --minor nor --major.')
-@click.option('--patch', is_flag=True,
-              help='Bump the patch version. Cannot be used in conjunction with --version.')
-@click.option('--minor', is_flag=True,
-              help='Bump the minor version. Cannot be used in conjunction with --version.')
-@click.option('--major', is_flag=True,
-              help='Bump the major version. Cannot be used in conjunction with --version.')
-@click.option('--dry', is_flag=True,
-              help="Don't actually perform the commit, "
-                   "just show me what setup.py will look like if you had.")
-def bump(ctx, sha, branch, version, patch, minor, major, dry):
-
-    """
-
-    Bump the version of setup.py.
-
-    Downloads the setup.py file from the commit you specified, and bumps its version
-    according to the version options.
-
-    This command wil have the following affects:
-
-        1. A bump version commit to setup.py (If not --dry)
-
-    Note that if you specify --version and give the same version that setup.py currently has,
-    the command will complete successfully (#idempotent-cli)
-
-    """
-
-    if version and (patch or minor or major):
-        raise click.BadOptionUsage("When specifying '--version' you cannot "
-                                   "specify any additional version options (--patch, --minor, "
-                                   "--major)")
-
-    ci = ctx.parent.ci
-
-    branch = branch or (ci.branch if ci else None) or ctx.parent.github.default_branch_name
-    sha = sha or branch or (ci.sha if ci else None) or ctx.parent.github.default_branch_name
-
-    log.info('Bumping version...')
-    setup_py = ctx.parent.github.bump_version(
-        sha=sha,
-        branch=branch,
-        version=version,
-        patch=patch,
-        minor=minor,
-        major=major,
-        dry=dry)
-    if dry:
-        log.info('\n\n**Running in Dry Mode**\n\n')
-        log.info('Here is what setup.py will look like: \n\n{0}'.format(setup_py))
-    log.info('Done')
-
-
-@click.command()
-@handle_exceptions
-@click.pass_context
-@click.option('--branch', required=False,
-              help='The name of the branch you want to calculate changelog for. The last commit '
-                   'of this repository will be used. The defaulting '
-                   'heuristics are as follows: 1) The branch the build was triggered on. 2) '
-                   'The default branch name of the repository.')
-@click.option('--sha', required=False,
-              help='The sha of the commit you want to calculate changelog for. The defaulting '
-                   'heuristics are as follows: 1) The value of --branch. 2) The '
-                   'branch that triggered the build. 3) The name of the default branch')
-def changelog(ctx, sha, branch):
-
-    """
-
-    Show changelog of a specific commit.
-
-    Calculates the changelog of the given commit relative to the latest release available.
-
-    The output may include the following sections:
-
-        1. Features - features that were introduced.
-
-        2. Bugs - bugs were fixed.
-
-        3. Internals - internal issues that were implemented.
-
-        4. Dangling Commits - commits pushed to the branch that are not related to any issue.
-
-    This command does not have any affects and is read-only.
-
-    """
-
-    ci = ctx.parent.ci
-
-    branch = branch or (ci.branch if ci else None) or ctx.parent.github.default_branch_name
-    sha = sha or branch or (ci.sha if ci else None) or ctx.parent.github.default_branch_name
-
-    log.info('Fetching latest release...')
-    latest_release = ctx.parent.github.last_release
-
-    if latest_release:
-        log.info('Generating changelog from version {0}... (this may take a while)'
-                 .format(latest_release.title))
-    else:
-        log.info("Your project hasn't been released yet, generating first changelog...")
-    change_log = ctx.parent.github.generate_changelog(branch=branch, sha=sha)
-
-    def _build_table(issues):
-
-        table = PrettyTable(field_names=['issue', 'title', 'url', 'labels'])
-
-        for ish in issues:
-            labels = ','.join([label.name for label in list(ish.get_labels())])
-            table.add_row([ish.number, ish.title, ish.html_url, labels])
-
-        return table.get_string()
-
-    # these functions may take some time
-    # because it actually fetches labels from github.
-    # this is why we first build all tables and only then
-    # start printing. to provide a smooth print.
-    features_table = None
-    if change_log.features:
-        features_table = _build_table(change_log.features)
-
-    bugs_table = None
-    if change_log.bugs:
-        bugs_table = _build_table(change_log.bugs)
-
-    internals_table = None
-    if change_log.other_issues:
-        internals_table = _build_table(change_log.other_issues)
-
-    dangling_commits_table = None
-    if change_log.other_issues:
-        dangling_commits_table = _build_table(change_log.dangling_commits)
-
-    next_version = change_log.next_version
-
-    # now we can print smoothly
-    if not change_log.empty:
-        click.echo('')
-
-        if features_table:
-            click.echo('Features:')
-            click.echo(features_table)
-            click.echo('')
-
-        if bugs_table:
-            click.echo('Bugs:')
-            click.echo(bugs_table)
-            click.echo('')
-
-        if internals_table:
-            click.echo('Internals:')
-            click.echo(internals_table)
-            click.echo('')
-
-        if dangling_commits_table:
-            click.echo('Dangling Commits:')
-            click.echo(dangling_commits_table)
-            click.echo('')
-
-        log.info('Based on this changelog, the next version will be: {0}'
-                 .format(next_version))
-    else:
-        log.info('Changelog is empty')
-
-
-@click.command()
+@click.command('detect-issue')
 @handle_exceptions
 @click.pass_context
 @click.option('--sha', required=False,
-              help='The sha of the commit you want to inspect. The defaulting heuristics are as '
-                   'follows: 1) The branch that triggered the build. '
-                   '2) The name of the default branch')
-@click.option('--message', required=False)
-def issue(ctx, sha, message):
+              help='Detect from a sha, the message will be retrieved.')
+@click.option('--message', required=False,
+              help='Detect from a commit message directly.')
+def detect_issue(ctx, sha, message):
 
     """
-
     Detect an issue for a specific commit.
 
-    This command does not have any affects and is read-only.
-
     Parses the commit message to detect which issue as related to that commit.
-
-    This command does not have any affects and is read-only.
 
     """
 
     if sha and message:
-        raise click.BadOptionUsage("Either '--sha' or '--message' is allowed (not both)")
+        raise click.BadOptionUsage('Use either --sha or --message, not both.')
 
     if not sha and not message:
-        raise click.BadOptionUsage("Either '--sha' or '--message' is required")
+        raise click.BadOptionUsage('Must specify either --sha or --message.')
 
-    ci = ctx.parent.ci
+    try:
+        log.info('Detecting issue for {}'.format(sha or message))
+        issue = ctx.parent.github.detect_issue(sha=sha, commit_message=message)
+        if issue:
+            log.info('Issue detected: {}'.format(issue.url))
+        else:
+            log.info('The commit is not related ot any issue.')
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed detecting issue: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
-    sha = sha or (ci.sha if ci else None) or ctx.parent.github.default_branch_name
 
-    if sha:
-        log.info('Detecting issue number from commit: {0}'.format(sha))
-    if message:
-        log.info('Detecting issue number from message: {0}'.format(message))
+@click.command('delete-release')
+@handle_exceptions
+@click.pass_context
+@click.option('--name', required=True,
+              help='The name of the release you want to delete.')
+def delete_release(ctx, name):
 
-    git_issue = ctx.parent.github.detect_issue(sha=sha, commit_message=message)
-    if git_issue is None:
-        log.info('No issue detected')
-    else:
-        log.info('Issue detected: {0}'.format(git_issue.html_url))
+    """
+    Delete a release.
+
+    This command will not delete the tag associated with the release.
+    To delete the tag as well, use the 'delete-tag' command.
+    """
+
+    try:
+        log.info('Deleting release {0}...'.format(name))
+        ctx.parent.github.delete_release(name=name)
+        log.info('Deleted release: {}'.format(name))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed deleting release: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('delete-tag')
+@handle_exceptions
+@click.pass_context
+@click.option('--name', required=True,
+              help='The name of the tag you want to delete.')
+def delete_tag(ctx, name):
+
+    """
+    Delete a tag.
+
+    """
+
+    try:
+        log.info('Deleting tag {0}...'.format(name))
+        ctx.parent.github.delete_tag(name=name)
+        log.info('Deleted tag: {}'.format(name))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed deleting tag: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('bump-version')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=True,
+              help='Which branch to read setup.py from.')
+@click.option('--semantic', required=True, type=click.Choice(['patch', 'minor', 'major']),
+              help='Which semantic bump to perform.')
+def bump_version(ctx, branch, semantic):
+
+    """
+    Bump the version of setup.py.
+
+    This command will create a commit on top of the specified branch.
+
+    """
+
+    try:
+        log.info('Bumping version of branch {}'.format(branch))
+        bump = ctx.parent.github.bump_version(branch=branch, semantic=semantic)
+        log.info('Bumped version from {} to {}'.format(bump.prev_version, bump.next_version))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed bumping version: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('set-version')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=True,
+              help='Which branch to create the commit on.')
+@click.option('--value', required=True,
+              help='The semantic version value.')
+def set_version(ctx, branch, value):
+
+    """
+    Bump the version of setup.py.
+
+    This command will create a commit on top of the specified branch.
+
+    """
+
+    try:
+        set_version_internal(branch, ctx, value)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed setting version: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
 @click.command('reset-branch')
@@ -361,18 +437,295 @@ def issue(ctx, sha, message):
               help='The sha to reset the branch to.')
 def reset_branch(ctx, name, sha):
 
-    log.info('Resetting branch {} to sha {}'.format(name, sha))
-    ctx.parent.github.reset_branch(name=name, sha=sha)
-    log.info('Done!')
+    """
+    Reset the specified branch to the given sha.
+
+    This is equivalent to 'git reset --hard'
+
+    """
+
+    try:
+        reset_branch_internal(ctx, name, sha)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed resetting branch: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
-@click.command('set-version')
+@click.command('reset-tag')
 @handle_exceptions
 @click.pass_context
-@click.option('--value', required=True,
-              help='The semantic version value.')
-def set_version(ctx, value):
+@click.option('--name', required=True,
+              help='The tag name')
+@click.option('--sha', required=True,
+              help='The sha to reset the tag to.')
+def reset_tag(ctx, name, sha):
 
-    log.info('Setting version to {}'.format(value))
-    ctx.parent.github.set_version(value=value)
-    log.info('Done!')
+    """
+    Reset the specified branch to the given sha.
+
+    This is equivalent to 'git reset --hard'
+
+    """
+
+    try:
+        log.info('Resetting branch {} to sha {}'.format(name, sha))
+        ctx.parent.github.reset_tag(name=name, sha=sha)
+        log.info('Tag {} is now at {}.'.format(name, sha))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed resetting tag: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('create-branch')
+@handle_exceptions
+@click.pass_context
+@click.option('--name', required=True,
+              help='The branch name')
+@click.option('--sha', required=True,
+              help='The sha to branch out from.')
+def create_branch(ctx, name, sha):
+
+    """
+    Create a branch from a specific sha.
+
+    """
+
+    try:
+        create_branch_internal(ctx, name, sha)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed creating branch: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('delete-branch')
+@handle_exceptions
+@click.pass_context
+@click.option('--name', required=True,
+              help='The branch name')
+def delete_branch(ctx, name):
+
+    """
+    Delete a branch.
+
+    """
+
+    try:
+        delete_branch_internal(ctx, name)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed deleting branch: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('commit-file')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=True,
+              help='The branch to commit to.')
+@click.option('--path', required=True,
+              help='Path to the file, relative to the repository root.')
+@click.option('--contents', required=True,
+              help='The new file contents.')
+@click.option('--message', required=True,
+              help='The commit message.')
+def commit_file(ctx, branch, path, contents, message):
+
+    """
+    Commit a file remotely.
+
+    """
+
+    try:
+        log.info('Committing file {}'.format(path))
+        commit = ctx.parent.github.commit_file(
+            path=path,
+            contents=contents,
+            message=message,
+            branch=branch)
+        log.info('Committed: {}'.format(commit.url))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed committing file: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('create-commit')
+@handle_exceptions
+@click.pass_context
+@click.option('--branch', required=True,
+              help='The last commit of this branch will be the parent of the created commit.')
+@click.option('--path', required=True,
+              help='Path to the file, relative to the repository root.')
+@click.option('--contents', required=True,
+              help='The new file contents.')
+@click.option('--message', required=True,
+              help='The commit message.')
+def create_commit(ctx, branch, path, contents, message):
+
+    """
+    Create a commit in the repository.
+
+    Note, this command does not actually update any reference to point to this commit.
+    The created commit will be floating until you reset some reference to it.
+
+    """
+
+    try:
+        log.info('Creating commit...')
+        commit = ctx.parent.github.create_commit(path=path,
+                                                 contents=contents,
+                                                 message=message,
+                                                 branch=branch)
+        log.info('Created: {}'.format(commit.url))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed creating commit: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+def generate_changelog_internal(branch, sha, gh):
+    log.info('Generating changelog for {}... (this may take a while)'.format(sha or branch))
+    changelog = gh.generate_changelog(branch=branch, sha=sha)
+    return changelog
+
+
+def set_version_internal(branch, value, gh):
+    log.info('Setting version of branch {}'.format(branch))
+    bump = gh.set_version(branch=branch, value=value)
+    log.info('Version is now {} (was {})'.format(bump.next_version, bump.prev_version))
+    return bump
+
+
+def upload_changelog_internal(changelog, rel, gh):
+    log.info('Uploading changelog to release {}.. (this may take a while)'.format(rel))
+    with open(changelog) as stream:
+        rel = gh.upload_changelog(changelog=stream.read(), release=rel)
+    log.info('Uploaded: {}'.format(rel.url))
+
+
+def create_release_internal(branch, sha, gh):
+    log.info('Creating a release from {}... (this may take a while)'.format(sha or branch))
+    release = gh.create_release(sha=sha, branch=branch)
+    log.info('Release created: {}'.format(release.url))
+    return release
+
+
+def create_branch_internal(name, sha, gh):
+    log.info('Creating branch {} from sha {}..'.format(name, sha))
+    branch = gh.create_branch(name=name, sha=sha)
+    log.info('Branch created: {}.'.format(name))
+    return branch
+
+
+def delete_branch_internal(name, gh):
+    log.info('Deleting branch {}..'.format(name))
+    branch = gh.delete_branch(name=name)
+    log.info('Branch deleted: {}.'.format(name))
+    return branch
+
+
+def reset_branch_internal(name, sha, gh):
+    log.info('Resetting branch {} to sha {}'.format(name, sha))
+    gh.reset_branch(name=name, sha=sha)
+    log.info('Branch {} is now at {}.'.format(name, sha))
+
+
+def validate_commit_internal(branch, sha, gh):
+    log.info('Validating {} should be released...'.format(sha or branch))
+    gh.validate_commit(branch=branch, sha=sha)
+    log.info('Validation passed!')
+
+
+def validate_build_internal(release_branch_name, ci):
+
+    log.info('Validating build...')
+    if ci:
+        ci.validate_rc(release_branch_name)
+    log.info('Validation passed!')
+
+
+def upload_asset_internal(asset, release, gh):
+    log.info('Uploading asset {} to release {}.. (this may take a while)'.format(asset, release))
+    asset_url = gh.upload_asset(asset=asset, release=release)
+    log.info('Uploaded: {}'.format(asset_url))
+
+
+def release_branch_internal(branch_name,
+                            master_branch_name,
+                            release_branch_name,
+                            force,
+                            sha,
+                            gh,
+                            ci):
+
+    log.info('Creating release from {}...'.format(sha or branch_name))
+
+    if not force:
+
+        validate_build_internal(ci=ci, release_branch_name=release_branch_name)
+        validate_commit_internal(branch=None if sha else branch_name, gh=gh, sha=sha)
+
+    changelog = generate_changelog_internal(branch=None if sha else branch_name, gh=gh, sha=sha)
+
+    if changelog.empty:
+
+        # TODO what to do here?
+        pass
+
+    next_version = changelog.next_version
+
+    log.info('Creating floating version commit...')
+    # figure out how to avoid calling private api here...
+    # exposing this doesn't seem like a good solution either.
+    # noinspection PyProtectedMember
+    bump = gh._create_set_version_commit(value=next_version, branch=branch_name)
+    actual_commit = bump.impl
+    log.info('Created commit: {}'.format(actual_commit.sha))
+
+    temp_branch_name = 'releasing-{}'.format(changelog.sha)
+    temp_branch = None
+    try:
+
+        try:
+            temp_branch = create_branch_internal(gh=gh,
+                                                 name=temp_branch_name,
+                                                 sha=actual_commit.sha)
+        except exceptions.BranchAlreadyExistsException:
+            # this is ok, some other process beat us to the punch.
+            # all good.
+            pass
+
+        try:
+            release = create_release_internal(branch=temp_branch_name, gh=gh, sha=None)
+        except exceptions.CommitIsAlreadyReleasedException as e:
+            # again, someone beat us to the punch. lets just use the existing release.
+            ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.release))
+            rel = gh.repo.get_release(id=next_version)
+            release = Release(impl=rel, title=rel.title, url=rel.html_url, sha=ref.object.sha)
+
+    finally:
+        if temp_branch:
+            delete_branch_internal(gh=gh, name=temp_branch_name)
+
+    bump_change = ChangelogCommit(title=actual_commit.message,
+                                  url=actual_commit.html_url,
+                                  timestamp=actual_commit.author.date,
+                                  impl=actual_commit)
+    changelog.add(bump_change)
+
+    changelog_file = os.path.join(tempfile.mkdtemp(), 'changelog.md')
+    with open(changelog_file, 'w') as stream:
+        stream.write(changelog.render())
+    upload_changelog_internal(changelog=changelog_file, gh=gh, rel=release.title)
+
+    for issue in changelog.all_issues:
+        log.info('Closing issue: {} ({})'.format(issue.title, issue.url))
+        # figure out how to avoid calling private api here...
+        # exposing this doesn't seem like a good solution either.
+        # noinspection PyProtectedMember
+        gh._close_issue(issue=issue.impl, release=release.impl)
+
+    reset_branch_internal(gh=gh, name=branch_name, sha=release.sha)
+
+    reset_branch_internal(gh=gh, name=master_branch_name, sha=release.sha)
+
+    log.info('Successfully created release: {}'.format(release.url))
+
+    return release

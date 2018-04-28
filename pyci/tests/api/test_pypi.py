@@ -14,7 +14,7 @@
 #   * limitations under the License.
 #
 #############################################################################
-
+import logging
 import os
 import shutil
 import time
@@ -27,7 +27,7 @@ from pyci.api import utils
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 
-logger.setup_loggers('DEBUG')
+logger.setup_loggers(logging.DEBUG)
 
 
 @pytest.fixture(name='packager')

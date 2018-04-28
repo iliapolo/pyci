@@ -19,6 +19,8 @@
 # pylint: disable=too-few-public-methods
 class Release(object):
 
-    def __init__(self, title, changelog):
+    def __init__(self, impl, title, url, sha):
+        self.sha = sha
+        self.url = url
         self.title = title
-        self.changelog = changelog
+        self.impl = impl

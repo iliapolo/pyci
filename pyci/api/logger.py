@@ -15,14 +15,14 @@
 #
 #############################################################################
 
-import wryte
+import logging
 
 from pyci.api import exceptions
 
 loggers = {}
 
 
-DEFAULT_LOG_LEVEL = 'INFO'
+DEFAULT_LOG_LEVEL = logging.INFO
 
 
 class Logger(object):
@@ -46,24 +46,40 @@ class Logger(object):
             raise exceptions.InvalidArgumentsException('name cannot be empty')
 
         self._name = name
-        self._logger = wryte.Wryte(name)
-        self._logger.logger.propagate = False
+        self._logger = logging.getLogger(name)
+        self._logger.propagate = False
         self.set_level(level)
+        self.add_console_handler(level)
+
+    def add_console_handler(self, level):
+        ch = logging.StreamHandler()
+        ch.setLevel(level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        ch.setFormatter(formatter)
+        self._logger.addHandler(ch)
 
     def set_level(self, level):
-        self._logger.set_level(level)
+        self._logger.setLevel(level)
+        for handler in self._logger.handlers:
+            handler.setLevel(level)
 
     def is_enabled_for(self, level):
-        self._logger.logger.isEnabledFor(level)
+        self._logger.isEnabledFor(level)
 
     def info(self, message, **kwargs):
-        self._logger.info('{}{}'.format(message, self._format_key_values(**kwargs)))
+        self._log(logging.INFO, message, **kwargs)
 
     def error(self, message, **kwargs):
-        self._logger.error('{}{}'.format(message, self._format_key_values(**kwargs)))
+        self._log(logging.ERROR, message, **kwargs)
 
     def debug(self, message, **kwargs):
-        self._logger.debug('{}{}'.format(message, self._format_key_values(**kwargs)))
+        self._log(logging.DEBUG, message, **kwargs)
+
+    # we disable this because for some reason it prevents
+    # testfixtures from properly capturing logs for tests.
+    # pylint: disable=logging-format-interpolation
+    def _log(self, level, message, **kwargs):
+        self._logger.log(level, '{}{}'.format(message, self._format_key_values(**kwargs)))
 
     @staticmethod
     def _format_key_values(**kwargs):

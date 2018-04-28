@@ -14,7 +14,7 @@
 #   * limitations under the License.
 #
 #############################################################################
-
+import logging
 import os
 import platform
 
@@ -27,7 +27,7 @@ from pyci.api import logger, exceptions
 from pyci.api.packager import Packager
 
 
-logger.setup_loggers('DEBUG')
+logger.setup_loggers(logging.DEBUG)
 
 
 @pytest.fixture(name='packager')

@@ -33,9 +33,12 @@ from github.GithubException import UnknownObjectException
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
+from pyci.api.model.branch import Branch
+from pyci.api.model.bump import Bump
 from pyci.api.model.changelog import Changelog
 from pyci.api.model.changelog import ChangelogCommit
 from pyci.api.model.changelog import ChangelogIssue
+from pyci.api.model.commit import Commit
 from pyci.api.model.issue import Issue
 from pyci.api.model.release import Release
 from pyci.api.runner import LocalCommandRunner
@@ -44,7 +47,7 @@ from pyci.api.utils import download
 log = logger.get_logger(__name__)
 
 
-SET_VERSION_COMMIT_MESSAGE_FORMAT = 'Set version to {0} following commit {1}'
+SET_VERSION_COMMIT_MESSAGE_FORMAT = 'Set version to {}'
 
 
 class GitHubRepository(object):
@@ -117,9 +120,10 @@ class GitHubRepository(object):
             sha (:str, optional): To validate a specific commit.
 
         Raises:
-            CommitNotRelatedToIssueException: Raised when the commit is not related to any issue.
-            IssueIsNotLabeledAsReleaseException: Raised when the issue does not have any release
-                labels.
+            exceptions.CommitNotRelatedToIssueException: Raised when the commit is not related to
+                any issue.
+            exceptions.IssueIsNotLabeledAsReleaseException: Raised when the issue does not have any
+                release labels.
 
         """
 
@@ -156,24 +160,27 @@ class GitHubRepository(object):
         branch = branch or self.default_branch_name
         return self._get_or_create_branch(branch).generate_changelog(sha=sha)
 
-    def create_release(self, branch=None, sha=None, version=None):
+    def create_release(self, branch=None, sha=None):
 
         """
-        Release a commit and assign it the given version. This method will also attach
-        a complete changelog to the release. In addition, this operation will also close any
-        issues related to the changelog, and add a comment specifying the issue was released
-        in this newly created release.
+        Create a release pointing to the specific commit. The release title will be the setup.py
+        version as it was in the commit.
 
         Args:
             branch (:str, optional): From the last commit of this branch.
             sha (:str, optional): From this specific commit.
-            version (str): Which version should the release have. If None is specified,
-                it will be auto-incremented according to the changelog. This will also be the
-                release name.
 
         Returns:
             pyci.api.model.release.Release: A release object containing information about the
                 release.
+
+        Raises:
+            exceptions.CommitIsAlreadyReleasedException: Raised when the specified commit is
+                already released under the relevant release.
+            exceptions.ReleaseConflictException: Raised when a release with the relevant title
+                already exists, but it points to a different commit than ours.
+            exceptions.NotPythonProjectException: Raised when attempting to release a project
+                that does not conform to python standard packaging.
 
         """
 
@@ -183,15 +190,8 @@ class GitHubRepository(object):
         if not branch and not sha:
             raise exceptions.InvalidArgumentsException('either branch or sha is required')
 
-        if version:
-            try:
-                semver.parse(version)
-            except (TypeError, ValueError):
-                raise exceptions.InvalidArgumentsException('version is not a legal '
-                                                           'semantic version')
-
         branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).create_release(sha=sha, version=version)
+        return self._get_or_create_branch(branch).create_release(sha=sha)
 
     def upload_asset(self, asset, release):
 
@@ -264,6 +264,42 @@ class GitHubRepository(object):
             asset_name = os.path.basename(asset)
             raise exceptions.AssetAlreadyPublishedException(asset=asset_name,
                                                             release=git_release.title)
+
+    def upload_changelog(self, changelog, release):
+
+        """
+        Upload a changelog to the release.
+
+        Note this will override the existing (if any) changelog.
+
+        Args:
+            changelog (str): The changelog string.
+            release (str): The release name.
+        """
+
+        if not changelog:
+            raise exceptions.InvalidArgumentsException('changelog cannot be empty')
+
+        if not release:
+            raise exceptions.InvalidArgumentsException('release cannot be empty')
+
+        try:
+            self._debug('Fetching release...', name=release)
+            git_release = self.repo.get_release(id=release)
+            self._debug('Fetched release.', url=git_release.html_url)
+        except UnknownObjectException:
+            raise exceptions.ReleaseNotFoundException(release=release)
+
+        log.debug('Updating release with changelog...', release=release, changelog=changelog)
+        git_release.update_release(name=git_release.title, message=changelog)
+        log.debug('Successfully updated release with changelog', release=release,
+                  changelog=changelog)
+
+        release_sha = self.repo.get_git_ref(ref='tags/{}'.format(git_release.tag_name)).object.sha
+        return Release(impl=git_release,
+                       title=git_release.title,
+                       url=git_release.html_url,
+                       sha=release_sha)
 
     def detect_issue(self, sha=None, commit_message=None):
 
@@ -446,7 +482,7 @@ class GitHubRepository(object):
                 the default branch of the repository.
 
         Returns:
-            pyci.api.model.commit.Commit: The commit that was created.
+            pyci.api.model.bump.Bump: The commit that was created.
         """
 
         if not value:
@@ -458,7 +494,7 @@ class GitHubRepository(object):
             raise exceptions.InvalidArgumentsException('value is not a legal semantic version')
 
         branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).set_version(value=value)
+        return self._get_or_create_branch(branch).set_version(value=value, reset=True)
 
     def reset_branch(self, name, sha):
 
@@ -532,6 +568,10 @@ class GitHubRepository(object):
         Args:
             name (str): The branch name.
             sha (str): The sha to create the branch from.
+
+        Raises:
+            exceptions.ShaNotFoundException: Raised if the given sha does not exist.
+            exceptions.BranchAlreadyExistsException: Raised if the given branch name already exists.
         """
 
         if not name:
@@ -541,13 +581,132 @@ class GitHubRepository(object):
             raise exceptions.InvalidArgumentsException('sha cannot be empty')
 
         try:
+
             self._debug('Creating branch...', name=name, sha=sha)
-            self.repo.create_git_ref(ref='refs/heads/{}'.format(name), sha=sha)
+            ref = self.repo.create_git_ref(ref='refs/heads/{}'.format(name), sha=sha)
             self._debug('Created branch...', name=name, sha=sha)
+
+            return Branch(impl=ref, sha=ref.object.sha, name=name)
+
         except GithubException as e:
             if e.data['message'] == 'Object does not exist':
                 raise exceptions.ShaNotFoundException(sha=sha, repo=self._repo_name)
+            if e.data['message'] == 'Reference already exists':
+                raise exceptions.BranchAlreadyExistsException(repo=self._repo_name, branch=name)
             raise  # pragma: no cover
+
+    def delete_branch(self, name):
+
+        """
+        Delete a branch.
+
+        Args:
+            name (str): The branch name.
+
+        Raises: exceptions.BranchNotFoundException: Raised when the branch with the given name
+            does not exist.
+        """
+
+        if not name:
+            raise exceptions.InvalidArgumentsException('name cannot be empty')
+
+        try:
+
+            self._debug('Fetching branch...', name=name)
+            ref = self.repo.get_git_ref(ref='heads/{}'.format(name))
+            self._debug('Fetched branch...', name=name)
+
+            self._debug('Deleting reference...', ref=ref.ref)
+            ref.delete()
+            self._debug('Deleted reference.', ref=ref.ref)
+
+        except UnknownObjectException:
+            raise exceptions.BranchNotFoundException(branch=name, repo=self._repo_name)
+
+    def commit_file(self, path, contents, message, branch=None):
+
+        """
+        Commit a file to the repository.
+
+        Args:
+            path (str): Path to the file, relative to the repository root.
+            contents (str): The new contents of the file.
+            message (str): The commit message.
+            branch (str, optional): The branch to commit to. Defaults to the repository default
+                branch.
+        """
+
+        if not path:
+            raise exceptions.InvalidArgumentsException('path cannot be empty')
+
+        if not contents:
+            raise exceptions.InvalidArgumentsException('contents cannot be empty')
+
+        if not message:
+            raise exceptions.InvalidArgumentsException('message cannot be empty')
+
+        branch = branch or self.default_branch_name
+        return self._get_or_create_branch(branch).commit_file(path=path,
+                                                              contents=contents,
+                                                              message=message)
+
+    def create_commit(self, path, contents, message, branch=None):
+
+        """
+        Create a commit in the repository.
+
+        Note, this method does not actually update any reference to point to this commit.
+        The created commit will be floating until you reset some reference to it.
+
+        This is advanced API, only use it if you really know what you are doing.
+
+        Args:
+            path (str): Path to the file, relative to the repository root.
+            contents (str): The new contents of the file.
+            message (str): The commit message.
+            branch (str, optional): The last commit of the branch will be the parent of the
+                created commit. Defaults to the repository default branch.
+        """
+
+        if not path:
+            raise exceptions.InvalidArgumentsException('path cannot be empty')
+
+        if not contents:
+            raise exceptions.InvalidArgumentsException('contents cannot be empty')
+
+        if not message:
+            raise exceptions.InvalidArgumentsException('message cannot be empty')
+
+        branch = branch or self.default_branch_name
+        return self._get_or_create_branch(branch).create_commit(path=path,
+                                                                contents=contents,
+                                                                message=message)
+
+    def _close_issue(self, issue, release):
+
+        self._debug('Closing issue...', issue=issue.number)
+        issue.edit(state='closed')
+        self._debug('Closed issue.', issue=issue.number)
+
+        issue_comments = [comment.body for comment in issue.get_comments()]
+
+        issue_comment = 'This issue is part of release [{}]({})'.format(
+            release.title, release.html_url)
+
+        if issue_comment not in issue_comments:
+            self._debug('Adding a comment to issue...', issue=issue.number)
+            issue.create_comment(body=issue_comment)
+            self._debug('Added comment.', issue=issue.number, comment=issue_comment)
+
+    def _create_set_version_commit(self, value, branch=None):
+
+        """
+        Internal! Do not use
+
+        """
+
+        branch = branch or self.default_branch_name
+        return self._get_or_create_branch(branch).set_version(value=value, reset=False)
 
     def _get_or_create_branch(self, branch):
         if branch not in self.__branches:
@@ -558,6 +717,10 @@ class GitHubRepository(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         log.debug(message, **kwargs)
+
+
+def new(repo, access_token):
+    return GitHubRepository(repo, access_token)
 
 
 class _GitHubBranch(object):
@@ -580,11 +743,24 @@ class _GitHubBranch(object):
         sha = sha or self.branch_name
         return self._get_or_create_commit(sha=sha).generate_changelog()
 
-    def create_release(self, sha, version):
+    def create_release(self, sha):
         sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).create_release(version=version)
+        return self._get_or_create_commit(sha=sha).create_release()
 
     def commit_file(self, path, contents, message):
+
+        commit = self.create_commit(path, contents, message)
+
+        self._debug('Updating branch to point to commit...', branch=self.branch_name,
+                    sha=commit.sha)
+        ref = self.github.repo.get_git_ref(ref='heads/{0}'.format(self.branch_name))
+        ref.edit(sha=commit.sha)
+        self._debug('Updated branch to point to commit', branch=self.branch_name,
+                    sha=ref.object.sha)
+
+        return commit
+
+    def create_commit(self, path, contents, message):
 
         tree = InputGitTreeElement(path=path,
                                    mode='100644',
@@ -614,14 +790,7 @@ class _GitHubBranch(object):
                     parent=last_commit.sha,
                     sha=commit.sha)
 
-        self._debug('Updating branch to point to commit...', branch=self.branch_name,
-                    sha=commit.sha)
-        ref = self.github.repo.get_git_ref(ref='heads/{0}'.format(self.branch_name))
-        ref.edit(sha=commit.sha)
-        self._debug('Updated branch to point to commit', branch=self.branch_name,
-                    sha=ref.object.sha)
-
-        return commit
+        return Commit(impl=commit, sha=commit.sha, url=commit.html_url)
 
     def bump_version(self, semantic):
 
@@ -649,7 +818,7 @@ class _GitHubBranch(object):
 
         return self.set_version(value=next_version)
 
-    def set_version(self, value):
+    def set_version(self, value, reset=True):
 
         commit = self._get_or_create_commit(sha=self.branch_name)
 
@@ -661,10 +830,17 @@ class _GitHubBranch(object):
         setup_py = utils.generate_setup_py(setup_py, value)
         self._debug('Generated setup.py file contents...', setup_py=setup_py)
 
-        commit_message = SET_VERSION_COMMIT_MESSAGE_FORMAT.format(value, commit.commit.sha)
+        commit_message = SET_VERSION_COMMIT_MESSAGE_FORMAT.format(value)
 
         if current_version != value:
-            return self.commit_file(path='setup.py', contents=setup_py, message=commit_message)
+            if reset:
+                bump_commit = self.commit_file(path='setup.py', contents=setup_py,
+                                               message=commit_message)
+            else:
+                bump_commit = self.create_commit(path='setup.py', contents=setup_py,
+                                                 message=commit_message)
+            return Bump(impl=bump_commit.impl, prev_version=current_version, next_version=value,
+                        sha=bump_commit.sha)
 
         raise exceptions.TargetVersionEqualsCurrentVersionException(version=current_version)
 
@@ -730,7 +906,14 @@ class _GitHubCommit(object):
         setup_py_url = 'https://raw.githubusercontent.com/{}/{}/setup.py'.format(
             self._branch.github.repo.full_name, self.commit.sha)
         self._debug('Fetching setup.py...', setup_py_url=setup_py_url)
-        setup_py_path = download(url=setup_py_url)
+        try:
+            setup_py_path = download(url=setup_py_url)
+        except exceptions.DownloadFailedException as e:
+            if e.code == 404:
+                raise exceptions.NotPythonProjectException(repo=self._branch.github.repo.full_name,
+                                                           cause='setup.py not found',
+                                                           sha=self.commit.sha)
+            raise
         self._debug('Fetched setup.py.', setup_py_url=setup_py_url, setup_py_path=setup_py_path)
         return setup_py_path
 
@@ -755,83 +938,89 @@ class _GitHubCommit(object):
             raise exceptions.CommitNotRelatedToIssueException(sha=self.commit.sha)
 
         if not any(label in self.labels for label in ['patch', 'minor', 'major']):
-            raise exceptions.IssueIsNotLabeledAsReleaseException(issue=self.issue.number,
-                                                                 sha=self.commit.sha)
+            raise exceptions.IssueNotLabeledAsReleaseException(issue=self.issue.number,
+                                                               sha=self.commit.sha)
 
         self._debug('Validation passed. Commit should be released')
 
-    def create_release(self, version):
+    def create_release(self):
 
-        self._debug('Creating release...', version=version)
+        version = self.setup_py_version
 
-        changelog = self.generate_changelog()
+        try:
 
-        if changelog.empty:
+            self._debug('Creating Github release...', name=version, sha=self.commit.sha,
+                        tag=version)
+            github_release = self._branch.github.repo.create_git_release(
+                tag=version,
+                target_commitish=self.commit.sha,
+                name=version,
+                message='',
+                draft=False,
+                prerelease=False
+            )
+            self._debug('Created Github release...', name=version, sha=self.commit.sha,
+                        tag=version)
 
-            title = self._branch.github.last_release.title
+            return Release(impl=github_release, title=version, url=github_release.html_url,
+                           sha=self.commit.sha)
 
-            # this definitely means the commit has already been released, however, it might have
-            # been released in a release prior to the last one. this is why we cant raise a
-            # CommitIsAlreadyReleasedException.
-            # having said that, there is a special case where we CAN verify that the last release
-            # was indeed the one to release this commit. here it is:
-            last_release_commit = self._fetch_tag_commit(tag_name=title)
-            if last_release_commit.commit.message == SET_VERSION_COMMIT_MESSAGE_FORMAT.format(
-                    title,
-                    self.commit.sha):
+        except GithubException as e:
+
+            if e.data['errors'][0]['code'] != 'already_exists':
+                raise  # pragma: no cover
+
+            release = self._branch.github.repo.get_release(id=version)
+            release_commit = self._fetch_tag_commit(release.tag_name)
+
+            if release_commit.sha == self.commit.sha:
+                # this can only happen with concurrent executions on the same commit.
+                # otherwise, the commit changelog would have been empty and we wouldn't get
+                # here.
                 raise exceptions.CommitIsAlreadyReleasedException(sha=self.commit.sha,
-                                                                  release=title)
+                                                                  release=version)
 
-            raise exceptions.EmptyChangelogException(sha=self.commit.sha, last_release=title)
-
-        version = version or changelog.next_version
-        if not version:
-            raise exceptions.CannotDetermineNextVersionException(sha=self.commit.sha)
-
-        github_release = self._create_github_release(name=version, changelog=changelog)
-
-        for issue in changelog.all_issues:
-            self._close_issue(issue.impl, github_release)
-
-        if self.pr:
-            try:
-                self._debug('Fetching pull request branch...', pr_branch=self.pr.head.ref)
-                pull_request_ref = self._branch.github.repo.get_git_ref(
-                    'heads/{0}'.format(self.pr.head.ref))
-                self._debug('Deleting ref', ref=pull_request_ref.ref)
-                pull_request_ref.delete()
-                self._debug('Deleted ref', ref=pull_request_ref.ref)
-            except UnknownObjectException:
-                self._debug('Pull request branch does not exist...', branch=self.pr.head.ref)
-                # this is ok, the branch doesn't necessarily have to be there.
-                # it might have been deleted when the pull request was merged
-
-        return Release(title=version, changelog=changelog)
+            raise exceptions.ReleaseConflictException(release=version,
+                                                      our_sha=self.commit.sha,
+                                                      their_sha=release_commit.sha)
 
     def generate_changelog(self):
 
         self._debug('Generating changelog...')
 
         since = GithubObject.NotSet
-        last_release_sha = None
-        last_release_title = None
-        if self._branch.github.last_release:
+        base_release_sha = None
+        base_release_title = None
 
-            last_release_title = self._branch.github.last_release.title
-            last_release_commit = self._fetch_tag_commit(tag_name=last_release_title)
-            since = last_release_commit.commit.committer.date
-            last_release_sha = last_release_commit.sha
+        base_release = None
 
-        self._debug('Fetching commits...', since=since, last_release=last_release_title)
+        # look for the latest release prior to (and including) the one corresponding to
+        # the current setup.py version.
+        relevant_releases = [release for release in self._branch.github.repo.get_releases() if
+                             semver.compare(release.title, self.setup_py_version) <= 0]
+        relevant_releases = sorted(relevant_releases,
+                                   cmp=lambda r1, r2: semver.compare(r2.title, r1.title))
+
+        if relevant_releases:
+            base_release = relevant_releases[0]
+
+        if base_release:
+
+            base_release_title = base_release.title
+            base_release_commit = self._fetch_tag_commit(tag_name=base_release_title)
+            since = base_release_commit.commit.committer.date
+            base_release_sha = base_release_commit.sha
+
+        self._debug('Fetching commits...', since=since, base_release=base_release_title)
         commits = list(self._branch.github.repo.get_commits(sha=self.commit.sha, since=since))
-        self._debug('Fetched commits.', since=since, last_release=last_release_title,
+        self._debug('Fetched commits.', since=since, last_release=base_release_title,
                     number_of_commits=len(commits))
 
         changelog = Changelog(current_version=self.setup_py_version, sha=self.commit.sha)
 
         for commit in commits:
 
-            if commit.sha == last_release_sha:
+            if commit.sha == base_release_sha:
                 continue
 
             issue = self._branch.github.detect_issue(commit_message=commit.commit.message)
@@ -881,64 +1070,6 @@ class _GitHubCommit(object):
         self._debug('Generated changelog.', changelog=changelog.render())
 
         return changelog
-
-    def _create_github_release(self, name, changelog):
-
-        try:
-
-            self._debug('Creating Github release...', name=name, sha=self.commit.sha, tag=name)
-            release = self._branch.github.repo.create_git_release(
-                tag=name,
-                target_commitish=self.commit.sha,
-                name=name,
-                message=changelog.render(),
-                draft=False,
-                prerelease=False
-            )
-            self._debug('Created Github release...', name=name, sha=self.commit.sha, tag=name)
-
-        except GithubException as e:
-
-            if e.data['errors'][0]['code'] != 'already_exists':
-                raise  # pragma: no cover
-
-            release = self._branch.github.repo.get_release(id=name)
-            release_commit = self._fetch_tag_commit(release.tag_name)
-
-            if release_commit.sha == self.commit.sha:
-                # this can only happen with concurrent executions on the same commit.
-                # otherwise, the commit changelog would have been empty and we wouldn't get
-                # here.
-                raise exceptions.CommitIsAlreadyReleasedException(sha=self.commit.sha,
-                                                                  release=name)
-
-            bump_version_message = SET_VERSION_COMMIT_MESSAGE_FORMAT.format(name, self.commit.sha)
-            if release_commit.commit.message == bump_version_message:
-                # this means the commits of the release is actually just a bump version commit
-                # the followed our commit. we consider this as being the same commit as ours.
-                raise exceptions.CommitIsAlreadyReleasedException(sha=self.commit.sha,
-                                                                  release=name)
-
-            raise exceptions.ReleaseConflictException(release=name,
-                                                      our_sha=self.commit.sha,
-                                                      their_sha=release_commit.sha)
-        return release
-
-    def _close_issue(self, issue, release):
-
-        self._debug('Closing issue...', issue=issue.number)
-        issue.edit(state='closed')
-        self._debug('Closed issue.', issue=issue.number)
-
-        issue_comments = [comment.body for comment in issue.get_comments()]
-
-        issue_comment = 'This issue is part of release [{}]({})'.format(
-            release.title, release.html_url)
-
-        if issue_comment not in issue_comments:
-            self._debug('Adding a comment to issue...', issue=issue.number)
-            issue.create_comment(body=issue_comment)
-            self._debug('Added comment.', issue=issue.number, comment=issue_comment)
 
     def _fetch_tag_commit(self, tag_name):
         tag = self._branch.github.repo.get_git_ref(ref='tags/{0}'.format(tag_name))

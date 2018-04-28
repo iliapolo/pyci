@@ -21,6 +21,64 @@ class ApiException(BaseException):
     pass
 
 
+class ReleaseValidationFailedException(ApiException):
+    pass
+
+
+class BuildIsAPullRequestException(ReleaseValidationFailedException):
+
+    def __init__(self, pull_request):
+        self.pull_request = pull_request
+        super(BuildIsAPullRequestException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Build is a Pull Request ({})'.format(self.pull_request)
+
+
+class BuildIsATagException(ReleaseValidationFailedException):
+
+    def __init__(self, tag):
+        self.tag = tag
+        super(BuildIsATagException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Build is a Tag ({})'.format(self.tag)
+
+
+class BuildBranchDiffersFromReleaseBranchException(ReleaseValidationFailedException):
+
+    def __init__(self, release_branch, branch):
+        self.release_branch = release_branch
+        self.branch = branch
+        super(BuildBranchDiffersFromReleaseBranchException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'The current build branch ({}) does not match the release branch ({})'\
+            .format(self.branch, self.release_branch)
+
+
+class CommitNotRelatedToIssueException(ReleaseValidationFailedException):
+
+    def __init__(self, sha):
+        self.sha = sha
+        super(CommitNotRelatedToIssueException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'The commit ({}) is not related to any issue'.format(self.sha)
+
+
+class IssueNotLabeledAsReleaseException(ReleaseValidationFailedException):
+
+    def __init__(self, sha, issue):
+        self.sha = sha
+        self.issue = issue
+        super(IssueNotLabeledAsReleaseException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Issue (#{}) of commit ({}) is not labeled with any release labels' \
+            .format(self.issue, self.sha)
+
+
 class ReleaseNotFoundException(ApiException):
 
     def __init__(self, release):
@@ -110,28 +168,6 @@ class EntrypointNotFoundException(ApiException):
         return 'Entrypoint not found for repo ({0}): {1}'.format(self.repo, self.entrypoint)
 
 
-class CommitNotRelatedToIssueException(ApiException):
-
-    def __init__(self, sha):
-        self.sha = sha
-        super(CommitNotRelatedToIssueException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'The commit is not related to any issue: {0}'.format(self.sha)
-
-
-class IssueIsNotLabeledAsReleaseException(ApiException):
-
-    def __init__(self, sha, issue):
-        self.sha = sha
-        self.issue = issue
-        super(IssueIsNotLabeledAsReleaseException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Issue ({0}) of commit ({1} is not labeled with any release labels'\
-            .format(self.issue, self.sha)
-
-
 class CommitIsAlreadyReleasedException(ApiException):
 
     def __init__(self, sha, release):
@@ -140,7 +176,7 @@ class CommitIsAlreadyReleasedException(ApiException):
         super(CommitIsAlreadyReleasedException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Commit is already released: {0} (release {1})'.format(self.sha, self.release)
+        return 'Commit ({}) is already released ({})'.format(self.sha, self.release)
 
 
 class CommitNotFoundException(ApiException):
@@ -164,16 +200,6 @@ class ReleaseConflictException(ApiException):
     def __str__(self):
         return 'Release conflict. The release ({0}) already exists but with a different ' \
                'commit ({1}) than ours ({2})'.format(self.release, self.their_sha, self.our_sha)
-
-
-class NotReleaseCandidateException(ApiException):
-
-    def __init__(self, reason):
-        self.reason = reason
-        super(NotReleaseCandidateException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return self.reason
 
 
 class FailedGeneratingSetupPyException(ApiException):
@@ -266,6 +292,16 @@ class FileDoesntExistException(ApiException):
         return 'File does not exist: {0}'.format(self.path)
 
 
+class DirectoryDoesntExistException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(DirectoryDoesntExistException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Directory does not exist: {0}'.format(self.path)
+
+
 class FileExistException(ApiException):
 
     def __init__(self, path):
@@ -284,6 +320,16 @@ class FileIsADirectoryException(ApiException):
 
     def __str__(self):
         return 'File is a directory: {0}'.format(self.path)
+
+
+class DirectoryIsAFileException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(DirectoryIsAFileException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Directory is a file: {0}'.format(self.path)
 
 
 class AssetAlreadyPublishedException(ApiException):
@@ -331,16 +377,15 @@ class IssueNotFoundException(ApiException):
 
 class NotPythonProjectException(ApiException):
 
-    def __init__(self, repo, cause):
+    def __init__(self, repo, cause, sha):
+        self.sha = sha
         self.cause = cause
         self.repo = repo
         super(NotPythonProjectException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'It seems like the repository ({0}) does not contain a valid python project: {1}.' \
-               'Please follow the instructions to create a standard python project --> ' \
-               'https://packaging.python.org/tutorials/distributing-packages/'.format(self.repo,
-                                                                                      self.cause)
+        return 'It seems like the commit ({}) in repository ({}) does not contain a valid ' \
+               'python project: {}.'.format(self.sha, self.repo, self.cause)
 
 
 class RepositoryNotFoundException(ApiException):
@@ -393,3 +438,28 @@ class TargetVersionEqualsCurrentVersionException(ApiException):
 
     def __str__(self):
         return 'The target version and current version are the same: {}'.format(self.version)
+
+
+class DownloadFailedException(ApiException):
+
+    def __init__(self, url, code, err):
+        self.url = url
+        self.code = code
+        self.err = err
+        super(DownloadFailedException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Downloading URL ({}) resulted in an error ({}: {})'.format(self.url,
+                                                                           self.code,
+                                                                           self.err)
+
+
+class BranchAlreadyExistsException(ApiException):
+
+    def __init__(self, repo, branch):
+        self.repo = repo
+        self.branch = branch
+        super(BranchAlreadyExistsException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Branch ({}) in repo ({}) already exists'.format(self.branch, self.repo)

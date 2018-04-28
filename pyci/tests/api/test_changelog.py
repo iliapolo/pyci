@@ -15,6 +15,8 @@
 #
 #############################################################################
 
+import logging
+# noinspection PyPackageRequirements
 import pytest
 
 from pyci.api import logger, exceptions
@@ -22,7 +24,8 @@ from pyci.api.model.changelog import Changelog
 from pyci.api.model.changelog import ChangelogCommit
 from pyci.api.model.changelog import ChangelogIssue
 
-logger.setup_loggers('DEBUG')
+
+logger.setup_loggers(logging.DEBUG)
 
 
 def test_no_sha():

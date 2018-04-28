@@ -138,3 +138,11 @@ class PyPI(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         log.debug(message, **kwargs)
+
+
+def new(repository_url, test, username, password):
+
+    return PyPI(repository_url=repository_url,
+                test=test,
+                username=username,
+                password=password)

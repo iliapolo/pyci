@@ -15,14 +15,15 @@
 #
 #############################################################################
 
+import logging
 import sys
 
 import click
 
 from pyci.api import ci
-from pyci.api.packager import Packager
-from pyci.api.pypi import PyPI
-from pyci.api.gh import GitHubRepository
+from pyci.api import packager
+from pyci.api import pypi as pypi_api
+from pyci.api import gh
 from pyci.api import logger
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
@@ -63,7 +64,7 @@ def app(ctx, debug):
     """
 
     if debug:
-        logger.setup_loggers(level='DEBUG')
+        logger.setup_loggers(level=logging.DEBUG)
 
     ctx.ci = ci.detect()
 
@@ -84,22 +85,17 @@ def github(ctx, repo):
 
     repo = release.detect_repo(ctx.parent.ci, repo)
 
-    ctx.github = GitHubRepository(repo=repo, access_token=secrets.github_access_token())
+    ctx.github = gh.new(repo=repo, access_token=secrets.github_access_token())
 
 
 @click.group()
 @click.pass_context
 @click.option('--repo', required=False,
-              help='Github repository full name (i.e: <owner>/<repo>). '
-                   'When running inside a CI system, this will be '
-                   'automatically detected using environment variables. '
-                   'When running locally from your repository root directory, '
-                   'detected via git commands.')
+              help=REPO_HELP)
 @click.option('--sha', required=False,
-              help='Sha of the commit you wish to pack. Cannot be used in conjunction with --path')
+              help='Pack a specific sha.')
 @click.option('--path', required=False,
-              help='Path to the root directory of the project. Cannot be used in '
-                   'conjunction with --sha')
+              help='Pack a local copy of the repo.')
 @handle_exceptions
 def pack(ctx, repo, sha, path):
 
@@ -115,13 +111,12 @@ def pack(ctx, repo, sha, path):
     repo = release.detect_repo(ctx.parent.ci, repo)
 
     if sha and path:
-        raise click.ClickException("Either '--sha' or '--path' is allowed (not both)")
+        raise click.ClickException("Use either --sha or --path, not both")
 
     if not sha and not path:
-        sha = GitHubRepository(repo=repo,
-                               access_token=secrets.github_access_token()).default_branch_name
+        raise click.BadOptionUsage('Must specify either --sha or --path.')
 
-    ctx.packager = Packager(repo=repo, path=path, sha=sha)
+    ctx.packager = packager.new(repo=repo, path=path, sha=sha)
 
 
 @click.group()
@@ -137,20 +132,29 @@ def pypi(ctx, test, repository_url):
     Sub-command for PyPI operations.
     """
 
-    ctx.pypi = PyPI(repository_url=repository_url,
-                    test=test,
-                    username=secrets.twine_username(),
-                    password=secrets.twine_password())
+    ctx.pypi = pypi_api.new(repository_url=repository_url,
+                            test=test,
+                            username=secrets.twine_username(),
+                            password=secrets.twine_password())
 
 
-github.add_command(github_group.delete)
-github.add_command(github_group.bump)
-github.add_command(github_group.release_)
-github.add_command(github_group.changelog)
-github.add_command(github_group.upload)
-github.add_command(github_group.issue)
-github.add_command(github_group.reset_branch)
+github.add_command(github_group.release_branch)
+github.add_command(github_group.validate_commit)
+github.add_command(github_group.generate_changelog)
+github.add_command(github_group.create_release)
+github.add_command(github_group.upload_asset)
+github.add_command(github_group.upload_changelog)
+github.add_command(github_group.detect_issue)
+github.add_command(github_group.delete_release)
+github.add_command(github_group.delete_tag)
+github.add_command(github_group.bump_version)
 github.add_command(github_group.set_version)
+github.add_command(github_group.reset_branch)
+github.add_command(github_group.reset_tag)
+github.add_command(github_group.create_branch)
+github.add_command(github_group.delete_branch)
+github.add_command(github_group.create_commit)
+github.add_command(github_group.commit_file)
 
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)

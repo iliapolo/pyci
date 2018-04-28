@@ -16,9 +16,10 @@
 #############################################################################
 
 
-import os
+import tempfile
 
 import click
+import sys
 
 from pyci.api import exceptions
 from pyci.api import logger
@@ -26,73 +27,59 @@ from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
-from pyci.shell import handle_exceptions, secrets
 from pyci.shell import RELEASE_BRANCH_HELP
-from pyci.shell import RELEASE_SHA_HELP
-from pyci.shell import RELEASE_VERSION_HELP
 from pyci.shell import REPO_HELP
+from pyci.shell import handle_exceptions, secrets
+from pyci.shell.subcommands import github
+from pyci.shell.subcommands import pack
+from pyci.shell.subcommands import pypi
 
 log = logger.get_logger(__name__)
 
 
-# we disable it here because this really is a big function
-# that does plenty of stuff, not many like these..
-# pylint: disable=too-many-arguments
-# pylint: disable=too-many-locals
-# pylint: disable=too-many-statements
 @click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--repo', required=False,
               help=REPO_HELP)
-@click.option('--branch', required=False,
+@click.option('--branch-name', required=False,
               help=RELEASE_BRANCH_HELP)
-@click.option('--sha', required=False,
-              help=RELEASE_SHA_HELP)
-@click.option('--version', required=False,
-              help=RELEASE_VERSION_HELP)
-@click.option('--release-branch', required=False,
-              help='The name of the branch from which releases should be made. Defaults to the '
-                   'repository default branch. This is needed in order to silently ignore this '
-                   'command when running on different branches.')
-@click.option('--no-binary', is_flag=True,
-              help='Do not create and upload a binary executable as part of the release process.')
-@click.option('--binary-entrypoint', required=False,
-              help='Path (relative to the repository root) of the file to be used as the '
-                   'executable entry point. This corresponds to the positional script argument '
-                   'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
-@click.option('--binary-name', required=False,
-              help='The base name of the binary executable to be created. Note that the full '
-                   'name will be a suffixed with platform specific info. This corresponds to '
-                   'the --name option used by '
-                   'PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
-@click.option('--no-wheel', is_flag=True,
-              help='Do not create and upload a wheel package to PyPI as part of the release '
-                   'process.')
+@click.option('--master-branch-name', required=False, default='master',
+              help='The master branch name. That is, the branch that should point to the latest '
+                   'stable release. Defaults to master.')
+@click.option('--release-branch-name', required=False, default='release',
+              help='The release branch name. That is, the branch that releases should be made '
+                   'from. This is used to silently ignore commits made to other branches. '
+                   'Defaults to the repository default branch.')
 @click.option('--pypi-test', is_flag=True,
               help='Use PyPI test index. This option is ignored if --no-wheel is used.')
 @click.option('--pypi-url', is_flag=True,
               help='Specify a custom PyPI index url. This option is ignored if --no-wheel is '
                    'used.')
-@click.option('--no-ci', is_flag=True,
-              help='Instructs me to execute this command even though its not running inside a CI '
-                   'system.')
+@click.option('--binary-entrypoint', required=False,
+              help='Path (relative to the repository root) of the file to be used as the '
+                   'executable entry point. This corresponds to the positional script argument '
+                   'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+@click.option('--wheel-universal', is_flag=True,
+              help='Should the created wheel be universal?.')
 @click.option('--force', is_flag=True,
-              help='Instructs me to execute this command even if the specific commit does not '
-                   'meet the release requirements.')
+              help='Force release without any validations.')
+@click.option('--no-wheel', is_flag=True,
+              help='Do not create and upload a wheel package to PyPI as part of the release '
+                   'process.')
+@click.option('--no-binary', is_flag=True,
+              help='Do not create and upload a binary executable as part of the release process.')
 def release(ctx,
             repo,
-            sha,
-            branch,
-            version,
-            release_branch,
-            no_binary,
-            no_wheel,
-            binary_entrypoint,
-            binary_name,
+            branch_name,
+            master_branch_name,
+            release_branch_name,
             pypi_test,
             pypi_url,
-            no_ci,
+            binary_entrypoint,
+            wheel_universal,
+            no_binary,
+            no_wheel,
             force):
 
     """
@@ -125,141 +112,81 @@ def release(ctx,
 
     """
 
-    # pylint: disable=too-many-branches
-    def _do_release():
+    ci = ctx.parent.ci
 
-        release_title = None
+    sha = ci.sha if ci else None
+    branch_name = branch_name or (ci.branch if ci else None)
+
+    repo = detect_repo(ctx.parent.ci, repo)
+
+    try:
+
+        gh = GitHubRepository(repo=repo, access_token=secrets.github_access_token())
+
+        github_release = github.release_branch_internal(
+            branch_name=branch_name,
+            master_branch_name=master_branch_name,
+            release_branch_name=release_branch_name,
+            force=force,
+            sha=sha,
+            gh=gh,
+            ci=ci
+        )
+
+        packager = Packager(repo, sha=github_release.sha)
+
+        package_directory = tempfile.mkdtemp()
+
         try:
 
-            log.debug('Releasing sha: {0}'.format(sha))
-
-            if not force:
-                log.debug('Validating this commit is eligible for release...')
-                github.validate_commit(branch=branch, sha=sha)
-                log.debug('Validation passed')
-
-            log.info('Creating release...')
-            release_title = github.create_release(branch=branch,
-                                                  sha=sha,
-                                                  version=version)
-            log.info('Successfully created release: {0}'.format(release_title))
-
-            github.reset_branch(name='master', sha=release.sha)
-
-        except exceptions.CommitIsAlreadyReleasedException as e:
-
-            # this is ok, maybe someone is running the command on the same commit
-            # over and over again. no need to error here since we still might have things
-            # to do later on.
-            log.info('The commit ({0}) is already released: {1}, Moving on...'.format(
-                e.sha, e.release))
-
-            # pylint: disable=fixme
-            # TODO can there be a scenario where to concurrent releases
-            # TODO are executed on the os? this will cause an override of the artifact...
-            release_title = e.release
-        except (exceptions.CommitNotRelatedToIssueException,
-                exceptions.IssueIsNotLabeledAsReleaseException) as e:
-            # not all commits are eligible for release, this is such a case.
-            # we should just break and do nothing...
-            log.info('Not releasing: {0}'.format(str(e)))
-
-        # release_title may be None in case this commit should not
-        # be released.
-        if release_title:
-
-            packager = Packager(repo=repo, sha=release_title)
+            log.info('Creating and uploading packages...')
 
             if not no_binary:
 
                 try:
-                    log.info('Creating binary package...')
-                    package = packager.binary(entrypoint=binary_entrypoint,
-                                              name=binary_name)
-                    log.info('Successfully created binary package: {0}'.format(package))
 
-                    log.info('Uploading binary package to release...')
-                    try:
-                        asset_url = github.upload_asset(asset=package, release=release_title)
-                        log.info('Successfully uploaded binary package to release: {0}'
-                                 .format(asset_url))
-                    except exceptions.AssetAlreadyPublishedException:
-                        log.info('Binary package already published in release. Moving on...')
-                    finally:
-                        os.remove(package)
+                    binary_package_path = pack.binary_internal(entrypoint=binary_entrypoint,
+                                                               name=None,
+                                                               target_dir=package_directory,
+                                                               packager=packager)
 
-                except exceptions.DefaultEntrypointNotFoundException as ene:
-                    # this is ok, the package doesn't contain an entrypoint in the
-                    # expected default location. we should however print a log
-                    # since the user might have expected the binary package (since the default is
-                    #  to create one)
+                    github.upload_asset_internal(asset=binary_package_path,
+                                                 release=release.title,
+                                                 gh=gh)
+
+                except exceptions.DefaultEntrypointNotFoundException as e:
+                    # this is ok, just means that the project is not an executable
+                    # according to our assumptions.
                     log.info('Binary package will not be created because an entrypoint was not '
-                             'found in the expected path: {}. \nYou can specify a custom '
+                             'found in the expected paths: {}. \nYou can specify a custom '
                              'entrypoint path by using the "--binary-entrypoint" option.\n'
                              'If your package is not meant to be an executable binary, '
                              'use the "--no-binary" flag to avoid seeing this message'
-                             .format(ene.expected_paths))
+                             .format(e.expected_paths))
 
             if not no_wheel:
 
-                log.info('Creating wheel...')
-                package = packager.wheel()
-                log.info('Successfully created wheel: {0}'.format(package))
+                pypi_api = PyPI(username=secrets.twine_username(), password=secrets.twine_password(),
+                                test=pypi_test, repository_url=pypi_url)
 
-                pypi = PyPI(repository_url=pypi_url,
-                            test=pypi_test,
-                            username=secrets.twine_username(),
-                            password=secrets.twine_password())
+                wheel_path = pack.wheel_internal(universal=wheel_universal,
+                                                 target_dir=package_directory,
+                                                 packager=packager)
 
-                try:
-                    log.info('Uploading wheel to PyPI...')
-                    wheel_url = pypi.upload(wheel=package)
-                    log.info('Successfully uploaded wheel to PyPI: {0}'.format(wheel_url))
-                except exceptions.WheelAlreadyPublishedException as e:
-                    log.info('Wheel package already published in {0}. Moving on...'.format(e.url))
-                finally:
-                    os.remove(package)
+                pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
 
-    ci = ctx.parent.ci
+            log.info('Hip Hip, Hurray! :). Your new version is released and ready to go.')
 
-    if ci is None and not no_ci:
-        log.info('No CI system detected. If you wish to release nevertheless, '
-                 'use the "--no-ci" option.')
-    else:
+        finally:
+            packager.clean()
+            utils.rmf(package_directory)
 
-        try:
+    except exceptions.ReleaseValidationFailedException as e:
+        log.info('Not releasing: {}'.format(str(e)))
 
-            log.debug('Detecting repo...')
-            repo = detect_repo(ci, repo)
-            log.debug('Repo detected: {0}'.format(repo))
-
-            github = GitHubRepository(repo=repo, access_token=secrets.github_access_token())
-
-            branch = branch or (ci.branch if ci else None) or github.default_branch_name
-            sha = sha or branch or ci.sha or github.default_branch_name
-
-            log.debug('Detecting release branch name...')
-            release_branch = release_branch or github.default_branch_name
-            log.debug('Release branch name detected: {0}'.format(release_branch))
-
-            if ci and not force:
-
-                log.debug('Validating release candidacy with CI system for branch: {0}'
-                          .format(release_branch))
-                ci.validate_rc(release_branch)
-                log.debug('Validation passed')
-
-            if not ci:
-                log.debug('Skipped CI validation since we are not running inside a CI system.')
-
-            if not force:
-                log.debug('Skipped CI validation since --force was used.')
-
-            _do_release()
-            log.info('Done!')
-
-        except exceptions.NotReleaseCandidateException as nrce:
-            log.info('No need to release this commit: {0}'.format(str(nrce)))
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed releasing: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
 
 
 def detect_repo(ci, repo):

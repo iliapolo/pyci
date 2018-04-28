@@ -198,7 +198,7 @@ def test_validate_rc(env, expected_reason):
     ci_system = ci.detect(env)
 
     if expected_reason:
-        with pytest.raises(exceptions.NotReleaseCandidateException) as info:
+        with pytest.raises(exceptions.BuildReleaseValidationFailedException) as info:
             ci_system.validate_rc(release_branch='release')
         assert expected_reason == info.value.reason
     else:

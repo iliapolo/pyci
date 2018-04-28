@@ -152,7 +152,23 @@ def validate_file_exists(path):
         raise exceptions.FileIsADirectoryException(path=path)
 
 
-def validate_does_not_exist(path):
+def validate_directory_exists(path):
+
+    """
+    Validate that the given path points an existing directory.
+
+    Raises:
+        FileDoesntExistException: Raised if the path does not exist.
+        FileIsADirectoryException: Raised if the given path points to a directory.
+    """
+
+    if not os.path.exists(path):
+        raise exceptions.DirectoryDoesntExistException(path=path)
+    if os.path.isfile(path):
+        raise exceptions.DirectoryIsAFileException(path=path)
+
+
+def validate_file_does_not_exist(path):
 
     """
     Validate that the given path points an existing file.
@@ -210,6 +226,8 @@ def download(url, target=None):
     target = target or os.path.join(tempfile.mkdtemp(), str(uuid.uuid4()))
 
     r = requests.get(url, stream=True)
+    if r.status_code != 200:
+        raise exceptions.DownloadFailedException(url=url, code=r.status_code, err=r.reason)
     with open(target, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024):
             if chunk:

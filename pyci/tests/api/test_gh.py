@@ -14,7 +14,7 @@
 #   * limitations under the License.
 #
 #############################################################################
-
+import logging
 import platform
 import os
 
@@ -31,7 +31,7 @@ from pyci.api.gh import GitHubRepository
 log = logger.get_logger(__name__)
 
 
-logger.setup_loggers('DEBUG')
+logger.setup_loggers(logging.DEBUG)
 
 
 @pytest.fixture(name='github')
@@ -113,6 +113,13 @@ def _create_release(pyci_guinea_pig, request, sha, name=None):
     )
 
 
+def _create_branch(pyci_guinea_pig, request, sha, name=None):
+
+    branch_name = name or request.node.name
+
+    return pyci_guinea_pig.repo.create_git_ref(ref='refs/heads/{}'.format(branch_name), sha=sha)
+
+
 def test_no_repo():
 
     with pytest.raises(exceptions.InvalidArgumentsException):
@@ -168,7 +175,7 @@ def test_validate_commit_commit_not_related_to_issue(pyci_guinea_pig):
 
 def test_validate_commit_issue_is_not_labeled_as_release(pyci_guinea_pig):
 
-    with pytest.raises(exceptions.IssueIsNotLabeledAsReleaseException):
+    with pytest.raises(exceptions.IssueNotLabeledAsReleaseException):
         pyci_guinea_pig.validate_commit(sha='4772c5708ff25a69f1f6c8106c7fe863c6686459')
 
 
@@ -211,7 +218,52 @@ def test_generate_changelog_sha_and_branch(pyci_guinea_pig):
         pyci_guinea_pig.generate_changelog(sha='branch', branch='branch')
 
 
-def test_generate_changelog(pyci_guinea_pig):
+@pytest.mark.wet(issues=False)
+def test_generate_changelog_relative_to_release(pyci_guinea_pig, request):
+
+    # create two releases from commits prior to our one
+    _create_release(pyci_guinea_pig, request, '0596d82b4786a531b7370448e2b5d0de9922f01a', '0.0.1')
+    _create_release(pyci_guinea_pig, request, '33526a9e0445541d96e027db2aeb93d07cdf8bd6', '0.0.2')
+
+    # this is our commit
+    ours = pyci_guinea_pig.set_version(value='0.0.3')
+
+    # create two releases for commits after ours
+    after1 = pyci_guinea_pig.set_version(value='0.0.4')
+    after2 = pyci_guinea_pig.set_version(value='0.0.5')
+
+    _create_release(pyci_guinea_pig, request, after1.sha, '0.0.4')
+    _create_release(pyci_guinea_pig, request, after2.sha, '0.0.5')
+
+    # this should give us the changelog relative to the 0.0.2 release, not the latest.
+    changelog = pyci_guinea_pig.generate_changelog(sha=ours.sha)
+
+    expected_features = {7, 6}
+    expected_bugs = {5}
+    expected_issues = {1}
+    expected_commits = {
+        ours.sha,
+        '66c6ad2753fc68e8a972ee656b61da5cbffc7d3f',
+        '5ec86fec51e6f88f63103431238a081384a55cce',
+        'e4f0041f7bac3a672db645377c720ff61ad2b22a',
+        '6785ae160c9330ae8620730def90f1f32814adba',
+    }
+    expected_next_version = '1.0.0'
+
+    actual_features = {feature.impl.number for feature in changelog.features}
+    actual_bugs = {bug.impl.number for bug in changelog.bugs}
+    actual_issues = {issue.impl.number for issue in changelog.issues}
+    actual_commits = {com.impl.sha for com in changelog.commits}
+    actual_next_version = changelog.next_version
+
+    assert expected_features == actual_features
+    assert expected_bugs == actual_bugs
+    assert expected_issues == actual_issues
+    assert expected_commits == actual_commits
+    assert expected_next_version == actual_next_version
+
+
+def test_generate_changelog_no_release(pyci_guinea_pig):
 
     changelog = pyci_guinea_pig.generate_changelog(sha='2b38a0386f9b3cc50de9095a38f3fb82301e2698')
 
@@ -245,9 +297,9 @@ def test_generate_changelog(pyci_guinea_pig):
 @pytest.mark.wet(issues=False)
 def test_generate_changelog_empty(pyci_guinea_pig, request):
 
-    _create_release(pyci_guinea_pig, request, '33526a9e0445541d96e027db2aeb93d07cdf8bd6')
+    _create_release(pyci_guinea_pig, request, '33526a9e0445541d96e027db2aeb93d07cdf8bd6', '0.0.1')
 
-    changelog = pyci_guinea_pig.generate_changelog(sha='703afd5a11e186167606a071a556f30174f741d5')
+    changelog = pyci_guinea_pig.generate_changelog(sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6')
     assert changelog.empty
 
 
@@ -365,15 +417,19 @@ def test_upload_asset_already_exists(pyci_guinea_pig, request, temp_dir):
 ])
 def test_bump_version(runner, pyci_guinea_pig, semantic, expected_version):
 
-    bump_commit = pyci_guinea_pig.bump_version(semantic=semantic)
+    current_version = '0.0.2'
+
+    bump = pyci_guinea_pig.bump_version(semantic=semantic)
 
     setup_py_path = utils.download(
         'https://raw.githubusercontent.com/iliapolo/pyci-guinea-pig/{0}/setup.py'
-        .format(bump_commit.sha))
+        .format(bump.sha))
 
     actual_version = runner.run('python {0} --version'.format(setup_py_path)).std_out
 
     assert expected_version == actual_version
+    assert expected_version == bump.next_version
+    assert current_version == bump.prev_version
 
 
 def test_bump_version_no_semantic(pyci_guinea_pig):
@@ -391,17 +447,21 @@ def test_bump_version_semantic_illegal(pyci_guinea_pig):
 @pytest.mark.wet(issues=False)
 def test_set_version(runner, pyci_guinea_pig):
 
-    bump_commit = pyci_guinea_pig.set_version(value='1.2.3')
+    current_version = '0.0.2'
+
+    bump = pyci_guinea_pig.set_version(value='1.2.3')
 
     setup_py_path = utils.download(
         'https://raw.githubusercontent.com/iliapolo/pyci-guinea-pig/{0}/setup.py'
-        .format(bump_commit.sha))
+        .format(bump.sha))
 
     expected_version = '1.2.3'
 
     actual_version = runner.run('python {0} --version'.format(setup_py_path)).std_out
 
     assert expected_version == actual_version
+    assert expected_version == bump.next_version
+    assert current_version == bump.prev_version
 
 
 def test_set_version_same_version(pyci_guinea_pig):
@@ -474,101 +534,60 @@ def test_create_release_sha_and_branch(pyci_guinea_pig):
 
 
 @pytest.mark.wet(issues=False)
-def test_create_release_empty_changelog(pyci_guinea_pig, request):
-
-    _create_release(pyci_guinea_pig, request,
-                    sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81',
-                    name='0.0.1')
-    with pytest.raises(exceptions.EmptyChangelogException):
-        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
-
-
-@pytest.mark.wet(issues=False)
 def test_create_release_commit_is_already_released(pyci_guinea_pig, request):
 
     _create_release(pyci_guinea_pig, request,
                     sha='a849e11c1ff2c5067347cf97adc159f221ef2237',
                     name='0.0.2')
     with pytest.raises(exceptions.CommitIsAlreadyReleasedException):
-        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
-
-
-def test_create_release_not_semantic_version(pyci_guinea_pig):
-
-    with pytest.raises(exceptions.InvalidArgumentsException):
-        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81',
-                                       version='not-semantic')
+        pyci_guinea_pig.create_release(sha='a849e11c1ff2c5067347cf97adc159f221ef2237')
 
 
 def test_create_release_non_existing_commit(pyci_guinea_pig):
 
     with pytest.raises(exceptions.CommitNotFoundException):
-        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab89',
-                                       version='1.0.0')
+        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab89')
+
+
+def test_create_release_not_python_project(pyci_guinea_pig):
+
+    sha = 'aee0c4c21d64f95f6742838aded957c2be71c2e5'
+    with pytest.raises(exceptions.NotPythonProjectException):
+        pyci_guinea_pig.create_release(sha=sha)
 
 
 @pytest.mark.wet(issues=False)
-def test_create_existing_release_different_sha(pyci_guinea_pig, request):
+def test_create_release_release_conflict(pyci_guinea_pig, request):
 
     _create_release(pyci_guinea_pig, request,
                     sha='6536eefd0ec33141cc5c14be50a34631e8d79af8',
                     name='0.0.1')
     with pytest.raises(exceptions.ReleaseConflictException):
-        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81',
-                                       version='0.0.1')
-
-
-@pytest.mark.wet(issues=False)
-def test_create_release_cannot_determine_version(pyci_guinea_pig, request):
-
-    _create_release(pyci_guinea_pig, request,
-                    sha='6785ae160c9330ae8620730def90f1f32814adba',
-                    name='0.0.2')
-    with pytest.raises(exceptions.CannotDetermineNextVersionException):
-        pyci_guinea_pig.create_release(sha='e4f0041f7bac3a672db645377c720ff61ad2b22a')
+        pyci_guinea_pig.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
 
 
 @pytest.mark.wet
-def test_create_release_delete_pr_branch(pyci_guinea_pig):
-
-    sha = '1997dbd53731b5f51153bbae35bbab6fcc6dab81'
-    pyci_guinea_pig.create_branch(name='issue5', sha=sha)
-    rel = pyci_guinea_pig.create_release(sha=sha)
-
-    expected_release_changelog = rel.changelog.render()
-    expected_release_title = '1.0.0'
-    expected_release_sha = sha
-
-    actual_release = pyci_guinea_pig.repo.get_release(id='1.0.0')
-    actual_release_title = actual_release.title
-    actual_release_sha = pyci_guinea_pig.repo.get_git_ref('tags/{}'.format(
-        actual_release.tag_name)).object.sha
-    actual_release_changelog = actual_release.body
-
-    assert expected_release_title == actual_release_title
-    assert expected_release_changelog == actual_release_changelog
-    assert expected_release_sha == actual_release_sha
-
-
-@pytest.mark.wet
-def test_create_release_no_pr_branch(pyci_guinea_pig):
+def test_create_release(pyci_guinea_pig):
 
     sha = '1997dbd53731b5f51153bbae35bbab6fcc6dab81'
     rel = pyci_guinea_pig.create_release(sha=sha)
 
-    expected_release_changelog = rel.changelog.render()
-    expected_release_title = '1.0.0'
+    expected_release_title = '0.0.1'
     expected_release_sha = sha
+    expected_release_url = 'https://github.com/iliapolo/pyci-guinea-pig/releases/tag/0.0.1'
 
-    actual_release = pyci_guinea_pig.repo.get_release(id='1.0.0')
+    actual_release = pyci_guinea_pig.repo.get_release(id='0.0.1')
     actual_release_title = actual_release.title
     actual_release_sha = pyci_guinea_pig.repo.get_git_ref('tags/{}'.format(
         actual_release.tag_name)).object.sha
-    actual_release_changelog = actual_release.body
+    actual_release_url = actual_release.html_url
 
     assert expected_release_title == actual_release_title
-    assert expected_release_changelog == actual_release_changelog
+    assert expected_release_url == actual_release_url
     assert expected_release_sha == actual_release_sha
+
+    assert expected_release_title == rel.title
+    assert expected_release_url == rel.url
 
 
 def test_set_version_no_value(pyci_guinea_pig):
@@ -690,3 +709,116 @@ def test_create_branch(request, pyci_guinea_pig):
     branch = pyci_guinea_pig.repo.get_git_ref('heads/{}'.format(request.node.name))
 
     assert sha == branch.object.sha
+
+
+def test_create_branch_already_exists(pyci_guinea_pig):
+
+    sha = 'e4f0041f7bac3a672db645377c720ff61ad2b22a'
+    with pytest.raises(exceptions.BranchAlreadyExistsException):
+        pyci_guinea_pig.create_branch(sha=sha, name='release')
+
+
+def test_delete_branch_no_name(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.delete_branch(name='')
+
+
+def test_delete_branch_doesnt_exist(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.BranchNotFoundException):
+        pyci_guinea_pig.delete_branch(name='doesnt-exist')
+
+
+@pytest.mark.wet(issues=False)
+def test_delete_branch(pyci_guinea_pig, request):
+
+    branch = _create_branch(pyci_guinea_pig, request, 'e4f0041f7bac3a672db645377c720ff61ad2b22a')
+
+    branch_name = branch.ref.split('refs/heads/')[1]
+
+    pyci_guinea_pig.delete_branch(name=branch_name)
+
+    with pytest.raises(UnknownObjectException):
+        pyci_guinea_pig.repo.get_git_ref(ref=branch.ref)
+
+
+def test_commit_file_no_path(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.commit_file(path=None, contents='contents', message='message')
+
+
+def test_commit_file_no_contents(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.commit_file(path='path', contents=None, message='message')
+
+
+def test_commit_file_no_message(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.commit_file(path='path', contents='contents', message=None)
+
+
+@pytest.mark.wet(issues=False)
+def test_commit_file(pyci_guinea_pig, request):
+
+    commit = pyci_guinea_pig.commit_file(path='README.md',
+                                         contents=request.node.name,
+                                         message=request.node.name,
+                                         branch='release')
+
+    actual_commit = pyci_guinea_pig.repo.get_commit(sha='release')
+
+    expected_message = request.node.name
+
+    assert expected_message == actual_commit.commit.message
+
+    # pylint: disable=fixme
+    # TODO figure out why this doesn't work...(open a bug in the meantime)
+    # readme_url = 'https://raw.githubusercontent.com/{}/release/README.md'.format(
+    #     pyci_guinea_pig.repo.full_name)
+    # readme_file = utils.download(readme_url)
+    # with open(readme_file) as stream:
+    #     actual_readme_content = stream.read()
+    # expected_content = request.node.name
+    # assert expected_content == actual_readme_content
+
+    assert commit.sha == actual_commit.sha
+    assert commit.url == actual_commit.html_url
+
+
+def test_create_commit_no_path(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.create_commit(path=None, contents='contents', message='message')
+
+
+def test_create_commit_no_contents(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.create_commit(path='path', contents=None, message='message')
+
+
+def test_create_commit_no_message(pyci_guinea_pig):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pyci_guinea_pig.create_commit(path='path', contents='contents', message=None)
+
+
+@pytest.mark.wet(issues=False)
+def test_create_commit(pyci_guinea_pig, request):
+
+    commit = pyci_guinea_pig.create_commit(path='README.md',
+                                           contents=request.node.name,
+                                           message=request.node.name,
+                                           branch='release')
+
+    actual_commit = pyci_guinea_pig.repo.get_commit(sha=commit.sha)
+
+    expected_message = request.node.name
+
+    assert expected_message == actual_commit.commit.message
+    assert commit.sha == actual_commit.sha
+    assert commit.url == actual_commit.html_url

@@ -15,11 +15,13 @@
 #
 #############################################################################
 
+import sys
+
 import click
 
+from pyci.api import exceptions
 from pyci.api import logger
 from pyci.shell import handle_exceptions
-
 
 log = logger.get_logger(__name__)
 
@@ -32,13 +34,21 @@ log = logger.get_logger(__name__)
 def upload(ctx, wheel):
 
     """
-
     Upload a wheel to PyPI.
 
     Not much more to say here really :)
 
     """
 
+    try:
+        upload_internal(wheel=wheel, pypi=ctx.parent.pypi)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Failed uploading wheel: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+def upload_internal(wheel, pypi):
     log.info('Uploading wheel...(this may take some time)')
-    wheel_url = ctx.parent.pypi.upload_asset(wheel)
+    wheel_url = pypi.upload(wheel=wheel)
     log.info('Wheel uploaded: {}'.format(wheel_url))
+    return wheel_url
