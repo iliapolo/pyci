@@ -190,7 +190,7 @@ def generate_changelog(ctx, sha, branch, target):
 
         changelog = generate_changelog_internal(branch=branch, sha=sha, gh=ctx.parent.github)
 
-        log.debug('Writing changelog file...', path=destination)
+        log.debug('Writing changelog file...', target=target, destination=destination)
 
         with open(destination, 'w') as stream:
             rendered = changelog.render()

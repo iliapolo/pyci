@@ -18,6 +18,7 @@ import os
 import tempfile
 
 # noinspection PyPackageRequirements
+import copy
 import pytest
 # noinspection PyPackageRequirements
 from testfixtures import LogCapture
