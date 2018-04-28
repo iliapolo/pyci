@@ -16,6 +16,7 @@
 #############################################################################
 import os
 import shlex
+import platform
 
 from click.testing import CliRunner
 
@@ -34,7 +35,10 @@ class Runner(object):
 
     def run(self, command, catch_exceptions=False):
 
-        args = shlex.split(command)
+        if platform.system().lower() == 'windows':
+            args = command
+        else:
+            args = shlex.split(command)
 
         log.info('Invoking command: {}. [cwd={}, args={}]'.format(command, os.getcwd(), args))
 
