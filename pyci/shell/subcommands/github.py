@@ -182,7 +182,8 @@ def generate_changelog(ctx, sha, branch, target):
     try:
 
         default_destination = os.path.join(os.getcwd(), '{}-changelog.md'.format(sha or branch))
-        destination = os.path.abspath(target or default_destination)
+        target = target or default_destination
+        destination = os.path.abspath(target)
 
         utils.validate_directory_exists(os.path.abspath(os.path.join(destination, os.pardir)))
         utils.validate_file_does_not_exist(destination)
