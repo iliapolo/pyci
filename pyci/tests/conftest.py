@@ -119,5 +119,3 @@ def no_ci():
             os.environ['TRAVIS'] = travis
         if appveyor:
             os.environ['APPVEYOR'] = appveyor
-
-
