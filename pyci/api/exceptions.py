@@ -261,14 +261,14 @@ class TargetVersionNotGreaterThanLastReleaseVersionException(ApiException):
 
 class EmptyChangelogException(ApiException):
 
-    def __init__(self, sha, last_release):
-        self.last_release = last_release
+    def __init__(self, sha, previous_release):
+        self.previous_release = previous_release
         self.sha = sha
         super(EmptyChangelogException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Changelog from last release ({0}) for commit ({1}) is empty'.format(
-            self.last_release, self.sha)
+        return 'Changelog from previous release ({}) for commit ({}) is empty'.format(
+            self.previous_release, self.sha)
 
 
 class CannotDetermineNextVersionException(ApiException):

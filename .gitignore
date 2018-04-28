@@ -104,5 +104,6 @@ ENV/
 
 # pytest
 .pytest_cache/
+.report/
 
 .DS_Store

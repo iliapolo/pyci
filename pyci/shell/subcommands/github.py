@@ -26,6 +26,8 @@ from pyci.api import logger
 from pyci.api import utils
 from pyci.api.model.changelog import ChangelogCommit
 from pyci.api.model.release import Release
+from pyci.shell import BRANCH_HELP
+from pyci.shell import MASTER_BRANCH_HELP
 from pyci.shell import RELEASE_BRANCH_HELP
 from pyci.shell import handle_exceptions
 
@@ -36,14 +38,11 @@ log = logger.get_logger(__name__)
 @handle_exceptions
 @click.pass_context
 @click.option('--branch-name', required=False,
-              help=RELEASE_BRANCH_HELP)
+              help=BRANCH_HELP)
 @click.option('--master-branch-name', required=False, default='master',
-              help='The master branch name. That is, the branch that should point to the latest '
-                   'stable release. Defaults to master.')
+              help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
-              help='The release branch name. That is, the branch that releases should be made '
-                   'from. This is used to silently ignore commits made to other branches. '
-                   'Defaults to the repository default branch.')
+              help=RELEASE_BRANCH_HELP)
 @click.option('--force', is_flag=True,
               help='Force release without any validations.')
 def release_branch(ctx, branch_name, master_branch_name, release_branch_name, force):
@@ -139,7 +138,7 @@ def validate_commit(ctx, branch, sha):
         raise click.BadOptionUsage('Must specify either --sha or --branch.')
 
     try:
-        validate_commit_internal(branch, ctx, sha)
+        validate_commit_internal(branch=branch, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Validation failed: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -188,7 +187,7 @@ def generate_changelog(ctx, sha, branch, target):
         utils.validate_directory_exists(os.path.abspath(os.path.join(destination, os.pardir)))
         utils.validate_file_does_not_exist(destination)
 
-        changelog = generate_changelog_internal(branch, ctx, sha)
+        changelog = generate_changelog_internal(branch=branch, sha=sha, gh=ctx.parent.github)
 
         with open(destination, 'w') as stream:
             rendered = changelog.render()
@@ -243,7 +242,7 @@ def create_release(ctx, sha, branch):
         raise click.BadOptionUsage('Must specify either --sha or --branch.')
 
     try:
-        create_release_internal(branch, ctx, sha)
+        create_release_internal(branch=branch, sha=sha, gh=ctx.parent.github)
     except exceptions.NotPythonProjectException as e:
         err = click.ClickException('Failed creating release: {}'.format(str(e)))
         err.possible_solutions = [
@@ -273,7 +272,7 @@ def upload_asset(ctx, asset, release):
     """
 
     try:
-        upload_asset_internal(asset, ctx, release)
+        upload_asset_internal(asset=asset, release=release, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed uploading asset: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -296,7 +295,7 @@ def upload_changelog(ctx, changelog, release):
     """
 
     try:
-        upload_changelog_internal(changelog, ctx, release)
+        upload_changelog_internal(changelog=changelog, rel=release, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed uploading changelog: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -422,7 +421,7 @@ def set_version(ctx, branch, value):
     """
 
     try:
-        set_version_internal(branch, ctx, value)
+        set_version_internal(branch=branch, value=value, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed setting version: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -445,7 +444,7 @@ def reset_branch(ctx, name, sha):
     """
 
     try:
-        reset_branch_internal(ctx, name, sha)
+        reset_branch_internal(name=name, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed resetting branch: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -491,7 +490,7 @@ def create_branch(ctx, name, sha):
     """
 
     try:
-        create_branch_internal(ctx, name, sha)
+        create_branch_internal(name=name, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed creating branch: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -510,7 +509,7 @@ def delete_branch(ctx, name):
     """
 
     try:
-        delete_branch_internal(ctx, name)
+        delete_branch_internal(name=name, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed deleting branch: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -647,6 +646,7 @@ def upload_asset_internal(asset, release, gh):
     log.info('Uploaded: {}'.format(asset_url))
 
 
+# pylint: disable=too-many-locals
 def release_branch_internal(branch_name,
                             master_branch_name,
                             release_branch_name,
@@ -664,17 +664,13 @@ def release_branch_internal(branch_name,
 
     changelog = generate_changelog_internal(branch=None if sha else branch_name, gh=gh, sha=sha)
 
-    if changelog.empty:
-
-        # TODO what to do here?
-        pass
-
     next_version = changelog.next_version
 
     log.info('Creating floating version commit...')
     # figure out how to avoid calling private api here...
     # exposing this doesn't seem like a good solution either.
     # noinspection PyProtectedMember
+    # pylint: disable=protected-access
     bump = gh._create_set_version_commit(value=next_version, branch=branch_name)
     actual_commit = bump.impl
     log.info('Created commit: {}'.format(actual_commit.sha))
@@ -720,6 +716,7 @@ def release_branch_internal(branch_name,
         # figure out how to avoid calling private api here...
         # exposing this doesn't seem like a good solution either.
         # noinspection PyProtectedMember
+        # pylint: disable=protected-access
         gh._close_issue(issue=issue.impl, release=release.impl)
 
     reset_branch_internal(gh=gh, name=branch_name, sha=release.sha)

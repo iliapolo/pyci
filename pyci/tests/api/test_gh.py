@@ -218,6 +218,7 @@ def test_generate_changelog_sha_and_branch(pyci_guinea_pig):
         pyci_guinea_pig.generate_changelog(sha='branch', branch='branch')
 
 
+# pylint: disable=too-many-locals
 @pytest.mark.wet(issues=False)
 def test_generate_changelog_relative_to_release(pyci_guinea_pig, request):
 
@@ -243,10 +244,8 @@ def test_generate_changelog_relative_to_release(pyci_guinea_pig, request):
     expected_issues = {1}
     expected_commits = {
         ours.sha,
-        '66c6ad2753fc68e8a972ee656b61da5cbffc7d3f',
-        '5ec86fec51e6f88f63103431238a081384a55cce',
         'e4f0041f7bac3a672db645377c720ff61ad2b22a',
-        '6785ae160c9330ae8620730def90f1f32814adba',
+        '6785ae160c9330ae8620730def90f1f32814adba'
     }
     expected_next_version = '1.0.0'
 
@@ -265,7 +264,7 @@ def test_generate_changelog_relative_to_release(pyci_guinea_pig, request):
 
 def test_generate_changelog_no_release(pyci_guinea_pig):
 
-    changelog = pyci_guinea_pig.generate_changelog(sha='2b38a0386f9b3cc50de9095a38f3fb82301e2698')
+    changelog = pyci_guinea_pig.generate_changelog(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
 
     expected_features = {7, 6}
     expected_bugs = {5}
@@ -297,10 +296,16 @@ def test_generate_changelog_no_release(pyci_guinea_pig):
 @pytest.mark.wet(issues=False)
 def test_generate_changelog_empty(pyci_guinea_pig, request):
 
-    _create_release(pyci_guinea_pig, request, '33526a9e0445541d96e027db2aeb93d07cdf8bd6', '0.0.1')
+    expected_sha = '33526a9e0445541d96e027db2aeb93d07cdf8bd6'
+    expected_release = '0.0.1'
 
-    changelog = pyci_guinea_pig.generate_changelog(sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6')
-    assert changelog.empty
+    _create_release(pyci_guinea_pig, request, expected_sha, expected_release)
+
+    with pytest.raises(exceptions.EmptyChangelogException) as e:
+        pyci_guinea_pig.generate_changelog(sha=expected_sha)
+
+    assert expected_sha == e.value.sha
+    assert expected_release == e.value.previous_release
 
 
 def test_delete_release_no_name(pyci_guinea_pig):

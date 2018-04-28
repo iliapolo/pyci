@@ -16,10 +16,10 @@
 #############################################################################
 
 
+import sys
 import tempfile
 
 import click
-import sys
 
 from pyci.api import exceptions
 from pyci.api import logger
@@ -27,8 +27,10 @@ from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
-from pyci.shell import RELEASE_BRANCH_HELP
+from pyci.shell import BRANCH_HELP
 from pyci.shell import REPO_HELP
+from pyci.shell import MASTER_BRANCH_HELP
+from pyci.shell import RELEASE_BRANCH_HELP
 from pyci.shell import handle_exceptions, secrets
 from pyci.shell.subcommands import github
 from pyci.shell.subcommands import pack
@@ -37,20 +39,18 @@ from pyci.shell.subcommands import pypi
 log = logger.get_logger(__name__)
 
 
+# pylint: disable=too-many-arguments,too-many-locals
 @click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--repo', required=False,
               help=REPO_HELP)
 @click.option('--branch-name', required=False,
-              help=RELEASE_BRANCH_HELP)
+              help=BRANCH_HELP)
 @click.option('--master-branch-name', required=False, default='master',
-              help='The master branch name. That is, the branch that should point to the latest '
-                   'stable release. Defaults to master.')
+              help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
-              help='The release branch name. That is, the branch that releases should be made '
-                   'from. This is used to silently ignore commits made to other branches. '
-                   'Defaults to the repository default branch.')
+              help=RELEASE_BRANCH_HELP)
 @click.option('--pypi-test', is_flag=True,
               help='Use PyPI test index. This option is ignored if --no-wheel is used.')
 @click.option('--pypi-url', is_flag=True,
@@ -143,37 +143,11 @@ def release(ctx,
 
             if not no_binary:
 
-                try:
-
-                    binary_package_path = pack.binary_internal(entrypoint=binary_entrypoint,
-                                                               name=None,
-                                                               target_dir=package_directory,
-                                                               packager=packager)
-
-                    github.upload_asset_internal(asset=binary_package_path,
-                                                 release=release.title,
-                                                 gh=gh)
-
-                except exceptions.DefaultEntrypointNotFoundException as e:
-                    # this is ok, just means that the project is not an executable
-                    # according to our assumptions.
-                    log.info('Binary package will not be created because an entrypoint was not '
-                             'found in the expected paths: {}. \nYou can specify a custom '
-                             'entrypoint path by using the "--binary-entrypoint" option.\n'
-                             'If your package is not meant to be an executable binary, '
-                             'use the "--no-binary" flag to avoid seeing this message'
-                             .format(e.expected_paths))
+                upload_binary(binary_entrypoint, gh, package_directory, packager)
 
             if not no_wheel:
 
-                pypi_api = PyPI(username=secrets.twine_username(), password=secrets.twine_password(),
-                                test=pypi_test, repository_url=pypi_url)
-
-                wheel_path = pack.wheel_internal(universal=wheel_universal,
-                                                 target_dir=package_directory,
-                                                 packager=packager)
-
-                pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
+                upload_wheel(package_directory, packager, pypi_test, pypi_url, wheel_universal)
 
             log.info('Hip Hip, Hurray! :). Your new version is released and ready to go.')
 
@@ -187,6 +161,41 @@ def release(ctx,
     except exceptions.ApiException as e:
         err = click.ClickException('Failed releasing: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
+
+
+def upload_wheel(package_directory, packager, pypi_test, pypi_url, wheel_universal):
+
+    pypi_api = PyPI(username=secrets.twine_username(),
+                    password=secrets.twine_password(),
+                    test=pypi_test, repository_url=pypi_url)
+    wheel_path = pack.wheel_internal(universal=wheel_universal,
+                                     target_dir=package_directory,
+                                     packager=packager)
+    pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
+
+
+def upload_binary(binary_entrypoint, gh, package_directory, packager):
+
+    try:
+
+        binary_package_path = pack.binary_internal(entrypoint=binary_entrypoint,
+                                                   name=None,
+                                                   target_dir=package_directory,
+                                                   packager=packager)
+
+        github.upload_asset_internal(asset=binary_package_path,
+                                     release=release.title,
+                                     gh=gh)
+
+    except exceptions.DefaultEntrypointNotFoundException as e:
+        # this is ok, just means that the project is not an executable
+        # according to our assumptions.
+        log.info('Binary package will not be created because an entrypoint was not '
+                 'found in the expected paths: {}. \nYou can specify a custom '
+                 'entrypoint path by using the "--binary-entrypoint" option.\n'
+                 'If your package is not meant to be an executable binary, '
+                 'use the "--no-binary" flag to avoid seeing this message'
+                 .format(e.expected_paths))
 
 
 def detect_repo(ci, repo):

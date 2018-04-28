@@ -110,10 +110,10 @@ def test_no_repo(pyci, github, capture):
     github.repo.validate_commit.assert_not_called()
 
 
-@pytest.mark.wet
-def test_release_branch(real_github, capture):
-
-    real_github.run('release --branch release --force')
+# @pytest.mark.wet
+# def test_release_branch(real_github, capture):
+#
+#     real_github.run('release --branch release --force')
 
 
 def test_validate_commit_no_sha_no_branch(github, capture):

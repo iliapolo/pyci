@@ -22,7 +22,6 @@ from boltons.cacheutils import cachedproperty
 # noinspection PyPackageRequirements
 from github import Github
 # noinspection PyPackageRequirements
-from github import GithubObject
 # noinspection PyPackageRequirements
 from github import InputGitTreeElement
 # noinspection PyPackageRequirements
@@ -984,44 +983,49 @@ class _GitHubCommit(object):
                                                       our_sha=self.commit.sha,
                                                       their_sha=release_commit.sha)
 
+    # pylint: disable=too-many-branches
     def generate_changelog(self):
 
         self._debug('Generating changelog...')
 
-        since = GithubObject.NotSet
-        base_release_sha = None
-        base_release_title = None
+        releases = {}
 
-        base_release = None
+        for release in self._branch.github.repo.get_releases():
+            commit = self._fetch_tag_commit(release.tag_name)
+            if commit.commit.author.date <= self.commit.commit.author.date:
+                releases[commit.sha] = {
+                    'date': commit.commit.author.date,
+                    'name': release.title,
+                    'sha': commit.sha
+                }
 
-        # look for the latest release prior to (and including) the one corresponding to
-        # the current setup.py version.
-        relevant_releases = [release for release in self._branch.github.repo.get_releases() if
-                             semver.compare(release.title, self.setup_py_version) <= 0]
-        relevant_releases = sorted(relevant_releases,
-                                   cmp=lambda r1, r2: semver.compare(r2.title, r1.title))
+        self._debug('Fetching commits...')
+        all_commits = self._branch.github.repo.get_commits(sha=self.commit.sha)
 
-        if relevant_releases:
-            base_release = relevant_releases[0]
+        commits = []
+        previous_release = {}
 
-        if base_release:
+        # this relies on the fact github returns a descending order list.
+        # will this always be the case? couldn't find any docs about it...
+        # i really don't want to sort it myself because it might mean fetching a lot of commits,
+        # which takes time...
+        for commit in all_commits:
+            if commit.sha not in releases.keys():
+                commits.append(commit)
+            else:
+                previous_release = releases[commit.sha]
+                break
 
-            base_release_title = base_release.title
-            base_release_commit = self._fetch_tag_commit(tag_name=base_release_title)
-            since = base_release_commit.commit.committer.date
-            base_release_sha = base_release_commit.sha
+        if not commits:
+            raise exceptions.EmptyChangelogException(sha=self.commit.sha,
+                                                     previous_release=previous_release['name'])
 
-        self._debug('Fetching commits...', since=since, base_release=base_release_title)
-        commits = list(self._branch.github.repo.get_commits(sha=self.commit.sha, since=since))
-        self._debug('Fetched commits.', since=since, last_release=base_release_title,
-                    number_of_commits=len(commits))
+        self._debug('Fetched commits.', previous_release=previous_release.get('name'),
+                    commits=','''.join([commit.sha for commit in commits]))
 
         changelog = Changelog(current_version=self.setup_py_version, sha=self.commit.sha)
 
         for commit in commits:
-
-            if commit.sha == base_release_sha:
-                continue
 
             issue = self._branch.github.detect_issue(commit_message=commit.commit.message)
 
@@ -1042,9 +1046,9 @@ class _GitHubCommit(object):
 
                 if 'patch' in labels:
                     semantic = ChangelogIssue.PATCH
-                if 'minor' in labels:
+                elif 'minor' in labels:
                     semantic = ChangelogIssue.MINOR
-                if 'major' in labels:
+                elif 'major' in labels:
                     semantic = ChangelogIssue.MAJOR
 
                 if 'feature' in labels:

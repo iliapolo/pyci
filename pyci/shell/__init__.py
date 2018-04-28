@@ -69,22 +69,19 @@ def build_info(exception):
     return info
 
 
-RELEASE_BRANCH_HELP = 'The name of the branch you want to release. The defaulting heuristics ' \
+BRANCH_HELP = 'The name of the branch you want to release. The defaulting heuristics ' \
                       'are as follows: ' \
                       '1) The branch the build was triggered on. ' \
                       '2) The default branch name of the repository.'
 
-RELEASE_SHA_HELP = 'The sha of the commit you want to release. The defaulting heuristics ' \
-                   'are as follows: ' \
-                   '1) The value of --branch. ' \
-                   '2) The branch that triggered the build. ' \
-                   '3) The name of the default branch'
+
+MASTER_BRANCH_HELP = 'The master branch name. That is, the branch that should point to the ' \
+                     'latest stable release. Defaults to master.'
 
 
-RELEASE_VERSION_HELP = 'The version you want the release to have. Note that this is ' \
-                       'automatically calculated using the current setup.py version and the ' \
-                       'commit changelog. Only use this option if you really know what ' \
-                       'you are doing.'
+RELEASE_BRANCH_HELP = 'The release branch name. That is, the branch that releases should be ' \
+                      'made from. This is used to silently ignore commits made to other ' \
+                      'branches. Defaults to the repository default branch.'
 
 
 REPO_HELP = 'Github repository full name (i.e: <owner>/<repo>). When running inside a CI ' \
