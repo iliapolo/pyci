@@ -181,13 +181,15 @@ def generate_changelog(ctx, sha, branch, target):
 
     try:
 
-        destination = os.path.abspath(target or os.path.join(
-            os.getcwd(), '{}-changelog.md'.format(sha or branch)))
+        default_destination = os.path.join(os.getcwd(), '{}-changelog.md'.format(sha or branch))
+        destination = os.path.abspath(target or default_destination)
 
-        utils.validate_directory_exists(os.path.abspath(os.path.join(destination, os.pardir)))
+        utils.validate_directory_exists(os.path.join(destination, os.pardir))
         utils.validate_file_does_not_exist(destination)
 
         changelog = generate_changelog_internal(branch=branch, sha=sha, gh=ctx.parent.github)
+
+        log.debug('Writing changelog file...', path=destination)
 
         with open(destination, 'w') as stream:
             rendered = changelog.render()

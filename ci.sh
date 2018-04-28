@@ -55,7 +55,7 @@ echo "Running code analysis"
 pylint --rcfile ${DIR}/.pylint.ini ${program}
 
 echo "Running tests"
-py.test -s --cov-report term-missing --cov=${DIR}/${program} ${DIR}/${program}/tests
+py.test --cov-report term-missing --cov=${DIR}/${program} ${DIR}/${program}/tests
 
 echo "Running release"
 ${program} --debug release --pypi-test
