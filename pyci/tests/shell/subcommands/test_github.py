@@ -95,6 +95,7 @@ def _pyci(temp_dir):
         os.chdir(cwd)
 
 
+@pytest.mark.usefixtures("no_ci")
 def test_no_repo(pyci, github, capture):
 
     # the 'validate-commit' part isn't important, it could have been any other command.

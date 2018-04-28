@@ -18,18 +18,17 @@ import os
 import tempfile
 
 # noinspection PyPackageRequirements
-import copy
 import pytest
 # noinspection PyPackageRequirements
 from testfixtures import LogCapture
 
+from pyci import shell
+from pyci.api import logger
 from pyci.api import utils
 from pyci.api.runner import LocalCommandRunner
-from pyci import shell
 from pyci.shell.subcommands import github
 from pyci.shell.subcommands import pack
 from pyci.shell.subcommands import pypi
-from pyci.api import logger
 
 
 @pytest.fixture(name='capture', autouse=True)
@@ -101,3 +100,24 @@ def isolated():
     finally:
         os.chdir(cwd)
         utils.rmf(t)
+
+
+@pytest.fixture()
+def no_ci():
+
+    travis = os.environ.get('TRAVIS')
+    appveyor = os.environ.get('APPVEYOR')
+
+    try:
+        if 'TRAVIS' in os.environ:
+            del os.environ['TRAVIS']
+        if 'APPVEYOR' in os.environ:
+            del os.environ['APPVEYOR']
+        yield
+    finally:
+        if travis:
+            os.environ['TRAVIS'] = travis
+        if appveyor:
+            os.environ['APPVEYOR'] = appveyor
+
+
