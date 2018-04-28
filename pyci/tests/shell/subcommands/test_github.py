@@ -202,7 +202,7 @@ def test_generate_changelog_sha(github, capture, temp_dir):
 
     expected_output = 'Generated at {}'.format(destination)
 
-    assert expected_output == capture.records[1].msg
+    assert expected_output == capture.records[2].msg
     github.repo.generate_changelog.assert_called_once_with(sha='sha', branch=None)
 
 
@@ -218,7 +218,7 @@ def test_generate_changelog_branch(github, capture, temp_dir):
 
     expected_output = 'Generated at {}'.format(destination)
 
-    assert expected_output == capture.records[1].msg
+    assert expected_output == capture.records[2].msg
     github.repo.generate_changelog.assert_called_once_with(branch='branch', sha=None)
 
 
@@ -235,7 +235,7 @@ def test_generate_changelog_no_target(github, capture):
 
     expected_output = 'Generated at {}'.format(destination)
 
-    assert expected_output == capture.records[1].msg
+    assert expected_output == capture.records[2].msg
     github.repo.generate_changelog.assert_called_once_with(sha='sha', branch=None)
 
 
