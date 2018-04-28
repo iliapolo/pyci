@@ -34,10 +34,11 @@ class Runner(object):
 
     def run(self, command, catch_exceptions=False):
 
-        log.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
+        args = shlex.split(command)
 
-        result = self._runner.invoke(app, shlex.split(command),
-                                     catch_exceptions=catch_exceptions)
+        log.info('Invoking command: {}. [cwd={}, args={}]'.format(command, os.getcwd(), args))
+
+        result = self._runner.invoke(app, args, catch_exceptions=catch_exceptions)
 
         if isinstance(result.exception, SystemExit) and not catch_exceptions:
             raise SystemExit(result.output)
