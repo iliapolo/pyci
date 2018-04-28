@@ -47,6 +47,7 @@ class Runner(object):
         return result
 
 
+# pylint: disable=too-many-branches
 def split(command):
 
     if platform.system().lower() != 'windows':
