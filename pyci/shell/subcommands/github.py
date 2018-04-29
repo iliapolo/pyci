@@ -125,10 +125,6 @@ def validate_commit(ctx, branch, sha):
 
         2. The issue is marked with at least one of the release labels. (patch, minor, major).
 
-    If the validation fails, this command will exit with error (1).
-
-    Note that --sha and --branch cannot be used simultaneously.
-
     """
 
     if sha and branch:
@@ -140,7 +136,36 @@ def validate_commit(ctx, branch, sha):
     try:
         validate_commit_internal(branch=branch, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
-        err = click.ClickException('Validation failed: {}'.format(str(e)))
+        err = click.ClickException('Commit validation failed: {}'.format(str(e)))
+        raise type(err), err, sys.exc_info()[2]
+
+
+@click.command('validate-build')
+@handle_exceptions
+@click.pass_context
+@click.option('--release-branch-name', required=True,
+              help=RELEASE_BRANCH_HELP)
+def validate_build(ctx, release_branch_name):
+
+    """
+    Validate the current build should be released.
+
+    The conditions for release are:
+
+        1. The current build is not a PR build.
+
+        2. The current build is not a TAG build.
+
+        3. The current build is running on the release branch.
+
+    """
+
+    ci = ctx.parent.parent.ci
+
+    try:
+        validate_build_internal(release_branch_name=release_branch_name, ci=ci)
+    except exceptions.ApiException as e:
+        err = click.ClickException('Build validation failed: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
 
 
@@ -596,14 +621,14 @@ def set_version_internal(branch, value, gh):
 
 
 def upload_changelog_internal(changelog, rel, gh):
-    log.info('Uploading changelog to release {}.. (this may take a while)'.format(rel))
+    log.info('Uploading changelog to release {}..'.format(rel))
     with open(changelog) as stream:
         rel = gh.upload_changelog(changelog=stream.read(), release=rel)
     log.info('Uploaded: {}'.format(rel.url))
 
 
 def create_release_internal(branch, sha, gh):
-    log.info('Creating a release from {}... (this may take a while)'.format(sha or branch))
+    log.info('Creating a release from {}...'.format(sha or branch))
     release = gh.create_release(sha=sha, branch=branch)
     log.info('Release created: {}'.format(release.url))
     return release
@@ -639,7 +664,7 @@ def validate_build_internal(release_branch_name, ci):
 
     log.info('Validating build...')
     if ci:
-        ci.validate_rc(release_branch_name)
+        ci.validate_build(release_branch_name)
     log.info('Validation passed!')
 
 

@@ -113,7 +113,7 @@ class _CI(object):
         """
         raise NotImplementedError()  # pragma: no cover
 
-    def validate_rc(self, release_branch):
+    def validate_build(self, release_branch):
 
         """
         Validates the current build should trigger a release process. There are a few conditions

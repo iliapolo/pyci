@@ -18,7 +18,14 @@
 import os
 
 # noinspection PyPackageRequirements
+import platform
+
+# noinspection PyPackageRequirements
 import pytest
+
+# noinspection PyPackageRequirements
+from github import Github
+
 # noinspection PyPackageRequirements
 from mock import MagicMock
 
@@ -63,10 +70,16 @@ def _github(temp_dir, mocker):
 
 
 @pytest.fixture(name='real_github')
-def _real_github(temp_dir):
+def _real_github(temp_dir, request):
+
+    repo = Github(os.environ['GITHUB_ACCESS_TOKEN']).get_repo('iliapolo/pyci-guinea-pig')
 
     # pylint: disable=too-few-public-methods
     class GithubSubCommand(Runner):
+
+        def __init__(self, _repo):
+            super(GithubSubCommand, self).__init__()
+            self.repo = _repo
 
         def run(self, command, catch_exceptions=False):
 
@@ -74,13 +87,59 @@ def _real_github(temp_dir):
 
             return super(GithubSubCommand, self).run(command, catch_exceptions)
 
+    current_commit = None
+    wet = None
+
+    try:
+        wet = getattr(request.node.function, 'wet')
+        current_commit = repo.get_commit(sha='release')
+
+        if platform.system() != 'Darwin':
+            pytest.skip('Wet tests should only run on the Darwin build')
+
+    except AttributeError:
+        pass
+
     cwd = os.getcwd()
 
     try:
         os.chdir(temp_dir)
-        yield GithubSubCommand()
+        yield GithubSubCommand(repo)
     finally:
         os.chdir(cwd)
+
+        if wet:
+
+            if wet.kwargs.get('commits', True):
+                log.info('Resetting release branch to original state...')
+                ref = repo.get_git_ref('heads/release')
+                ref.edit(sha=current_commit.sha, force=True)
+
+            if wet.kwargs.get('releases', True):
+                log.info('Deleting any releases...')
+                for release in repo.get_releases():
+                    release.delete_release()
+
+            if wet.kwargs.get('tags', True):
+                log.info('Deleting any tags...')
+                for tag in repo.get_tags():
+                    ref = repo.get_git_ref('tags/{}'.format(tag.name))
+                    ref.delete()
+
+            if wet.kwargs.get('branches', True):
+                log.info('Deleting any additional branches...')
+                for branch in repo.get_branches():
+                    if branch.name not in ['master', 'release']:
+                        ref = repo.get_git_ref('heads/{}'.format(branch.name))
+                        ref.delete()
+
+            if wet.kwargs.get('issues', True):
+                log.info('Re-opening and cleaning all issues...')
+                for issue in repo.get_issues(state='all'):
+                    if not issue.pull_request:
+                        issue.edit(state='open')
+                        for comment in issue.get_comments():
+                            comment.delete()
 
 
 @pytest.fixture(name='pyci')
@@ -111,10 +170,28 @@ def test_no_repo(pyci, github, capture):
     github.repo.validate_commit.assert_not_called()
 
 
-# @pytest.mark.wet
-# def test_release_branch(real_github, capture):
-#
-#     real_github.run('release --branch release --force')
+@pytest.mark.wet
+def test_release_branch(real_github, capture):
+
+    real_github.run('release --branch-name release --force')
+
+    expected_release_title = '1.0.0'
+
+    github_release = real_github.repo.get_release(id=expected_release_title)
+
+    # assert the commit message of the release is Set version to 1.0.0
+
+    # assert the temporary branch is deleted
+
+    # assert the issues are closed and commented on
+
+    # assert the release branch is pointing to the version bump commit
+
+    # assert master branch is pointing to release branch
+
+    # assert changelog includes the version bump commit
+
+    # assert capture
 
 
 def test_validate_commit_no_sha_no_branch(github, capture):
@@ -165,7 +242,7 @@ def test_validate_commit_failed(github, capture):
 
     github.run('validate-commit --branch branch', catch_exceptions=True)
 
-    expected_output = 'Validation failed: error'
+    expected_output = 'Commit validation failed: error'
 
     assert expected_output == capture.records[2].msg
     github.repo.validate_commit.assert_called_once_with(sha=None, branch='branch')

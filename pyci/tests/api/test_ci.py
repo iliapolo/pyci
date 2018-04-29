@@ -199,7 +199,7 @@ def test_validate_rc(env, expected_reason):
 
     if expected_reason:
         with pytest.raises(exceptions.ReleaseValidationFailedException) as info:
-            ci_system.validate_rc(release_branch='release')
+            ci_system.validate_build(release_branch='release')
         assert expected_reason in str(info.value)
     else:
-        ci_system.validate_rc(release_branch='release')
+        ci_system.validate_build(release_branch='release')
