@@ -42,7 +42,7 @@ class Runner(object):
         result = self._runner.invoke(app, args, catch_exceptions=catch_exceptions)
 
         if isinstance(result.exception, SystemExit) and not catch_exceptions:
-            raise SystemExit(result.output)
+            raise SystemExit(result.output)  # pragma: no cover
 
         return result
 

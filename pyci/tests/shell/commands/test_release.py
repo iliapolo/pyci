@@ -16,10 +16,5 @@
 #############################################################################
 
 
-# pylint: disable=too-few-public-methods
-class Commit(object):
-
-    def __init__(self, impl, sha, url):
-        self.impl = impl
-        self.sha = sha
-        self.url = url
+def test_release():
+    pass

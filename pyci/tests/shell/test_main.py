@@ -16,10 +16,19 @@
 #############################################################################
 
 
-# pylint: disable=too-few-public-methods
-class Issue(object):
+def test_pack_sha_and_path(pyci, capture):
 
-    def __init__(self, impl, number, url):
-        self.url = url
-        self.impl = impl
-        self.number = number
+    pyci.run('pack --sha sha --path path --repo repo wheel', catch_exceptions=True)
+
+    expected_output = 'Use either --sha or --path, not both'
+
+    assert expected_output == capture.records[1].msg
+
+
+def test_pack_not_sha_not_path(pyci, capture):
+
+    pyci.run('pack --repo repo wheel', catch_exceptions=True)
+
+    expected_output = 'Must specify either --sha or --path'
+
+    assert expected_output == capture.records[1].msg

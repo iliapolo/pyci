@@ -15,12 +15,29 @@
 #
 #############################################################################
 
+import logging
 
-# pylint: disable=too-few-public-methods
-class Release(object):
+# noinspection PyPackageRequirements
+import pytest
 
-    def __init__(self, impl, title, url, sha):
-        self.sha = sha
-        self.url = url
-        self.title = title
-        self.impl = impl
+from pyci.api import logger, exceptions
+
+logger.setup_loggers(logging.DEBUG)
+
+
+def test_run_list(runner):
+
+    runner.run(['ls', '-l'])
+
+
+def test_run_failed_exit_on_failure(runner):
+
+    with pytest.raises(exceptions.CommandExecutionException):
+        runner.run('cp')
+
+
+def test_run_failed_not_exit_on_failure(runner):
+
+    response = runner.run('cp', exit_on_failure=False)
+
+    assert response.return_code != 0

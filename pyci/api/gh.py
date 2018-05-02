@@ -32,14 +32,8 @@ from github.GithubException import UnknownObjectException
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
-from pyci.api.model.branch import Branch
-from pyci.api.model.bump import Bump
-from pyci.api.model.changelog import Changelog
-from pyci.api.model.changelog import ChangelogCommit
-from pyci.api.model.changelog import ChangelogIssue
-from pyci.api.model.commit import Commit
-from pyci.api.model.issue import Issue
-from pyci.api.model.release import Release
+from pyci.api.model import Branch, Bump, Commit, Issue, Release, Changelog, ChangelogIssue, \
+    ChangelogCommit
 from pyci.api.runner import LocalCommandRunner
 from pyci.api.utils import download
 
@@ -75,6 +69,10 @@ class GitHubRepository(object):
         self._log_ctx = {
             'repo': self._repo_name,
         }
+
+    @staticmethod
+    def create(repo, access_token):
+        return GitHubRepository(repo=repo, access_token=access_token)
 
     @cachedproperty
     def _hub(self):
@@ -147,7 +145,7 @@ class GitHubRepository(object):
             sha (:str, optional): For a specific commit.
 
         Returns:
-            pyci.api.model.changelog.Changelog: A changelog instance.
+            pyci.api.model.Changelog: A changelog instance.
         """
 
         if branch and sha:
@@ -170,7 +168,7 @@ class GitHubRepository(object):
             sha (:str, optional): From this specific commit.
 
         Returns:
-            pyci.api.model.release.Release: A release object containing information about the
+            pyci.api.model.Release: A release object containing information about the
                 release.
 
         Raises:
@@ -234,14 +232,9 @@ class GitHubRepository(object):
                 self._repo_name, git_release.title, os.path.basename(asset))
             self._debug('Uploaded asset.', url=asset_url, release=release)
 
-            # this is absolutely mental. it looks like once git_release.upload_asset finishes
-            # successfully, all github objects become unusable and throw weird exceptions...
+            # because of this bug i currently have to use my own version of PyGithub :\
+            # see https://github.com/PyGithub/PyGithub/issues/779
 
-            # pylint: disable=fixme
-            # TODO open a bug in pygithub!!
-
-            delattr(self, '_hub')
-            delattr(self, 'repo')
             return asset_url
         except GithubException as e:
 
@@ -250,19 +243,8 @@ class GitHubRepository(object):
                 raise exceptions.AssetAlreadyPublishedException(asset=asset_name,
                                                                 release=git_release.title)
 
+            # cannot test the unexpected, unfortunately...
             raise  # pragma: no cover
-
-        except IOError:
-            # this is so messed up, pygithub does not always raise
-            # a proper exception in case the asset already exists.
-            # so we are left with assuming that is the case.
-
-            # pylint: disable=fixme
-            # TODO open a bug in pygithub
-
-            asset_name = os.path.basename(asset)
-            raise exceptions.AssetAlreadyPublishedException(asset=asset_name,
-                                                            release=git_release.title)
 
     def upload_changelog(self, changelog, release):
 
@@ -313,7 +295,7 @@ class GitHubRepository(object):
             commit_message (:str, optional): Using the commit message.
 
         Return:
-            pyci.api.model.issue.Issue: The issue, if found.
+            pyci.api.model.Issue: The issue, if found.
             None: If the commit does not contain a link to an issue number.
         """
 
@@ -456,7 +438,7 @@ class GitHubRepository(object):
                 the default branch of the repository.
 
         Returns:
-            pyci.api.model.commit.Commit: The commit that was created.
+            pyci.api.model.Commit: The commit that was created.
         """
 
         if not semantic:
@@ -481,7 +463,7 @@ class GitHubRepository(object):
                 the default branch of the repository.
 
         Returns:
-            pyci.api.model.bump.Bump: The commit that was created.
+            pyci.api.model.Bump: The commit that was created.
         """
 
         if not value:
@@ -718,10 +700,6 @@ class GitHubRepository(object):
         log.debug(message, **kwargs)
 
 
-def new(repo, access_token):
-    return GitHubRepository(repo, access_token)
-
-
 class _GitHubBranch(object):
 
     def __init__(self, gh, branch_name):
@@ -877,15 +855,6 @@ class _GitHubCommit(object):
             raise exceptions.CommitNotFoundException(sha=self._sha)
 
     @cachedproperty
-    def pr(self):
-        self._debug('Fetching pull request from commit...',
-                    commit_message=self.commit.commit.message)
-        pr_number = utils.extract_link(self.commit.commit.message)
-        pr = self._branch.github.repo.get_pull(number=pr_number) if pr_number else None
-        self._debug('Fetched pull request.', pr=pr.url if pr else None)
-        return pr
-
-    @cachedproperty
     def issue(self):
         issue = self._branch.github.detect_issue(commit_message=self.commit.commit.message)
         if issue:
@@ -912,7 +881,7 @@ class _GitHubCommit(object):
                 raise exceptions.NotPythonProjectException(repo=self._branch.github.repo.full_name,
                                                            cause='setup.py not found',
                                                            sha=self.commit.sha)
-            raise
+            raise  # pragma: no cover
         self._debug('Fetched setup.py.', setup_py_url=setup_py_url, setup_py_path=setup_py_path)
         return setup_py_path
 

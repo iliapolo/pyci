@@ -23,7 +23,6 @@ import tempfile
 import uuid
 import zipfile
 
-import datetime
 import requests
 
 from pyci.api import exceptions
@@ -83,22 +82,6 @@ def rmf(directory):
         func(path)
 
     shutil.rmtree(directory, onerror=remove_read_only)
-
-
-def lsd(directory):
-
-    """
-    List directory names in a given directory. Only first level directories are returned and only
-    the directory basename, i.e without the parent directory path.
-
-    Args:
-        directory (str): A directory path.
-
-    Returns:
-        list: A list of directory names.
-    """
-
-    return [f for f in os.listdir(directory) if os.path.isdir(os.path.join(directory, f))]
 
 
 def get_local_repo():
@@ -254,17 +237,3 @@ def generate_setup_py(setup_py, version):
     if match:
         return setup_py.replace(match.group(1), "version='{0}',".format(version))
     raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)
-
-
-def datetime_to_epoch(dt):
-
-    """
-    Convert a datetime object to epoch milliseconds.
-
-    Args:
-        dt (datetime.datetime): The datetime object.
-    """
-
-    epoch = datetime.datetime.utcfromtimestamp(0)
-
-    return (dt - epoch).total_seconds() * 1000.0

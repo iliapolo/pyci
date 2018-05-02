@@ -8,4 +8,5 @@ matrix:
 
 
 script:
-  - ./ci.sh
+  - ./ci/scripts/linux/ci.sh
+  - codecov

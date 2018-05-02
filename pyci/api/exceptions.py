@@ -14,7 +14,6 @@
 #   * limitations under the License.
 #
 #############################################################################
-import os
 
 
 class ApiException(BaseException):
@@ -89,16 +88,6 @@ class ReleaseNotFoundException(ApiException):
         return 'Release not found: {0}'.format(self.release)
 
 
-class RefNotFoundException(ApiException):
-
-    def __init__(self, ref):
-        self.ref = ref
-        super(RefNotFoundException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Ref not found: {0}'.format(self.ref)
-
-
 class CommandExecutionException(ApiException):
 
     def __init__(self, command, error, output, code):
@@ -118,38 +107,12 @@ class CommandExecutionException(ApiException):
                     self.output or None)
 
 
-class MultiplePackagesFound(ApiException):
-
-    def __init__(self, repo, packages):
-        self.repo = repo
-        self.packages = packages
-        super(MultiplePackagesFound, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Found multiple python packages at the root level of your repo ({0}): {1}'.format(
-            self.repo, ','.join(self.packages))
-
-
-class PackageNotFound(ApiException):
-
-    def __init__(self, repo):
-        self.repo = repo
-        super(PackageNotFound, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'No python packages found at the root level of your repo ({0})'.format(self.repo)
-
-
 class DefaultEntrypointNotFoundException(ApiException):
 
-    def __init__(self, repo, name, top_level_package):
-        self.top_level_package = top_level_package
+    def __init__(self, repo, name, expected_paths):
+        self.expected_paths = expected_paths
         self.name = name
         self.repo = repo
-        self.expected_paths = [
-            os.path.join(self.top_level_package, 'shell', 'main.py'),
-            '{0}.spec'.format(self.name)
-        ]
         super(DefaultEntrypointNotFoundException, self).__init__(self.__str__())
 
     def __str__(self):
@@ -222,41 +185,6 @@ class InvalidArgumentsException(ApiException):
 
     def __str__(self):
         return self.message
-
-
-class SemanticVersionException(ApiException):
-
-    def __init__(self, version):
-        self.version = version
-        super(SemanticVersionException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'The version ({0} does not conform to the semantic version scheme'\
-                .format(self.version)
-
-
-class TargetVersionNotGreaterThanSetupPyVersionException(ApiException):
-
-    def __init__(self, current_version, target_version):
-        self.current_version = current_version
-        self.target_version = target_version
-        super(TargetVersionNotGreaterThanSetupPyVersionException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Target version ({0}) is not greater than current setup.py version ({1})'\
-               .format(self.target_version, self.current_version)
-
-
-class TargetVersionNotGreaterThanLastReleaseVersionException(ApiException):
-
-    def __init__(self, last_release_version, target_version):
-        self.last_release_version = last_release_version
-        self.target_version = target_version
-        super(TargetVersionNotGreaterThanLastReleaseVersionException, self).__init__(self.__str__())
-
-    def __str__(self):
-        return 'Target version ({0}) is not greater than last release version ({1})' \
-            .format(self.target_version, self.last_release_version)
 
 
 class EmptyChangelogException(ApiException):
@@ -352,6 +280,17 @@ class WheelAlreadyPublishedException(ApiException):
 
     def __str__(self):
         return 'Wheel ({0}) already exists in ({1})'.format(self.wheel, self.url)
+
+
+class FailedPublishingWheelException(ApiException):
+
+    def __init__(self, wheel, error):
+        self.wheel = wheel
+        self.error = error
+        super(FailedPublishingWheelException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Failed publihsing wheel ({}): {}'.format(self.wheel, self.error)
 
 
 class IssueNotFoundException(ApiException):

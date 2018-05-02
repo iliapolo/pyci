@@ -15,67 +15,34 @@
 #
 #############################################################################
 
-import os
-
 # noinspection PyPackageRequirements
-import pytest
 
 # noinspection PyPackageRequirements
 from mock import MagicMock
 
 from pyci.api import exceptions
-from pyci.tests.shell import Runner
 
 
-@pytest.fixture(name='pypi')
-def _pypi(temp_dir, mocker):
+def test_upload(patched_pypi, capture):
 
-    pypi_mock = MagicMock()
+    patched_pypi.pypi.upload = MagicMock(return_value='url')
 
-    mocker.patch(target='pyci.api.pypi.new', new=MagicMock(return_value=pypi_mock))
-
-    # pylint: disable=too-few-public-methods
-    class PyPISubCommand(Runner):
-
-        def __init__(self, pypi):
-            super(PyPISubCommand, self).__init__()
-            self.pypi = pypi
-
-        def run(self, command, catch_exceptions=False):
-
-            command = 'pypi {}'.format(command)
-
-            return super(PyPISubCommand, self).run(command, catch_exceptions)
-
-    cwd = os.getcwd()
-
-    try:
-        os.chdir(temp_dir)
-        yield PyPISubCommand(pypi_mock)
-    finally:
-        os.chdir(cwd)
-
-
-def test_upload(pypi, capture):
-
-    pypi.pypi.upload = MagicMock(return_value='url')
-
-    pypi.run('upload --wheel wheel')
+    patched_pypi.run('upload --wheel wheel')
 
     expected_output = 'Wheel uploaded: url'
 
     assert expected_output == capture.records[1].msg
-    pypi.pypi.upload.assert_called_once_with(wheel='wheel')
+    patched_pypi.pypi.upload.assert_called_once_with(wheel='wheel')
 
 
-def test_upload_failed(pypi, capture):
+def test_upload_failed(patched_pypi, capture):
 
     exception = exceptions.ApiException('error')
-    pypi.pypi.upload = MagicMock(side_effect=exception)
+    patched_pypi.pypi.upload = MagicMock(side_effect=exception)
 
-    pypi.run('upload --wheel wheel', catch_exceptions=True)
+    patched_pypi.run('upload --wheel wheel', catch_exceptions=True)
 
     expected_output = 'Failed uploading wheel: error'
 
     assert expected_output in capture.records[2].msg
-    pypi.pypi.upload.assert_called_once_with(wheel='wheel')
+    patched_pypi.pypi.upload.assert_called_once_with(wheel='wheel')

@@ -7,4 +7,4 @@ environment:
 build: off
 
 test_script:
-  - ./ci.bat
+  - .\\ci\\scripts\\windows\\ci.bat

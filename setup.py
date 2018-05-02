@@ -29,7 +29,7 @@ PROJECT_NAME = 'py-ci'
 
 setup(
     name=PROJECT_NAME,
-    version='256.0.0',
+    version='0.0.1',
     author='Eli Polonsky',
     author_email='eli.polonsky@gmail.com',
     packages=[
@@ -47,20 +47,16 @@ setup(
             '{0} = {1}.shell.main:app'.format(PROGRAM_NAME, BASE_PACKAGE_NAME)
         ]
     },
+    dependency_links=['https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip'],
     install_requires=[
         'click==6.7',
         'wryte==0.2.1',
-        'pygithub==1.38',
         'semver==2.7.9',
-        'pygithub==1.38',
         'pyinstaller==3.3.1',
         'requests==2.18.4',
         'jinja2==2.10',
         'boltons==18.0.0',
         'wheel==0.29.0',
-        'twine==1.11.0',
-        'prettytable==0.7.2',
-        'Sphinx==1.7.2',
-        'sphinx-autobuild==0.7.1'
+        'twine==1.11.0'
     ]
 )

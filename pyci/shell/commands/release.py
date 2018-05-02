@@ -121,7 +121,8 @@ def release(ctx,
 
     try:
 
-        gh = GitHubRepository(repo=repo, access_token=secrets.github_access_token())
+        gh = GitHubRepository.create(repo=repo,
+                                     access_token=secrets.github_access_token(ci))
 
         github_release = github.release_branch_internal(
             branch_name=branch_name,
@@ -133,7 +134,7 @@ def release(ctx,
             ci=ci
         )
 
-        packager = Packager(repo, sha=github_release.sha)
+        packager = Packager.create(repo, sha=github_release.sha)
 
         package_directory = tempfile.mkdtemp()
 
@@ -147,7 +148,7 @@ def release(ctx,
 
             if not no_wheel:
 
-                upload_wheel(package_directory, packager, pypi_test, pypi_url, wheel_universal)
+                upload_wheel(ci, package_directory, packager, pypi_test, pypi_url, wheel_universal)
 
             log.info('Hip Hip, Hurray! :). Your new version is released and ready to go.')
 
@@ -163,11 +164,12 @@ def release(ctx,
         raise type(err), err, sys.exc_info()[2]
 
 
-def upload_wheel(package_directory, packager, pypi_test, pypi_url, wheel_universal):
+def upload_wheel(ci, package_directory, packager, pypi_test, pypi_url, wheel_universal):
 
-    pypi_api = PyPI(username=secrets.twine_username(),
-                    password=secrets.twine_password(),
-                    test=pypi_test, repository_url=pypi_url)
+    pypi_api = PyPI.create(username=secrets.twine_username(ci),
+                           password=secrets.twine_password(ci),
+                           test=pypi_test,
+                           repository_url=pypi_url)
     wheel_path = pack.wheel_internal(universal=wheel_universal,
                                      target_dir=package_directory,
                                      packager=packager)

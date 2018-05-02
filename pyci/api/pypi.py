@@ -67,6 +67,10 @@ class PyPI(object):
             'site': self._site
         }
 
+    @staticmethod
+    def create(username, password, repository_url=None, test=False):
+        return PyPI(username=username, password=password, repository_url=repository_url, test=test)
+
     def upload(self, wheel):
 
         """
@@ -100,19 +104,17 @@ class PyPI(object):
             self._debug('Uploading wheel to PyPI repository...', wheel=wheel)
             result = self._runner.run('{0} {1}'.format(command, wheel), execution_env=env)
 
-            if result.std_err:
-                self._debug(result.std_err)
-
-            if result.std_out:
-                self._debug(result.std_out)
+            self._debug(result.std_out)
 
             self._debug('Successfully uploaded wheel', wheel_url=wheel_url)
             return wheel_url
         except exceptions.CommandExecutionException as e:
+
             if 'File already exists' in e.error:
                 wheel_name = os.path.basename(wheel)
                 raise exceptions.WheelAlreadyPublishedException(wheel=wheel_name, url=wheel_url)
-            raise
+
+            raise exceptions.FailedPublishingWheelException(wheel=wheel, error=e.error)
 
     def _extract_project_name(self, wheel):
 
@@ -138,11 +140,3 @@ class PyPI(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         log.debug(message, **kwargs)
-
-
-def new(repository_url, test, username, password):
-
-    return PyPI(repository_url=repository_url,
-                test=test,
-                username=username,
-                password=password)

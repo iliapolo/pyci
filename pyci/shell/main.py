@@ -21,18 +21,17 @@ import sys
 import click
 
 from pyci.api import ci
-from pyci.api import packager
-from pyci.api import pypi as pypi_api
-from pyci.api import gh
 from pyci.api import logger
+from pyci.api.gh import GitHubRepository
+from pyci.api.packager import Packager
+from pyci.api.pypi import PyPI
+from pyci.shell import REPO_HELP
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
-from pyci.shell.subcommands import pack as pack_group
-from pyci.shell.subcommands import github as github_group
-from pyci.shell.subcommands import pypi as pypi_group
 from pyci.shell.commands import release
-from pyci.shell import REPO_HELP
-
+from pyci.shell.subcommands import github as github_group
+from pyci.shell.subcommands import pack as pack_group
+from pyci.shell.subcommands import pypi as pypi_group
 
 log = logger.get_logger(__name__)
 
@@ -40,9 +39,12 @@ log = logger.get_logger(__name__)
 @click.group()
 @click.option('--debug', is_flag=True,
               help='Show debug messages')
+@click.option('--no-ci', is_flag=True,
+              help='Do not detect the current CI provider. This is considered advanced usage, '
+                   'do it only if you know what you are doing!.')
 @click.pass_context
 @handle_exceptions
-def app(ctx, debug):
+def app(ctx, debug, no_ci):
 
     """
     Welcome to pyci!
@@ -66,7 +68,9 @@ def app(ctx, debug):
     if debug:
         logger.setup_loggers(level=logging.DEBUG)
 
-    ctx.ci = ci.detect()
+    ctx.ci = None
+    if not no_ci:
+        ctx.ci = ci.detect()
 
     if ctx.ci:
         log.info('Detected CI: {0}'.format(ctx.ci.name))
@@ -85,7 +89,8 @@ def github(ctx, repo):
 
     repo = release.detect_repo(ctx.parent.ci, repo)
 
-    ctx.github = gh.new(repo=repo, access_token=secrets.github_access_token())
+    ctx.github = GitHubRepository.create(repo=repo,
+                                         access_token=secrets.github_access_token(ctx.parent.ci))
 
 
 @click.group()
@@ -114,9 +119,9 @@ def pack(ctx, repo, sha, path):
         raise click.ClickException("Use either --sha or --path, not both")
 
     if not sha and not path:
-        raise click.BadOptionUsage('Must specify either --sha or --path.')
+        raise click.BadOptionUsage('Must specify either --sha or --path')
 
-    ctx.packager = packager.new(repo=repo, path=path, sha=sha)
+    ctx.packager = Packager.create(repo=repo, path=path, sha=sha)
 
 
 @click.group()
@@ -132,14 +137,15 @@ def pypi(ctx, test, repository_url):
     Sub-command for PyPI operations.
     """
 
-    ctx.pypi = pypi_api.new(repository_url=repository_url,
-                            test=test,
-                            username=secrets.twine_username(),
-                            password=secrets.twine_password())
+    ctx.pypi = PyPI.create(repository_url=repository_url,
+                           test=test,
+                           username=secrets.twine_username(ctx.parent.ci),
+                           password=secrets.twine_password(ctx.parent.ci))
 
 
 github.add_command(github_group.release_branch)
 github.add_command(github_group.validate_commit)
+github.add_command(github_group.validate_build)
 github.add_command(github_group.generate_changelog)
 github.add_command(github_group.create_release)
 github.add_command(github_group.upload_asset)
@@ -170,4 +176,4 @@ app.add_command(release.release)
 # created by pyinstaller
 if getattr(sys, 'frozen', False):
     # pylint: disable=no-value-for-parameter
-    app(sys.argv[1:])
+    app(sys.argv[1:])  # pragma: no cover

@@ -59,9 +59,6 @@ def build_info(exception):
 
     info = ''
 
-    if hasattr(exception, 'cause'):
-        info = info + '\n\n' + exception.cause + '.'
-
     if hasattr(exception, 'possible_solutions'):
         info = info + '\n\nPossible solutions: \n\n' + \
                '\n'.join(['    - ' + solution + '.' for solution in exception.possible_solutions])

@@ -25,7 +25,55 @@ from pyci.api import exceptions
 from pyci.api import logger
 from pyci.resources import get_resource
 
+
 log = logger.get_logger(__name__)
+
+
+# pylint: disable=too-few-public-methods
+class Branch(object):
+
+    def __init__(self, impl, sha, name):
+        self.sha = sha
+        self.impl = impl
+        self.name = name
+
+
+# pylint: disable=too-few-public-methods
+class Bump(object):
+
+    def __init__(self, impl, prev_version, next_version, sha):
+        self.sha = sha
+        self.prev_version = prev_version
+        self.next_version = next_version
+        self.impl = impl
+
+
+# pylint: disable=too-few-public-methods
+class Commit(object):
+
+    def __init__(self, impl, sha, url):
+        self.impl = impl
+        self.sha = sha
+        self.url = url
+
+
+# pylint: disable=too-few-public-methods
+class Issue(object):
+
+    def __init__(self, impl, number, url):
+        self.url = url
+        self.impl = impl
+        self.number = number
+
+
+# pylint: disable=too-few-public-methods
+class Release(object):
+
+    def __init__(self, impl, title, url, sha):
+        self.sha = sha
+        self.url = url
+        self.title = title
+        self.impl = impl
 
 
 class Changelog(object):
@@ -173,7 +221,7 @@ class Changelog(object):
         to the appropriate collection, which can later be retrieved.
 
         Args:
-            change (:`ChangelogIssue`:`ChangelogCommit`): Either a commit or an issue.
+            change (:ChangelogIssue:ChangelogCommit): Either a commit or an issue.
         """
 
         if not isinstance(change, (ChangelogCommit, ChangelogIssue)):
@@ -225,7 +273,6 @@ class Changelog(object):
         log.debug(message, **kwargs)
 
 
-# pylint: disable=too-few-public-methods
 class _Change(object):
 
     def __init__(self, title, url, timestamp):
@@ -238,14 +285,14 @@ class _Change(object):
 
         """
 
-        if title is None:
-            raise exceptions.InvalidArgumentsException('title cannot be None')
+        if not title:
+            raise exceptions.InvalidArgumentsException('title cannot be empty')
 
-        if url is None:
-            raise exceptions.InvalidArgumentsException('url cannot be None')
+        if not url:
+            raise exceptions.InvalidArgumentsException('url cannot be empty')
 
-        if timestamp is None:
-            raise exceptions.InvalidArgumentsException('timestamp cannot be None')
+        if not timestamp:
+            raise exceptions.InvalidArgumentsException('timestamp cannot be empty')
 
         self.timestamp = timestamp
         self.title = title

@@ -14,16 +14,13 @@
 #   * limitations under the License.
 #
 #############################################################################
-
-import shlex
+import copy
 import os
+import shlex
 import subprocess
 
-import copy
-
-from pyci.api import logger
 from pyci.api import exceptions
-
+from pyci.api import logger
 
 log = logger.get_logger(__name__)
 
@@ -54,7 +51,7 @@ class LocalCommandRunner(object):
         The above also applied for the standard error stream.
 
         Args:
-            command (:`str`:`list`): The command to execute.
+            command (:str:list): The command to execute.
             exit_on_failure: True to raise an exception if the execution failed, False otherwise.
                 In case you pass False, you can examine the error stream by
                 using .std_err of the return value.
@@ -63,8 +60,8 @@ class LocalCommandRunner(object):
                 current one)
 
         Raises:
-            CommandExecutionException: Raised when the execution failed and the exist_on_failure
-                argument is True.
+            exceptions.CommandExecutionException: Raised when the execution failed and the
+                exist_on_failure argument is True.
 
         Returns:
             _CommandExecutionResponse: A response object containing necessary information about
@@ -82,13 +79,11 @@ class LocalCommandRunner(object):
 
         self._debug('Running command...', command=command)
 
-        stdout = None if log.is_enabled_for('DEBUG') else subprocess.PIPE
-        stderr = None if log.is_enabled_for('DEBUG') else subprocess.PIPE
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
         p = subprocess.Popen(args=popen_args,
-                             stdout=stdout,
-                             stderr=stderr,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
                              cwd=cwd,
                              env=command_env)
 

@@ -63,9 +63,6 @@ class Logger(object):
         for handler in self._logger.handlers:
             handler.setLevel(level)
 
-    def is_enabled_for(self, level):
-        self._logger.isEnabledFor(level)
-
     def info(self, message, **kwargs):
         self._log(logging.INFO, message, **kwargs)
 

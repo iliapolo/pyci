@@ -24,8 +24,7 @@ import click
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
-from pyci.api.model.changelog import ChangelogCommit
-from pyci.api.model.release import Release
+from pyci.api.model import Release, ChangelogCommit, Branch
 from pyci.shell import BRANCH_HELP
 from pyci.shell import MASTER_BRANCH_HELP
 from pyci.shell import RELEASE_BRANCH_HELP
@@ -622,6 +621,7 @@ def set_version_internal(branch, value, gh):
 
 def upload_changelog_internal(changelog, rel, gh):
     log.info('Uploading changelog to release {}..'.format(rel))
+    utils.validate_file_exists(changelog)
     with open(changelog) as stream:
         rel = gh.upload_changelog(changelog=stream.read(), release=rel)
     log.info('Uploaded: {}'.format(rel.url))
@@ -664,7 +664,7 @@ def validate_build_internal(release_branch_name, ci):
 
     log.info('Validating build...')
     if ci:
-        ci.validate_build(release_branch_name)
+        ci.validate_build(release_branch=release_branch_name)
     log.info('Validation passed!')
 
 
@@ -694,6 +694,9 @@ def release_branch_internal(branch_name,
 
     next_version = changelog.next_version
 
+    if not next_version:
+        raise exceptions.CannotDetermineNextVersionException(sha=sha)
+
     log.info('Creating floating version commit...')
     # figure out how to avoid calling private api here...
     # exposing this doesn't seem like a good solution either.
@@ -703,30 +706,18 @@ def release_branch_internal(branch_name,
     actual_commit = bump.impl
     log.info('Created commit: {}'.format(actual_commit.sha))
 
-    temp_branch_name = 'releasing-{}'.format(changelog.sha)
-    temp_branch = None
+    branch = None
     try:
-
-        try:
-            temp_branch = create_branch_internal(gh=gh,
-                                                 name=temp_branch_name,
-                                                 sha=actual_commit.sha)
-        except exceptions.BranchAlreadyExistsException:
-            # this is ok, some other process beat us to the punch.
-            # all good.
-            pass
-
-        try:
-            release = create_release_internal(branch=temp_branch_name, gh=gh, sha=None)
-        except exceptions.CommitIsAlreadyReleasedException as e:
-            # again, someone beat us to the punch. lets just use the existing release.
-            ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.release))
-            rel = gh.repo.get_release(id=next_version)
-            release = Release(impl=rel, title=rel.title, url=rel.html_url, sha=ref.object.sha)
-
+        release_branch_name = 'releasing-{}'.format(changelog.sha)
+        branch = _get_or_create_branch(actual_commit=actual_commit,
+                                       gh=gh,
+                                       branch_name=release_branch_name)
+        release = _get_or_create_release(gh=gh,
+                                         next_version=next_version,
+                                         branch_name=release_branch_name)
     finally:
-        if temp_branch:
-            delete_branch_internal(gh=gh, name=temp_branch_name)
+        if branch:
+            delete_branch_internal(gh=gh, name=branch.name)
 
     bump_change = ChangelogCommit(title=actual_commit.message,
                                   url=actual_commit.html_url,
@@ -754,3 +745,37 @@ def release_branch_internal(branch_name,
     log.info('Successfully created release: {}'.format(release.url))
 
     return release
+
+
+def _get_or_create_release(gh, next_version, branch_name):
+
+    try:
+        release = create_release_internal(branch=branch_name, gh=gh, sha=None)
+    except exceptions.CommitIsAlreadyReleasedException as e:  # pragma: no cover
+
+        # someone beat us to the punch.
+        # lets just use the existing release.
+
+        ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.release))  # pragma: no cover
+        rel = gh.repo.get_release(id=next_version)  # pragma: no cover
+        release = Release(impl=rel,
+                          title=rel.title,
+                          url=rel.html_url,
+                          sha=ref.object.sha)  # pragma: no cover
+
+    return release
+
+
+def _get_or_create_branch(actual_commit, gh, branch_name):
+
+    try:
+        branch = create_branch_internal(gh=gh, name=branch_name, sha=actual_commit.sha)
+    except exceptions.BranchAlreadyExistsException:  # pragma: no cover
+
+        # someone beat us to the punch.
+        # lets just use the existing branch.
+
+        ref = gh.get_git_ref(ref='heads/{}'.format(branch_name))  # pragma: no cover
+        branch = Branch(impl=ref, sha=ref.object.sha, name=branch_name)  # pragma: no cover
+
+    return branch

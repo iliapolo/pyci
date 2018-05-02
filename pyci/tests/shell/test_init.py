@@ -15,11 +15,22 @@
 #
 #############################################################################
 
+import pytest
 
-# pylint: disable=too-few-public-methods
-class Branch(object):
+# noinspection PyPackageRequirements
+from mock import MagicMock
 
-    def __init__(self, impl, sha, name):
-        self.sha = sha
-        self.impl = impl
-        self.name = name
+
+def test_handle_unexpected_exception(patched_github, capture):
+
+    exception = RuntimeError('error')
+
+    patched_github.gh.validate_commit = MagicMock(side_effect=exception)
+
+    with pytest.raises(SystemExit):
+        patched_github.run('validate-commit --sha sha')
+
+    expected_output = 'If you this message, it probably means you encountered a bug. ' \
+                      'Please feel free to report it to https://github.com/iliapolo/pyci/issues'
+
+    assert expected_output == capture.records[3].msg

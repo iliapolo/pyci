@@ -19,27 +19,15 @@ import os
 import platform
 
 import pkg_resources
+
 # noinspection PyPackageRequirements
 import pytest
 
-import pyci
 from pyci.api import logger, exceptions
 from pyci.api.packager import Packager
-
+from pyci.tests.conftest import REPO_UNDER_TEST
 
 logger.setup_loggers(logging.DEBUG)
-
-
-@pytest.fixture(name='packager')
-def pack():
-
-    local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
-    packager = Packager(path=local_repo_path)
-
-    try:
-        yield packager
-    finally:
-        packager.clean()
 
 
 def test_wheel(packager, temp_dir):
@@ -51,6 +39,15 @@ def test_wheel(packager, temp_dir):
     actual = packager.wheel(target_dir=temp_dir)
 
     assert expected == actual
+
+
+def test_wheel_not_python_project(temp_dir):
+
+    packager = Packager.create(repo=REPO_UNDER_TEST,
+                               sha='3ee89f04a8a2b71d06aa80c5178943e7b396be47')
+
+    with pytest.raises(exceptions.NotPythonProjectException):
+        packager.wheel(target_dir=temp_dir)
 
 
 def test_wheel_universal(packager, temp_dir):
@@ -84,8 +81,8 @@ def test_binary_no_default_entrypoint(request, temp_dir):
 
     # for that we need to use our guinea-pig project...
     # using a sha without any entry-points.
-    packager = Packager(repo='iliapolo/pyci-guinea-pig',
-                        sha='b22803b93eaca693db78f9d551ec295946765135')
+    packager = Packager.create(repo='iliapolo/pyci-guinea-pig',
+                               sha='b22803b93eaca693db78f9d551ec295946765135')
 
     name = request.node.name
 
@@ -93,12 +90,21 @@ def test_binary_no_default_entrypoint(request, temp_dir):
         packager.binary(target_dir=temp_dir, name=name)
 
 
+def test_binary_not_python_project(temp_dir):
+
+    packager = Packager.create(repo='iliapolo/pyci-guinea-pig',
+                               sha='3ee89f04a8a2b71d06aa80c5178943e7b396be47')
+
+    with pytest.raises(exceptions.NotPythonProjectException):
+        packager.binary(target_dir=temp_dir)
+
+
 def test_binary_no_custom_entrypoint(request, temp_dir):
 
     # for that we need to use our guinea-pig project...
     # using a sha without the custom main script.
-    packager = Packager(repo='iliapolo/pyci-guinea-pig',
-                        sha='b22803b93eaca693db78f9d551ec295946765135')
+    packager = Packager.create(repo='iliapolo/pyci-guinea-pig',
+                               sha='b22803b93eaca693db78f9d551ec295946765135')
 
     name = request.node.name
 
@@ -111,8 +117,8 @@ def test_binary_custom_entrypoint_and_name(request, runner, temp_dir):
 
     # for that we need to use our guinea-pig project...
     # using a sha with the custom main script.
-    packager = Packager(repo='iliapolo/pyci-guinea-pig',
-                        sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6')
+    packager = Packager.create(repo='iliapolo/pyci-guinea-pig',
+                               sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6')
 
     name = request.node.name
 
@@ -137,16 +143,16 @@ def test_binary_custom_entrypoint_and_name(request, runner, temp_dir):
 def test_sha_and_not_repo():
 
     with pytest.raises(exceptions.InvalidArgumentsException):
-        Packager(sha='sha', repo='')
+        Packager.create(sha='sha', repo='')
 
 
 def test_sha_and_path():
 
     with pytest.raises(exceptions.InvalidArgumentsException):
-        Packager(sha='sha', path='path')
+        Packager.create(sha='sha', path='path', repo='repo')
 
 
 def test_not_sha_and_not_path():
 
     with pytest.raises(exceptions.InvalidArgumentsException):
-        Packager(sha='', path='', repo='iliapolo/repo')
+        Packager.create(sha='', path='', repo='iliapolo/repo')
