@@ -9,6 +9,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source ${DIR}/install.sh
 
 echo "[codecov] Uploading code coverage..."
-codecove
+codecov
 
 echo "[codecov] Done!"
