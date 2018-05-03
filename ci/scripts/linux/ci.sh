@@ -12,7 +12,7 @@ source ${DIR}/lint.sh
 
 source ${DIR}/test.sh
 
-source ${DIR}/codecove.sh
+source ${DIR}/codecov.sh
 
 source ${DIR}/release.sh
 
