@@ -38,6 +38,7 @@ def test_parse_repo(url, expected):
     assert expected == actual
 
 
+@pytest.mark.linux
 @pytest.mark.parametrize("cwd,expected", [
     (os.path.abspath(os.path.join(os.path.abspath(pyci.__file__), os.pardir, os.pardir)),
      'iliapolo/pyci'),

@@ -55,6 +55,7 @@ def _create_commit(patched_github, request, message=None):
         branch='release')
 
 
+@pytest.mark.linux
 def test_no_repo(pyci, patched_github, capture):
 
     # the 'validate-commit' part isn't important, it could have been any other command.
