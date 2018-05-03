@@ -9,7 +9,7 @@ echo "[codecov] Creating coverage xml..."
 %PYTHON%\\Scripts\\coverage xml -i
 
 echo "[codecov] Uploading code coverage..."
-%PYTHON%\\Scripts\\codecov.exe || goto :error
+%PYTHON%\\Scripts\\codecov.exe -f coverage.xml || goto :error
 
 echo "[codecov] Done!"
 
