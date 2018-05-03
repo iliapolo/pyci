@@ -59,7 +59,7 @@ def test_no_repo(pyci, patched_github, capture):
 
     # the 'validate-commit' part isn't important, it could have been any other command.
     # we just want main.py to run the 'github' function.
-    pyci.run('github validate-commit', catch_exceptions=True)
+    pyci.run('--no-ci github validate-commit', catch_exceptions=True)
 
     expected_output = 'Failed detecting repository name'
 
