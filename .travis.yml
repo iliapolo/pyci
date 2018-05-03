@@ -9,7 +9,6 @@ matrix:
 
 script:
   - ./ci/scripts/linux/ci.sh
-  - codecov
 
 notifications:
     # see https://github.com/bluzi/travis-buddy

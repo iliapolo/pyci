@@ -9,6 +9,8 @@ echo "[ci] Starting script"
 
 %DIR%\\test.bat
 
+%DIR%\\codecov.bat
+
 %DIR%\\release.bat
 
 echo "[ci] Done"

@@ -12,6 +12,8 @@ source ${DIR}/lint.sh
 
 source ${DIR}/test.sh
 
+source ${DIR}/codecove.sh
+
 source ${DIR}/release.sh
 
 echo "[ci] Done!"
