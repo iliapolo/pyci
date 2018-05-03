@@ -297,6 +297,8 @@ def _isolated():
 @pytest.fixture(name='cleanup', autouse=True)
 def _cleanup(request, repo):
 
+    system = platform.system().lower()
+
     provider = ci.detect()
 
     current_commit = None
@@ -305,7 +307,7 @@ def _cleanup(request, repo):
     try:
         wet = getattr(request.node.function, 'wet')
 
-        if platform.system().lower() != 'darwin':
+        if system != 'darwin':
             pytest.skip('Wet tests should only run on the Darwin build')
 
         if provider.name != ci.TRAVIS:
@@ -317,6 +319,9 @@ def _cleanup(request, repo):
         current_commit = repo.get_commit(sha='release')
     except AttributeError:
         pass
+
+    if system == 'windows' and hasattr(request.node.function, 'linux'):
+        pytest.skip('This test should not run on windows')
 
     try:
 
