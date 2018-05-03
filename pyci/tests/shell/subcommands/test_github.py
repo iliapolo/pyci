@@ -105,7 +105,7 @@ def test_release_branch_cannot_determine_next_version(github, capture, request):
 
     expected_cause = 'Failed releasing: Cannot determine what the next version number should be'
 
-    _create_release(github, request, 'fc517a05bdd22748714e9900b9c9860f37546738', '0.0.1')
+    _create_release(github, request, '6536eefd0ec33141cc5c14be50a34631e8d79af8', '0.0.1')
     _create_commit(github, request)
 
     github.run('release --branch-name release --force', catch_exceptions=True)

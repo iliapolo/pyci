@@ -31,7 +31,7 @@ from testfixtures import LogCapture
 
 import pyci
 from pyci import shell
-from pyci.api import logger
+from pyci.api import logger, ci
 from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
@@ -297,14 +297,22 @@ def _isolated():
 @pytest.fixture(name='cleanup', autouse=True)
 def _cleanup(request, repo):
 
+    provider = ci.detect()
+
     current_commit = None
     wet = None
 
     try:
         wet = getattr(request.node.function, 'wet')
 
-        if platform.system() != 'Darwin':
+        if platform.system().lower() != 'darwin':
             pytest.skip('Wet tests should only run on the Darwin build')
+
+        if provider.name != ci.TRAVIS:
+            pytest.skip('Wet tests should only run on Travis-CI')
+
+        if not provider.pull_request:
+            pytest.skip('Wet tests should only run on the PR build')
 
         current_commit = repo.get_commit(sha='release')
     except AttributeError:

@@ -29,10 +29,14 @@ from pyci.api.gh import GitHubRepository
 from pyci.api.model import Changelog, ChangelogIssue
 from pyci.shell import secrets
 
+
 log = logger.get_logger(__name__)
 
 
 logger.setup_loggers(logging.DEBUG)
+
+
+CURRENT_VERSION = '0.0.1'
 
 
 def _create_release(gh, request, sha, name=None):
@@ -176,11 +180,7 @@ def test_generate_changelog_relative_to_release(gh, request):
     expected_features = {7, 6}
     expected_bugs = {5}
     expected_issues = {1}
-    expected_commits = {
-        ours.sha,
-        'e4f0041f7bac3a672db645377c720ff61ad2b22a',
-        '6785ae160c9330ae8620730def90f1f32814adba'
-    }
+    expected_commits = {ours.sha}
     expected_next_version = '1.0.0'
 
     actual_features = {feature.impl.number for feature in changelog.features}
@@ -398,13 +398,11 @@ def test_upload_asset_already_exists(gh, request, temp_dir):
 
 @pytest.mark.wet(issues=False)
 @pytest.mark.parametrize("semantic,expected_version", [
-    ('patch', '0.0.3'),
+    ('patch', '0.0.2'),
     ('minor', '0.1.0'),
     ('major', '1.0.0')
 ])
 def test_bump_version(runner, gh, semantic, expected_version):
-
-    current_version = '0.0.2'
 
     bump = gh.bump_version(semantic=semantic)
 
@@ -416,7 +414,7 @@ def test_bump_version(runner, gh, semantic, expected_version):
 
     assert expected_version == actual_version
     assert expected_version == bump.next_version
-    assert current_version == bump.prev_version
+    assert CURRENT_VERSION == bump.prev_version
 
 
 def test_bump_version_no_semantic(gh):
@@ -434,8 +432,6 @@ def test_bump_version_semantic_illegal(gh):
 @pytest.mark.wet(issues=False)
 def test_set_version(runner, gh):
 
-    current_version = '0.0.2'
-
     bump = gh.set_version(value='1.2.3')
 
     setup_py_path = utils.download(
@@ -448,13 +444,14 @@ def test_set_version(runner, gh):
 
     assert expected_version == actual_version
     assert expected_version == bump.next_version
-    assert current_version == bump.prev_version
+    assert CURRENT_VERSION == bump.prev_version
 
 
+@pytest.mark.wet(issues=False)
 def test_set_version_same_version(gh):
 
     with pytest.raises(exceptions.TargetVersionEqualsCurrentVersionException):
-        gh.set_version(value='0.0.2')
+        gh.set_version(value=CURRENT_VERSION)
 
 
 def test_detect_issue_direct(gh):
