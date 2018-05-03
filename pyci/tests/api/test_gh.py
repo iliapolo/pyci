@@ -86,25 +86,6 @@ def test_default_branch_name(gh):
     assert expected == actual
 
 
-@pytest.mark.wet(issues=False)
-def test_last_release(gh, request):
-
-    _create_release(gh, request, sha='aee0c4c21d64f95f6742838aded957c2be71c2e5')
-
-    last_release = gh.last_release
-
-    expected_last_release_title = request.node.name
-
-    assert expected_last_release_title == last_release.title
-
-
-def test_last_release_none(gh):
-
-    last_release = gh.last_release
-
-    assert last_release is None
-
-
 def test_validate_commit_commit_not_related_to_issue(gh):
 
     with pytest.raises(exceptions.CommitNotRelatedToIssueException):

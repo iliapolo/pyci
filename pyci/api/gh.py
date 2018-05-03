@@ -89,16 +89,6 @@ class GitHubRepository(object):
             raise exceptions.RepositoryNotFoundException(repo=self._repo_name)
 
     @cachedproperty
-    def last_release(self):
-        try:
-            self._debug('Fetching latest release...')
-            last_release = self.repo.get_latest_release()
-            self._debug('Fetched latest release.', url=last_release.html_url)
-            return last_release
-        except UnknownObjectException:
-            self._debug('No releases exist yet.')
-
-    @cachedproperty
     def default_branch_name(self):
         self._debug('Fetching default branch...')
         name = self.repo.default_branch
