@@ -6,7 +6,7 @@ echo "[test] Starting script"
 CALL %DIR%\\install.bat
 
 echo "[test] Running tests"
-%PYTHON%\\Scripts\\py.test.exe -c %DIR%\\..\\..\\config\\pytest.init --cov-config=%DIR%\\..\\..\\config\\.coveragerc --cov=pyci pyci/tests || goto :error
+%PYTHON%\\Scripts\\py.test.exe -c %DIR%\\..\\..\\config\\pytest.ini --cov-config=%DIR%\\..\\..\\config\\.coveragerc --cov=pyci pyci/tests || goto :error
 
 echo "[test] Done!"
 
