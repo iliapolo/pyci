@@ -6,13 +6,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 echo "[ci] Starting script"
 
-${DIR}/install.sh
+source ${DIR}/install.sh
 
-${DIR}/lint.sh
+source ${DIR}/lint.sh
 
-${DIR}/test.sh
+source ${DIR}/test.sh
 
-${DIR}/release.sh
+source ${DIR}/release.sh
 
 echo "[ci] Done!"
 
