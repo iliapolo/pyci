@@ -19,15 +19,15 @@ import copy
 import os
 import platform
 import shutil
-import tempfile
 import sys
+import tempfile
 
 from boltons.cacheutils import cachedproperty
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
-from pyci.api.utils import unzip, download
 from pyci.api.runner import LocalCommandRunner
+from pyci.api.utils import unzip, download
 
 log = logger.get_logger(__name__)
 
@@ -139,7 +139,7 @@ class Packager(object):
             self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
             result = self._runner.run('{} --onefile --distpath {} '
                                       '--workpath {} --specpath {} {}'
-                                      .format(self._pyinstaller,
+                                      .format(utils.get_executable('pyinstaller'),
                                               dist_dir,
                                               build_dir,
                                               temp_dir,
@@ -284,16 +284,6 @@ class Packager(object):
 
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
-
-    @cachedproperty
-    def _pyinstaller(self):
-        executable = 'pyinstaller'
-        if platform.system().lower() == 'windows':
-            executable = os.path.abspath(os.path.join(sys.executable,
-                                                      os.pardir,
-                                                      'Scripts',
-                                                      '{}.exe'.format(executable)))
-        return executable
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)

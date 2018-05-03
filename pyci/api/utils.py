@@ -16,9 +16,11 @@
 #############################################################################
 
 import os
+import platform
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import uuid
 import zipfile
@@ -237,3 +239,24 @@ def generate_setup_py(setup_py, version):
     if match:
         return setup_py.replace(match.group(1), "version='{0}',".format(version))
     raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)
+
+
+def get_executable(name):
+
+    """
+    Retrieve the path to an executable script. On linux platforms this wont actually do
+    anything. However, for windows it will return the absolute path to the executable inside the
+    'Scripts' directory of the python installation.
+
+    Args:
+        name (str): The executable name.
+
+    """
+
+    executable = name
+    if platform.system().lower() == 'windows':
+        executable = os.path.abspath(os.path.join(sys.executable,
+                                                  os.pardir,
+                                                  'Scripts',
+                                                  '{}.exe'.format(executable)))
+    return executable
