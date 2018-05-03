@@ -147,6 +147,7 @@ class Packager(object):
                         destination=destination)
 
             self._debug(result.std_out)
+            self._debug(result.std_err)
 
             actual_name = utils.lsf(dist_dir)[0]
 

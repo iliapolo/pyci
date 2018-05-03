@@ -227,8 +227,9 @@ def _capture():
     from pyci.shell.subcommands import github
     from pyci.shell.subcommands import pack
     from pyci.shell.subcommands import pypi
+    from pyci.shell.commands import release
 
-    names = (shell.__name__, github.__name__, pack.__name__, pypi.__name__)
+    names = (shell.__name__, github.__name__, pack.__name__, pypi.__name__, release.__name__)
     with LogCapture(names=names) as cap:
 
         # LogCapture removes all handlers from the given loggers.

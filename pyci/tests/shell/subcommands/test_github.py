@@ -61,12 +61,16 @@ def test_no_repo(pyci, patched_github, capture):
     # we just want main.py to run the 'github' function.
     pyci.run('github validate-commit', catch_exceptions=True)
 
-    expected_output = 'Failed detecting repository name. Please provide it using the ' \
-                      '"--repo" option.\nIf you are running locally, you can also ' \
-                      'execute this command from your project root directory ' \
-                      '(repository will be detected using git).'
+    expected_output = 'Failed detecting repository name'
 
-    assert expected_output == capture.records[1].msg
+    expected_solution1 = 'Provide it using the --repo option'
+
+    expected_solution2 = 'Run the command from the porject root directory, the repository ' \
+                         'name will be detected using git commands'
+
+    assert expected_output in capture.records[1].msg
+    assert expected_solution1 in capture.records[1].msg
+    assert expected_solution2 in capture.records[1].msg
     patched_github.gh.validate_commit.assert_not_called()
 
 

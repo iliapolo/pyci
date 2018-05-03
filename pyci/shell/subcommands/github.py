@@ -85,7 +85,6 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, fo
 
     ci = ctx.parent.parent.ci
 
-    sha = ci.sha if ci else None
     branch_name = branch_name or (ci.branch if ci else None)
 
     try:
@@ -95,8 +94,7 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, fo
                                 release_branch_name=release_branch_name,
                                 force=force,
                                 gh=ctx.parent.github,
-                                ci=ci,
-                                sha=sha)
+                                ci=ci)
 
     except exceptions.ReleaseValidationFailedException as e:
         log.info('Not releasing: {}'.format(str(e)))
@@ -679,11 +677,12 @@ def release_branch_internal(branch_name,
                             master_branch_name,
                             release_branch_name,
                             force,
-                            sha,
                             gh,
                             ci):
 
-    log.info('Creating release from {}...'.format(sha or branch_name))
+    sha = ci.sha if ci else None
+
+    log.info('Creating release from {}...'.format(branch_name))
 
     if not force:
 

@@ -85,76 +85,36 @@ def release(ctx,
     """
     Execute a complete release process.
 
-    This command wil have the following affects:
+    This command will do the following:
 
-        1. Github release with the version as its title. (With changelog)
+        1. Execute a github release on the specified branch. (see 'pyci github release --help')
 
-        2. A version bump commit to setup.py in the corresponding branch.
+        2. Create and upload ad platform dependent binary executable to the release. (Optional)
 
-        3. Platform dependent binary executable uploaded to the release. (Optional)
-
-        4. Wheel package uploaded to PyPI (Optional)
-
-    In order for the commit to be released, it must meet the following requirements:
-
-        - The current build is a not a PR build. (Applicable only in CI)
-
-        - The current build is a not a tag build (Applicable only in CI)
-
-        - The current build branch differs from the release branch (Applicable only in CI)
-
-        - The commit is not related to any issue.
-
-        - The issue related to the commit is not a release candidate.
-
-    If the commit does not meet any of these requirements, the command will simply return
-    successfully and won't do anything. (it will not fail).
+        3. Create and upload a wheel package to PyPI. (Optional)
 
     """
 
     ci = ctx.parent.ci
 
-    sha = ci.sha if ci else None
     branch_name = branch_name or (ci.branch if ci else None)
 
     repo = detect_repo(ctx.parent.ci, repo)
 
     try:
 
-        gh = GitHubRepository.create(repo=repo,
-                                     access_token=secrets.github_access_token(ci))
-
-        github_release = github.release_branch_internal(
-            branch_name=branch_name,
-            master_branch_name=master_branch_name,
-            release_branch_name=release_branch_name,
-            force=force,
-            sha=sha,
-            gh=gh,
-            ci=ci
-        )
-
-        packager = Packager.create(repo, sha=github_release.sha)
-
-        package_directory = tempfile.mkdtemp()
-
-        try:
-
-            log.info('Creating and uploading packages...')
-
-            if not no_binary:
-
-                upload_binary(binary_entrypoint, gh, package_directory, packager)
-
-            if not no_wheel:
-
-                upload_wheel(ci, package_directory, packager, pypi_test, pypi_url, wheel_universal)
-
-            log.info('Hip Hip, Hurray! :). Your new version is released and ready to go.')
-
-        finally:
-            packager.clean()
-            utils.rmf(package_directory)
+        release_internal(binary_entrypoint=binary_entrypoint,
+                         branch_name=branch_name,
+                         ci=ci,
+                         force=force,
+                         master_branch_name=master_branch_name,
+                         no_binary=no_binary,
+                         no_wheel=no_wheel,
+                         pypi_test=pypi_test,
+                         pypi_url=pypi_url,
+                         release_branch_name=release_branch_name,
+                         repo=repo,
+                         wheel_universal=wheel_universal)
 
     except exceptions.ReleaseValidationFailedException as e:
         log.info('Not releasing: {}'.format(str(e)))
@@ -164,7 +124,58 @@ def release(ctx,
         raise type(err), err, sys.exc_info()[2]
 
 
-def upload_wheel(ci, package_directory, packager, pypi_test, pypi_url, wheel_universal):
+def release_internal(binary_entrypoint,
+                     branch_name,
+                     ci,
+                     force,
+                     master_branch_name,
+                     no_binary,
+                     no_wheel,
+                     pypi_test,
+                     pypi_url,
+                     release_branch_name,
+                     repo,
+                     wheel_universal):
+
+    gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token(ci))
+    github_release = github.release_branch_internal(
+        branch_name=branch_name,
+        master_branch_name=master_branch_name,
+        release_branch_name=release_branch_name,
+        force=force,
+        gh=gh,
+        ci=ci)
+
+    packager = Packager.create(repo, sha=github_release.sha)
+    package_directory = tempfile.mkdtemp()
+
+    try:
+
+        log.info('Creating and uploading packages...')
+
+        if not no_binary:
+            _upload_binary(binary_entrypoint=binary_entrypoint,
+                           gh=gh,
+                           package_directory=package_directory,
+                           packager=packager,
+                           github_release=github_release)
+
+        if not no_wheel:
+            _upload_wheel(ci=ci,
+                          package_directory=package_directory,
+                          packager=packager,
+                          pypi_test=pypi_test,
+                          pypi_url=pypi_url,
+                          wheel_universal=wheel_universal)
+
+        log.info('Hip Hip, Hurray! :). Your new version is released and ready to go.')
+
+    finally:
+        packager.clean()
+        utils.rmf(package_directory)
+
+
+def _upload_wheel(ci, package_directory, packager, pypi_test, pypi_url, wheel_universal):
 
     pypi_api = PyPI.create(username=secrets.twine_username(ci),
                            password=secrets.twine_password(ci),
@@ -173,10 +184,15 @@ def upload_wheel(ci, package_directory, packager, pypi_test, pypi_url, wheel_uni
     wheel_path = pack.wheel_internal(universal=wheel_universal,
                                      target_dir=package_directory,
                                      packager=packager)
-    pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
+    try:
+        pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
+    except exceptions.WheelAlreadyPublishedException:
+        # hmm, this is ok when running concurrently but not
+        # so much otherwise...ho can we tell?
+        pass
 
 
-def upload_binary(binary_entrypoint, gh, package_directory, packager):
+def _upload_binary(binary_entrypoint, gh, package_directory, packager, github_release):
 
     try:
 
@@ -186,9 +202,13 @@ def upload_binary(binary_entrypoint, gh, package_directory, packager):
                                                    packager=packager)
 
         github.upload_asset_internal(asset=binary_package_path,
-                                     release=release.title,
+                                     release=github_release.title,
                                      gh=gh)
 
+    except exceptions.AssetAlreadyPublishedException:
+        # hmm, this is ok when running concurrently but not
+        # so much otherwise...ho can we tell?
+        pass
     except exceptions.DefaultEntrypointNotFoundException as e:
         # this is ok, just means that the project is not an executable
         # according to our assumptions.
@@ -204,9 +224,11 @@ def detect_repo(ci, repo):
 
     repo = repo or (ci.repo if ci else utils.get_local_repo())
     if repo is None:
-        raise click.ClickException(message='Failed detecting repository name. Please provide it '
-                                           'using the "--repo" option.\nIf you are running '
-                                           'locally, you can also execute this command from your '
-                                           'project root directory (repository will be detected '
-                                           'using git).')
+        error = click.ClickException(message='Failed detecting repository name')
+        error.possible_solutions = [
+            'Provide it using the --repo option',
+            'Run the command from the porject root directory, the repository name will be '
+            'detected using git commands'
+        ]
+        raise error
     return repo
