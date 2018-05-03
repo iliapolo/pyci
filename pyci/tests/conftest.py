@@ -271,14 +271,6 @@ def _isolated():
         utils.rmf(t)
 
 
-@pytest.fixture(name='skip_wet', autouse=True)
-def _skip_wet(request):
-
-    if hasattr(request.node.function, 'wet'):
-        if platform.system() != 'Darwin':
-            pytest.skip('Wet tests should only run on the Darwin build')
-
-
 # @pytest.fixture(autouse=False)
 # def prepare(temp_dir, runner):
 #
@@ -310,6 +302,10 @@ def _cleanup(request, repo):
 
     try:
         wet = getattr(request.node.function, 'wet')
+
+        if platform.system() != 'Darwin':
+            pytest.skip('Wet tests should only run on the Darwin build')
+
         current_commit = repo.get_commit(sha='release')
     except AttributeError:
         pass
