@@ -3,6 +3,8 @@ set DIR=%PATH:~0,-1%
 
 echo "[ci] Starting script"
 
+git status
+
 CALL %DIR%\\install.bat || goto :error
 
 CALL %DIR%\\lint.bat || goto :error

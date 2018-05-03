@@ -331,20 +331,21 @@ def _cleanup(request, repo):
 
         if wet:
 
-            if wet.kwargs.get('commits', True):
-                _reset_release(current_commit, repo)
+            _reset_repo(current_commit, repo, wet)
 
-            if wet.kwargs.get('releases', True):
-                _delete_releases(repo)
 
-            if wet.kwargs.get('tags', True):
-                _delete_tags(repo)
+def _reset_repo(current_commit, repo, wet):
 
-            if wet.kwargs.get('branches', True):
-                _delete_branches(repo)
-
-            if wet.kwargs.get('issues', True):
-                _reset_issues(repo)
+    if wet.kwargs.get('commits', True):
+        _reset_release(current_commit, repo)
+    if wet.kwargs.get('releases', True):
+        _delete_releases(repo)
+    if wet.kwargs.get('tags', True):
+        _delete_tags(repo)
+    if wet.kwargs.get('branches', True):
+        _delete_branches(repo)
+    if wet.kwargs.get('issues', True):
+        _reset_issues(repo)
 
 
 def _reset_release(commit, repo):
