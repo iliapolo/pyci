@@ -5,6 +5,9 @@ echo "[codecov] Starting script"
 
 CALL %DIR%\\install.bat
 
+echo "[codecov] Creating coverage xml..."
+%PYTHON%\\Scripts\\coverage xml -i
+
 echo "[codecov] Uploading code coverage..."
 %PYTHON%\\Scripts\\codecov.exe || goto :error
 
