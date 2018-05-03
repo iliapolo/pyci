@@ -9,4 +9,7 @@ matrix:
 
 script:
   - ./ci/scripts/linux/ci.sh
+after_success:
   - codecov
+notifications:
+    webhooks: https://www.travisbuddy.com/

@@ -25,6 +25,9 @@ function install_python_on_mac {
         echo "[install] Successfully installed python 2.7.14 with pyenv..."
     fi
 
+    echo "[install] Initializing pyenv..."
+    eval "$(pyenv init -)"
+    echo "[install] Successfully initialized pyenv..."
     pyenv global 2.7.14
 
     echo "[install] Checking where python is"
