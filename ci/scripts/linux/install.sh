@@ -39,6 +39,8 @@ function install_python_on_mac {
     echo "[install] Checking where pip is"
     which pip
 
+    pip list
+    
     echo "[install] Finished installing and configuring python"
 
 }
