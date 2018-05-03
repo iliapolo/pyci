@@ -48,6 +48,7 @@ echo "[install] Installing test requirements"
 pip install -r ${DIR}/../../../test-requirements.txt
 
 echo "[install] Installing dependencies"
+pip install https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip
 pip install -e ${DIR}/../../../.
 
 echo "[install] Done!"
