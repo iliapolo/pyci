@@ -1,4 +1,3 @@
-set program=pyci
 set DIR=%~dp0:~0,-1%
 
 echo "[codecov] Starting script"

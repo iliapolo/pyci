@@ -1,7 +1,8 @@
-set program=pyci
 set DIR=%~dp0:~0,-1%
 
 echo "[ci] Starting script"
+
+echo %DIR%
 
 %DIR%\\install.bat
 
