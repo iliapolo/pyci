@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import platform
 import logging
 
 # noinspection PyPackageRequirements
@@ -27,17 +28,23 @@ logger.setup_loggers(logging.DEBUG)
 
 def test_run_list(runner):
 
-    runner.run(['ls', '-l'])
+    command = ['dir', '/B'] if platform.system().lower() == 'windows' else ['ls', '-l']
+
+    runner.run(command)
 
 
 def test_run_failed_exit_on_failure(runner):
 
+    command = 'del' if platform.system().lower() == 'windows' else 'rm'
+
     with pytest.raises(exceptions.CommandExecutionException):
-        runner.run('cp')
+        runner.run(command)
 
 
 def test_run_failed_not_exit_on_failure(runner):
 
-    response = runner.run('cp', exit_on_failure=False)
+    command = 'del' if platform.system().lower() == 'windows' else 'rm'
+
+    response = runner.run(command, exit_on_failure=False)
 
     assert response.return_code != 0

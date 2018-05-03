@@ -86,7 +86,6 @@ class LocalCommandRunner(object):
                              stderr=subprocess.PIPE,
                              cwd=cwd,
                              env=command_env)
-
         out, err = p.communicate()
         if out:
             out = out.rstrip()

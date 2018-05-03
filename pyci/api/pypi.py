@@ -124,11 +124,12 @@ class PyPI(object):
 
         temp_dir = tempfile.mkdtemp()
         try:
-            self._runner.run('wheel unpack --dest {0} {1}'.format(temp_dir, wheel))
-            wheel_project = '{0}-{1}'.format(wheel_parts[0], wheel_parts[1])
+            self._runner.run('{} unpack --dest {} {}'.format(
+                utils.get_executable('wheel'), temp_dir, wheel))
+            wheel_project = '{}-{}'.format(wheel_parts[0], wheel_parts[1])
             metadata_file_path = os.path.join(temp_dir,
                                               wheel_project,
-                                              '{0}.dist-info'.format(wheel_project),
+                                              '{}.dist-info'.format(wheel_project),
                                               'metadata.json')
             with open(metadata_file_path) as stream:
                 metadata = json.loads(stream.read())
