@@ -15,7 +15,6 @@
 #
 #############################################################################
 
-import platform
 import logging
 
 # noinspection PyPackageRequirements
