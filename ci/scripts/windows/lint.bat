@@ -3,7 +3,7 @@ set DIR=%PATH:~0,-1%
 
 echo "[lint] Starting script"
 
-CALL %DIR%\\install.bat
+%DIR%\\install.bat
 
 echo "[lint] Running code analysis"
 %PYTHON%\\Scripts\\pylint.exe --rcfile %DIR%\\..\\..\\config\\pylint.ini pyci || goto :error
