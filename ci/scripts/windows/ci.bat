@@ -3,15 +3,15 @@ set DIR=%PATH:~0,-1%
 
 echo "[ci] Starting script"
 
-%DIR%\\install.bat
+%DIR%\\install.bat || goto :error
 
-%DIR%\\lint.bat
+%DIR%\\lint.bat || goto :error
 
-%DIR%\\test.bat
+%DIR%\\test.bat || goto :error
 
-%DIR%\\codecov.bat
+%DIR%\\codecov.bat || goto :error
 
-%DIR%\\release.bat
+%DIR%\\release.bat || goto :error
 
 echo "[ci] Done"
 
