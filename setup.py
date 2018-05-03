@@ -29,7 +29,7 @@ PROJECT_NAME = 'py-ci'
 
 setup(
     name=PROJECT_NAME,
-    version='256.0.0',
+    version='257.0.0',
     author='Eli Polonsky',
     author_email='eli.polonsky@gmail.com',
     packages=[
