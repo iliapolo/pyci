@@ -20,6 +20,7 @@ import os
 import platform
 import shutil
 import tempfile
+import sys
 
 from boltons.cacheutils import cachedproperty
 
@@ -136,9 +137,10 @@ class Packager(object):
                                                              entrypoint=entrypoint)
 
             self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
-            result = self._runner.run('pyinstaller --onefile --distpath {0} '
-                                      '--workpath {1} --specpath {2} {3}'
-                                      .format(dist_dir,
+            result = self._runner.run('{} --onefile --distpath {} '
+                                      '--workpath {} --specpath {} {}'
+                                      .format(self._pyinstaller,
+                                              dist_dir,
                                               build_dir,
                                               temp_dir,
                                               script))
@@ -190,8 +192,8 @@ class Packager(object):
             dist_dir = os.path.join(temp_dir, 'dist')
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
-            command = 'python setup.py bdist_wheel --bdist-dir {0} --dist-dir {1}'\
-                      .format(bdist_dir, dist_dir)
+            command = '{} setup.py bdist_wheel --bdist-dir {} --dist-dir {}'\
+                      .format(sys.executable, bdist_dir, dist_dir)
 
             if universal:
                 command = '{0} --universal'.format(command)
@@ -259,7 +261,7 @@ class Packager(object):
     @cachedproperty
     def _default_name(self):
         setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-        return self._runner.run('python {0} --name'.format(setup_py_file)).std_out
+        return self._runner.run('{} {} --name'.format(sys.executable, setup_py_file)).std_out
 
     @cachedproperty
     def _default_entrypoint(self):
@@ -282,6 +284,16 @@ class Packager(object):
 
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
+
+    @cachedproperty
+    def _pyinstaller(self):
+        executable = 'pyinstaller'
+        if platform.system().lower() == 'windows':
+            executable = os.path.abspath(os.path.join(sys.executable,
+                                                      os.pardir,
+                                                      'Scripts',
+                                                      '{}.exe'.format(executable)))
+        return executable
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)

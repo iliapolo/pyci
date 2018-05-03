@@ -15,10 +15,14 @@
 #
 #############################################################################
 
+import platform
+import sys
 import copy
 import json
 import os
 import tempfile
+
+from boltons.cacheutils import cachedproperty
 
 from pyci.api import exceptions, utils
 from pyci.api import logger
@@ -91,7 +95,7 @@ class PyPI(object):
         wheel_url = 'https://{0}/manage/project/{1}/release/{2}/'.format(
             self._site, self._extract_project_name(wheel), wheel_version)
 
-        command = 'twine upload'
+        command = '{} upload'.format(self._twine)
         if self.repository_url:
             command = '{0} --repository-url {1}'.format(command, self.repository_url)
 
@@ -135,6 +139,16 @@ class PyPI(object):
                 return metadata['name']
         finally:
             utils.rmf(temp_dir)
+
+    @cachedproperty
+    def _twine(self):
+        executable = 'twine'
+        if platform.system().lower() == 'windows':
+            executable = os.path.abspath(os.path.join(sys.executable,
+                                                      os.pardir,
+                                                      'Scripts',
+                                                      '{}.exe'.format(executable)))
+        return executable
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
