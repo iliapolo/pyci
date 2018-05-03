@@ -1,4 +1,5 @@
-set DIR=%~dp0:~0,-1%
+set PATH=%~dp0
+set DIR=%PATH:~0,-1%
 
 echo "[release] Starting script"
 
