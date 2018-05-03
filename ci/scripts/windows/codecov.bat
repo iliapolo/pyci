@@ -3,7 +3,7 @@ set DIR=%PATH:~0,-1%
 
 echo "[codecov] Starting script"
 
-%DIR%\\install.bat
+CALL %DIR%\\install.bat
 
 echo "[codecov] Uploading code coverage..."
 %PYTHON%\\Scripts\\codecov.exe || goto :error

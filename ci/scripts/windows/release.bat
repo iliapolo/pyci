@@ -3,7 +3,7 @@ set DIR=%PATH:~0,-1%
 
 echo "[release] Starting script"
 
-%DIR%\\install.bat
+CALL %DIR%\\install.bat
 
 echo "[release] Running release"
 %PYTHON%\\Scripts\\pyci.exe --debug release --pypi-test || goto :error
