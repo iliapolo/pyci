@@ -8,3 +8,6 @@ build: off
 
 test_script:
   - .\\ci\\scripts\\windows\\ci.bat
+
+notifications:
+  - provider: GitHubPullRequest

@@ -12,4 +12,5 @@ script:
   - codecov
 
 notifications:
+    # see https://github.com/bluzi/travis-buddy
     webhooks: https://www.travisbuddy.com/

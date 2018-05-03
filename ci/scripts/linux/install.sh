@@ -10,25 +10,19 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function install_python_on_mac {
 
-    if [ ! -d ${HOME}/.pyenv/versions/2.7.14 ]; then
-        echo "[install] Installing pyenv..."
-        HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
-        echo "[install] Successfully installed pyenv"
-
-        echo "[install] Initializing pyenv..."
-        eval "$(pyenv init -)"
-        echo "[install] Successfully initialized pyenv..."
-
-        echo "[install] Installing python 2.7.14 with pyenv..."
-        # --enable-shared is needed for pyinstaller.
-        env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 2.7.14
-        echo "[install] Successfully installed python 2.7.14 with pyenv..."
-    fi
+    echo "[install] Installing pyenv..."
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
+    echo "[install] Successfully installed pyenv"
 
     echo "[install] Initializing pyenv..."
     eval "$(pyenv init -)"
     echo "[install] Successfully initialized pyenv..."
+
+    echo "[install] Installing python 2.7.14 with pyenv..."
+    # --enable-shared is needed for pyinstaller.
+    env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install -s 2.7.14
     pyenv global 2.7.14
+    echo "[install] Successfully installed python 2.7.14 with pyenv..."
 
     echo "[install] Checking where python is"
     which python
@@ -39,8 +33,6 @@ function install_python_on_mac {
     echo "[install] Checking where pip is"
     which pip
 
-    pip list
-    
     echo "[install] Finished installing and configuring python"
 
 }
