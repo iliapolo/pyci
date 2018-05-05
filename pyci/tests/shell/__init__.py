@@ -31,7 +31,7 @@ class Runner(object):
 
     def __init__(self):
         super(Runner, self).__init__()
-        self._runner = CliRunner()
+        self._click_runner = CliRunner()
 
     def run(self, command, catch_exceptions=False):
 
@@ -39,7 +39,7 @@ class Runner(object):
 
         log.info('Invoking command: {}. [cwd={}, args={}]'.format(command, os.getcwd(), args))
 
-        result = self._runner.invoke(app, args, catch_exceptions=catch_exceptions)
+        result = self._click_runner.invoke(app, args, catch_exceptions=catch_exceptions)
 
         if isinstance(result.exception, SystemExit) and not catch_exceptions:
             raise SystemExit(result.output)  # pragma: no cover

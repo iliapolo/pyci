@@ -1,3 +1,9 @@
+[![codecov](https://codecov.io/gh/iliapolo/pyci/branch/finalize/graph/badge.svg)](https://codecov.io/gh/iliapolo/pyci)
+[![Build Status](https://travis-ci.org/iliapolo/pyci.svg?branch=finalize)](https://travis-ci.org/iliapolo/pyci)
+[![Build status](https://ci.appveyor.com/api/projects/status/psflvuie49b5gi71/branch/release?svg=true)](https://ci.appveyor.com/project/iliapolo/pyci/branch/release)
+[![Requirements Status](https://requires.io/github/iliapolo/pyci/requirements.svg?branch=finalize)](https://requires.io/github/iliapolo/pyci/requirements/?branch=finalize)
+
+
 ```bash
     ___    _  _    ___     ___
    | _ \  | || |  / __|   |_ _|

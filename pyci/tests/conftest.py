@@ -299,6 +299,9 @@ def _cleanup(request, repo):
 
     system = platform.system().lower()
 
+    if system == 'windows' and hasattr(request.node.function, 'linux'):
+        pytest.skip('This test should not run on windows')
+
     provider = ci.detect()
 
     current_commit = None
@@ -319,9 +322,6 @@ def _cleanup(request, repo):
         current_commit = repo.get_commit(sha='release')
     except AttributeError:
         pass
-
-    if system == 'windows' and hasattr(request.node.function, 'linux'):
-        pytest.skip('This test should not run on windows')
 
     try:
 
