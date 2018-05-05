@@ -7,5 +7,5 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install dependencies
+          name: ci
           command: ./ci/scripts/linux/ci.sh

@@ -45,6 +45,9 @@ if [ ${os} == "Darwin" ] && [ ! -z ${TRAVIS_BRANCH} ]; then
     install_python_on_mac
 fi
 
+
+env
+
 echo "[install] Installing test requirements"
 pip install -r ${DIR}/../../../test-requirements.txt
 
