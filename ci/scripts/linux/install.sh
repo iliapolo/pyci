@@ -48,6 +48,21 @@ fi
 
 env
 
+if [ -z ${VIRTUAL_ENV} ]; then
+
+    pip list
+    
+    echo "Virtualenv not found, installing"
+    pip install virtualenv
+
+    echo "Creating a new virtualenv"
+    virtualenv virtualenv
+
+    echo "Activating virtualenv"
+    source virtualenv/bin/activate
+
+fi
+
 echo "[install] Installing test requirements"
 pip install -r ${DIR}/../../../test-requirements.txt
 
