@@ -51,9 +51,9 @@ env
 if [ -z ${VIRTUAL_ENV} ]; then
 
     pip list
-    
+
     echo "Virtualenv not found, installing"
-    pip install virtualenv
+    sudo pip install virtualenv
 
     echo "Creating a new virtualenv"
     virtualenv virtualenv
