@@ -25,7 +25,7 @@ from github import GithubException
 # noinspection PyPackageRequirements
 from mock import MagicMock
 
-from pyci.api import logger, exceptions
+from pyci.api import logger, exceptions, ci
 from pyci.api.exceptions import ApiException, ReleaseValidationFailedException
 from pyci.api.model import Bump, Commit, Issue, Release
 
@@ -66,7 +66,7 @@ def test_no_repo(pyci, patched_github, capture):
 
     expected_solution1 = 'Provide it using the --repo option'
 
-    expected_solution2 = 'Run the command from the porject root directory, the repository ' \
+    expected_solution2 = 'Run the command from the project root directory, the repository ' \
                          'name will be detected using git commands'
 
     assert expected_output in capture.records[1].msg
@@ -157,33 +157,34 @@ def test_release_branch(github):
 
 def test_validate_build(pyci, capture, mocker):
 
-    ci = MagicMock()
+    ci_provider = MagicMock()
 
-    mocker.patch(target='pyci.api.ci.detect', new=MagicMock(return_value=ci))
+    mocker.patch(target='pyci.api.ci.detect', new=MagicMock(return_value=ci_provider))
+    mocker.patch(target='pyci.api.ci.validate_build', new=MagicMock(return_value=None))
 
     pyci.run('github validate-build --release-branch-name release')
 
     expected_output = 'Validation passed!'
 
     assert expected_output == capture.records[1].msg
-    ci.validate_build.assert_called_once_with(release_branch='release')
+    ci.validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
 
 
 def test_validate_build_failed(pyci, capture, mocker):
 
-    ci = MagicMock()
+    ci_provider = MagicMock()
 
     exception = exceptions.ApiException('error')
-    ci.validate_build = MagicMock(side_effect=exception)
 
-    mocker.patch(target='pyci.api.ci.detect', new=MagicMock(return_value=ci))
+    mocker.patch(target='pyci.api.ci.detect', new=MagicMock(return_value=ci_provider))
+    mocker.patch(target='pyci.api.ci.validate_build', new=MagicMock(side_effect=exception))
 
     pyci.run('github validate-build --release-branch-name release', catch_exceptions=True)
 
     expected_output = 'Build validation failed: error'
 
     assert expected_output == capture.records[2].msg
-    ci.validate_build.assert_called_once_with(release_branch='release')
+    ci.validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
 
 
 def test_validate_commit_no_sha_no_branch(patched_github, capture):
