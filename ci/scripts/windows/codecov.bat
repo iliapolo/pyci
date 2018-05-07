@@ -13,6 +13,7 @@ echo "[codecov] Uploading code coverage..."
 
 echo "[codecov] Done!"
 
+exit /b 0
 
 :error
 echo [codecov] Failed with error #%errorlevel%.

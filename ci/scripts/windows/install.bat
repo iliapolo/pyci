@@ -14,6 +14,7 @@ echo "[install ]Installing package"
 
 echo "[install] Done!"
 
+exit /b 0
 
 :error
 echo [install] Failed with error #%errorlevel%.

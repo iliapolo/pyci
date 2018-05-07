@@ -1,14 +1,6 @@
 set PATH=%~dp0
 set DIR=%PATH:~0,-1%
 
-:create_wheel
-%PYTHON%\\Scripts\\pyci.exe pack --path %DIR%\\..\\..\\..\\ wheel
-exit /b 0
-
-:create_binary
-%PYTHON%\\Scripts\\pyci.exe pack --path %DIR%\\..\\..\\..\\ binary
-exit /b 0
-
 echo "[test] Starting script"
 
 call %DIR%\\install.bat
@@ -23,6 +15,15 @@ set PYCI_TEST_PACKAGE=source
 
 echo "[test] Done!"
 
+exit /b 0
+
+:create_wheel
+%PYTHON%\\Scripts\\pyci.exe pack --path %DIR%\\..\\..\\..\\ wheel || goto :error
+exit /b 0
+
+:create_binary
+%PYTHON%\\Scripts\\pyci.exe pack --path %DIR%\\..\\..\\..\\ binary || goto :error
+exit /b 0
 
 :error
 echo [test] Failed with error #%errorlevel%.

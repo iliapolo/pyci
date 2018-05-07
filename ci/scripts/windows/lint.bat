@@ -10,6 +10,7 @@ echo "[lint] Running code analysis"
 
 echo "[lint] Done!"
 
+exit /b 0
 
 :error
 echo [lint] Failed with error #%errorlevel%.

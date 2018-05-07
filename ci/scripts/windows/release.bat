@@ -10,6 +10,7 @@ echo "[release] Running release"
 
 echo "[release] Done!"
 
+exit /b 0
 
 :error
 echo [release] Failed with error #%errorlevel%.
