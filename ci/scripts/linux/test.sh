@@ -55,4 +55,6 @@ echo "[test] Running binary tests"
 pip uninstall -y py-ci
 PYCI_TEST_PACKAGE=binary PYCI_EXECUTABLE_PATH=${binary_path} ${command}
 
+pip install -e ${DIR}/../../../.
+
 echo "[test] Done!"

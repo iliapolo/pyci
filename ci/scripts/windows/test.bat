@@ -27,6 +27,7 @@ rem set PYCI_TEST_PACKAGE=binary
 rem set PYCI_EXECUTABLE_PATH=%binary_path%
 rem %PYTHON%\\Scripts\\py.test.exe -rs --cov-append -c %DIR%\\..\\..\\config\\pytest.ini --cov-config=%DIR%\\..\\..\\config\\coverage.ini --cov=pyci pyci/tests || goto :error
 
+%PYTHON%\\python.exe -m pip install %DIR%\\..\\..\\..\\. || goto :error
 
 echo "[test] Done!"
 
