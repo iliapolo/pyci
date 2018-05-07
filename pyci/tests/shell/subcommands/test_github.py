@@ -167,6 +167,9 @@ def test_validate_build(pyci, capture, mocker):
     expected_output = 'Validation passed!'
 
     assert expected_output == capture.records[1].msg
+
+    # pylint: disable=no-member
+    # noinspection PyUnresolvedReferences
     ci.validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
 
 
@@ -184,6 +187,9 @@ def test_validate_build_failed(pyci, capture, mocker):
     expected_output = 'Build validation failed: error'
 
     assert expected_output == capture.records[2].msg
+
+    # pylint: disable=no-member
+    # noinspection PyUnresolvedReferences
     ci.validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
 
 
