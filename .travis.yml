@@ -1,16 +1,9 @@
 sudo: false
 matrix:
   include:
-    - os: linux
-      language: python
-      python: "2.7"
     - os: osx
       language: generic
 
 
 script:
   - ./ci/scripts/linux/ci.sh
-
-notifications:
-    # see https://github.com/bluzi/travis-buddy
-    webhooks: https://www.travisbuddy.com/

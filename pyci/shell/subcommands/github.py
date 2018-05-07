@@ -21,7 +21,7 @@ import tempfile
 
 import click
 
-from pyci.api import exceptions
+from pyci.api import exceptions, ci
 from pyci.api import logger
 from pyci.api import utils
 from pyci.api.model import Release, ChangelogCommit, Branch
@@ -83,9 +83,9 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, fo
 
     """
 
-    ci = ctx.parent.parent.ci
+    ci_provider = ctx.parent.parent.ci_provider
 
-    branch_name = branch_name or (ci.branch if ci else None)
+    branch_name = branch_name or (ci_provider.branch if ci_provider else None)
 
     try:
 
@@ -94,7 +94,7 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, fo
                                 release_branch_name=release_branch_name,
                                 force=force,
                                 gh=ctx.parent.github,
-                                ci=ci)
+                                ci_provider=ci_provider)
 
     except exceptions.ReleaseValidationFailedException as e:
         log.info('Not releasing: {}'.format(str(e)))
@@ -157,10 +157,10 @@ def validate_build(ctx, release_branch_name):
 
     """
 
-    ci = ctx.parent.parent.ci
+    ci_provider = ctx.parent.parent.ci_provider
 
     try:
-        validate_build_internal(release_branch_name=release_branch_name, ci=ci)
+        validate_build_internal(release_branch_name=release_branch_name, ci_provider=ci_provider)
     except exceptions.ApiException as e:
         err = click.ClickException('Build validation failed: {}'.format(str(e)))
         raise type(err), err, sys.exc_info()[2]
@@ -658,11 +658,11 @@ def validate_commit_internal(branch, sha, gh):
     log.info('Validation passed!')
 
 
-def validate_build_internal(release_branch_name, ci):
+def validate_build_internal(release_branch_name, ci_provider):
 
     log.info('Validating build...')
-    if ci:
-        ci.validate_build(release_branch=release_branch_name)
+    if ci_provider:
+        ci.validate_build(ci_provider=ci_provider, release_branch=release_branch_name)
     log.info('Validation passed!')
 
 
@@ -678,15 +678,15 @@ def release_branch_internal(branch_name,
                             release_branch_name,
                             force,
                             gh,
-                            ci):
+                            ci_provider):
 
-    sha = ci.sha if ci else None
+    sha = ci_provider.sha if ci_provider else None
 
     log.info('Creating release from {}...'.format(branch_name))
 
     if not force:
 
-        validate_build_internal(ci=ci, release_branch_name=release_branch_name)
+        validate_build_internal(ci_provider=ci_provider, release_branch_name=release_branch_name)
         validate_commit_internal(branch=None if sha else branch_name, gh=gh, sha=sha)
 
     changelog = generate_changelog_internal(branch=None if sha else branch_name, gh=gh, sha=sha)

@@ -9,6 +9,3 @@ build: off
 test_script:
   - SET PATH=C:\Python27\Scripts;%PATH%
   - .\\ci\\scripts\\windows\\ci.bat
-
-notifications:
-  - provider: GitHubPullRequest

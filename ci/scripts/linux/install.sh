@@ -4,7 +4,8 @@ set -e
 
 echo "[install] Starting script"
 
-TRAVIS_BRANCH=${TRAVIS_BRANCH:-}
+TRAVIS=${TRAVIS:-}
+CIRCLECI=${CIRCLECI:-}
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 
@@ -39,17 +40,15 @@ function install_python_on_mac {
 
 
 os=$(uname -s)
-if [ ${os} == "Darwin" ] && [ ! -z ${TRAVIS_BRANCH} ]; then
+if [ ${os} == "Darwin" ] && [ ! -z ${TRAVIS} ]; then
     # only install on travis since it does not have python
     # installed for mac builds
     install_python_on_mac
 fi
 
-if [ -z ${VIRTUAL_ENV} ]; then
+if [ ! -z ${CIRCLECI} ]; then
 
-    pip list
-
-    echo "Virtualenv not found, installing"
+    echo "Installing virtualenv"
     sudo pip install virtualenv
 
     echo "Creating a new virtualenv"

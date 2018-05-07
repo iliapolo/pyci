@@ -95,11 +95,11 @@ def release(ctx,
 
     """
 
-    ci = ctx.parent.ci
+    ci_provider = ctx.parent.ci_provider
 
-    branch_name = branch_name or (ci.branch if ci else None)
+    branch_name = branch_name or (ci_provider.branch if ci_provider else None)
 
-    repo = detect_repo(ctx.parent.ci, repo)
+    repo = detect_repo(ci_provider, repo)
 
     if not no_binary and is_binary():
         error = click.ClickException('Creating a binary package is not supported when '
@@ -114,7 +114,7 @@ def release(ctx,
 
         release_internal(binary_entrypoint=binary_entrypoint,
                          branch_name=branch_name,
-                         ci=ci,
+                         ci=ci_provider,
                          force=force,
                          master_branch_name=master_branch_name,
                          no_binary=no_binary,
@@ -153,7 +153,7 @@ def release_internal(binary_entrypoint,
         release_branch_name=release_branch_name,
         force=force,
         gh=gh,
-        ci=ci)
+        ci_provider=ci)
 
     packager = Packager.create(repo, sha=github_release.sha)
     package_directory = tempfile.mkdtemp()
@@ -229,14 +229,14 @@ def _upload_binary(binary_entrypoint, gh, package_directory, packager, github_re
                  .format(e.expected_paths))
 
 
-def detect_repo(ci, repo):
+def detect_repo(ci_provider, repo):
 
-    repo = repo or (ci.repo if ci else utils.get_local_repo())
+    repo = repo or (ci_provider.repo if ci_provider else utils.get_local_repo())
     if repo is None:
         error = click.ClickException(message='Failed detecting repository name')
         error.possible_solutions = [
             'Provide it using the --repo option',
-            'Run the command from the porject root directory, the repository name will be '
+            'Run the command from the project root directory, the repository name will be '
             'detected using git commands'
         ]
         raise error

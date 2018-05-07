@@ -17,12 +17,30 @@
 
 # noinspection PyPackageRequirements
 import pytest
+from mock import MagicMock
 
 from pyci.api import ci, exceptions
 
 
 @pytest.mark.parametrize("env,expected_name,expected_repo,expected_branch,expected_sha,"
                          "expected_tag,expected_pull_request", [
+
+                             (
+                                 {
+                                     'CIRCLECI': 'True',
+                                     'CIRCLE_REPOSITORY_URL': 'https://github.com/iliapolo/pyci',
+                                     'CIRCLE_BRANCH': 'master',
+                                     'CIRCLE_SHA1': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
+                                     'CIRCLE_TAG': '0.0.1'
+                                 },
+                                 "CircleCI",
+                                 "iliapolo/pyci",
+                                 "master",
+                                 "33526a9e0445541d96e027db2aeb93d07cdf8bd6",
+                                 "0.0.1",
+                                 None
+                             ),
+
                              (
                                  {
                                      'TRAVIS': 'True',
@@ -92,114 +110,45 @@ def test_detect(env,
     assert expected_pull_request == ci_system.pull_request
 
 
-@pytest.mark.parametrize("env,expected_reason", [
-    (
-        {
-            'TRAVIS': 'True',
-            'TRAVIS_REPO_SLUG': 'iliapolo/pyci',
-            'TRAVIS_BRANCH': 'master',
-            'TRAVIS_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'TRAVIS_TAG': '0.0.1',
-            'TRAVIS_PULL_REQUEST': '5'
-        },
-        "Build is a Pull Request (5)"
-    ),
+def test_validate_build_pull_request():
 
-    (
-        {
-            'TRAVIS': 'True',
-            'TRAVIS_REPO_SLUG': 'iliapolo/pyci',
-            'TRAVIS_BRANCH': 'master',
-            'TRAVIS_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'TRAVIS_TAG': '0.0.1',
-            'TRAVIS_PULL_REQUEST': 'false'
-        },
-        "Build is a Tag (0.0.1)"
-    ),
+    ci_system = MagicMock()
 
-    (
-        {
-            'TRAVIS': 'True',
-            'TRAVIS_REPO_SLUG': 'iliapolo/pyci',
-            'TRAVIS_BRANCH': 'master',
-            'TRAVIS_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'TRAVIS_TAG': None,
-            'TRAVIS_PULL_REQUEST': 'false'
-        },
-        "The current build branch (master) does not match the release branch (release)"
-    ),
+    ci_system.pull_request = 5
+
+    with pytest.raises(exceptions.BuildIsAPullRequestException):
+        ci.validate_build(ci_provider=ci_system, release_branch='release')
 
 
-    (
-        {
-            'TRAVIS': 'True',
-            'TRAVIS_REPO_SLUG': 'iliapolo/pyci',
-            'TRAVIS_BRANCH': 'release',
-            'TRAVIS_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'TRAVIS_TAG': None,
-            'TRAVIS_PULL_REQUEST': 'false'
-        },
-        None
-    ),
+def test_validate_build_tag():
 
-    (
-        {
-            'APPVEYOR': 'True',
-            'APPVEYOR_REPO_NAME': 'iliapolo/pyci',
-            'APPVEYOR_REPO_BRANCH': 'master',
-            'APPVEYOR_REPO_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'APPVEYOR_REPO_TAG_NAME': '0.0.1',
-            'APPVEYOR_PULL_REQUEST_NUMBER': '5'
-        },
-        "Build is a Pull Request (5)"
-    ),
+    ci_system = MagicMock()
 
-    (
-        {
-            'APPVEYOR': 'True',
-            'APPVEYOR_REPO_NAME': 'iliapolo/pyci',
-            'APPVEYOR_REPO_BRANCH': 'master',
-            'APPVEYOR_REPO_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'APPVEYOR_REPO_TAG_NAME': '0.0.1',
-            'APPVEYOR_PULL_REQUEST_NUMBER': None
-        },
-        "Build is a Tag (0.0.1)"
-    ),
+    ci_system.pull_request = None
+    ci_system.tag = 'tag'
 
-    (
-        {
-            'APPVEYOR': 'True',
-            'APPVEYOR_REPO_NAME': 'iliapolo/pyci',
-            'APPVEYOR_REPO_BRANCH': 'master',
-            'APPVEYOR_REPO_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'APPVEYOR_REPO_TAG_NAME': None,
-            'APPVEYOR_PULL_REQUEST_NUMBER': None
-        },
-        "The current build branch (master) does not match the release branch (release)"
-    ),
+    with pytest.raises(exceptions.BuildIsATagException):
+        ci.validate_build(ci_provider=ci_system, release_branch='release')
 
 
-    (
-        {
-            'APPVEYOR': 'True',
-            'APPVEYOR_REPO_NAME': 'iliapolo/pyci',
-            'APPVEYOR_REPO_BRANCH': 'release',
-            'APPVEYOR_REPO_COMMIT': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
-            'APPVEYOR_REPO_TAG_NAME': None,
-            'APPVEYOR_PULL_REQUEST_NUMBER': None
-        },
-        None
-    ),
+def test_validate_build_branch():
+
+    ci_system = MagicMock()
+
+    ci_system.pull_request = None
+    ci_system.tag = None
+    ci_system.branch = 'branch'
+
+    with pytest.raises(exceptions.BuildBranchDiffersFromReleaseBranchException):
+        ci.validate_build(ci_provider=ci_system, release_branch='release')
 
 
-])
-def test_validate_rc(env, expected_reason):
+def test_validate():
 
-    ci_system = ci.detect(env)
+    ci_system = MagicMock()
 
-    if expected_reason:
-        with pytest.raises(exceptions.ReleaseValidationFailedException) as info:
-            ci_system.validate_build(release_branch='release')
-        assert expected_reason in str(info.value)
-    else:
-        ci_system.validate_build(release_branch='release')
+    ci_system.pull_request = None
+    ci_system.tag = None
+    ci_system.branch = 'release'
+
+    ci.validate_build(ci_provider=ci_system, release_branch='release')

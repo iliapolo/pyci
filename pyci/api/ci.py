@@ -14,15 +14,12 @@
 #   * limitations under the License.
 #
 #############################################################################
-
-
 import os
-
-import copy
 
 from pyci.api import exceptions
 from pyci.api import logger
 
+CIRCLE = 'CircleCI'
 TRAVIS = 'Travis-CI'
 APPVEYOR = 'AppVeyor'
 
@@ -30,7 +27,7 @@ APPVEYOR = 'AppVeyor'
 log = logger.get_logger(__name__)
 
 
-class _CI(object):
+class _Provider(object):
 
     """
     Represents a specific CI system. It provides access to various data that CI systems can
@@ -45,11 +42,6 @@ class _CI(object):
 
     def __init__(self, environ):
         self.environ = environ
-        self._log_ctx = {
-            'repo': self.repo,
-            'sha': self.sha,
-            'branch': self.branch
-        }
 
     @property
     def name(self):
@@ -113,48 +105,42 @@ class _CI(object):
         """
         raise NotImplementedError()  # pragma: no cover
 
-    def validate_build(self, release_branch):
 
-        """
-        Validates the current build should trigger a release process. There are a few conditions
-        for that:
+class _CircleCI(_Provider):
 
-            1. The current build is not a PR build.
+    @property
+    def name(self):
+        return CIRCLE
 
-            2. The current build is not a TAG build.
+    @property
+    def repo(self):
+        repository_url = self.environ.get('CIRCLE_REPOSITORY_URL')
+        return repository_url.split('https://github.com/')[1] if repository_url else None
 
-            3. The current build branch is the same as the release branch.
+    @property
+    def sha(self):
+        return self.environ.get('CIRCLE_SHA1')
 
-        Args:
-            release_branch (str): What is the release branch to validate against. (e.g release)
+    @property
+    def branch(self):
+        return self.environ.get('CIRCLE_BRANCH')
 
-        Raises:
-              NotReleaseCandidateException: Raised when the current build is deemed as not
-              release worthy. That is, the current build should not trigger a release process.
-        """
+    @property
+    def pull_request(self):
+        # currently circle ci does not support running builds on the PR.
+        # see https://discuss.circleci.com/t/pull-requests-not-triggering-build/1213/10
+        # see https://discuss.circleci.com/t/pull-requests-not-triggering-build/1213/6
+        return None
 
-        self._debug('Validating build...', release_branch=release_branch)
+    @property
+    def tag(self):
+        return self.environ.get('CIRCLE_TAG')
 
-        if self.pull_request:
-            raise exceptions.BuildIsAPullRequestException(pull_request=self.pull_request)
-
-        if self.tag:
-            raise exceptions.BuildIsATagException(tag=self.tag)
-
-        if self.branch != release_branch:
-            raise exceptions.BuildBranchDiffersFromReleaseBranchException(
-                branch=self.branch,
-                release_branch=release_branch)
-
-        self._debug('Successfully validated build.', release_branch=release_branch)
-
-    def _debug(self, message, **kwargs):
-        kwargs = copy.deepcopy(kwargs)
-        kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+    def detect(self):
+        return self.environ.get('CIRCLECI')
 
 
-class _TravisCI(_CI):
+class _TravisCI(_Provider):
 
     @property
     def name(self):
@@ -187,7 +173,7 @@ class _TravisCI(_CI):
         return self.environ.get('TRAVIS')
 
 
-class _AppVeyor(_CI):
+class _AppVeyor(_Provider):
 
     @property
     def name(self):
@@ -217,32 +203,57 @@ class _AppVeyor(_CI):
         return self.environ.get('APPVEYOR')
 
 
-# pylint: disable=too-few-public-methods
-class _CIDetector(object):
-
-    def __init__(self, environ):
-        self._ci_systems = []
-        self._ci_systems.append(_TravisCI(environ))
-        self._ci_systems.append(_AppVeyor(environ))
-
-    def detect(self):
-
-        ci = None
-        for system in self._ci_systems:
-            if system.detect():
-                ci = system
-                break
-
-        return ci
-
-
 def detect(environ=None):
 
     """
-    Detects which CI system we are currently running on.
+    Detects which CI provider we are currently running on.
+
+    Args:
+        environ (dict): The environment dictionary to use. Defaults to os.environ
 
     Returns:
-         _CI: The specific implementation for the detected system.
+         _Provider: The specific implementation for the detected provider.
     """
 
-    return _CIDetector(environ or os.environ).detect()
+    environ = environ or os.environ
+
+    providers = [_TravisCI(environ), _AppVeyor(environ), _CircleCI(environ)]
+
+    for provider in providers:
+        if provider.detect():
+            return provider
+
+    return None
+
+
+def validate_build(ci_provider, release_branch):
+
+    """
+    Validates the current build should trigger a release process. There are a few conditions
+    for that:
+
+        1. The current build is not a PR build.
+
+        2. The current build is not a TAG build.
+
+        3. The current build branch is the same as the release branch.
+
+    Args:
+        release_branch (str): What is the release branch to validate against. (e.g release)
+        ci_provider (_Provider): The CI provider we are currently running on. see 'detect'.
+
+    Raises:
+          NotReleaseCandidateException: Raised when the current build is deemed as not
+          release worthy. That is, the current build should not trigger a release process.
+    """
+
+    if ci_provider.pull_request:
+        raise exceptions.BuildIsAPullRequestException(pull_request=ci_provider.pull_request)
+
+    if ci_provider.tag:
+        raise exceptions.BuildIsATagException(tag=ci_provider.tag)
+
+    if ci_provider.branch != release_branch:
+        raise exceptions.BuildBranchDiffersFromReleaseBranchException(
+            branch=ci_provider.branch,
+            release_branch=release_branch)

@@ -68,12 +68,12 @@ def app(ctx, debug, no_ci):
     if debug:
         logger.setup_loggers(level=logging.DEBUG)
 
-    ctx.ci = None
+    ctx.ci_provider = None
     if not no_ci:
-        ctx.ci = ci.detect()
+        ctx.ci_provider = ci.detect()
 
-    if ctx.ci:
-        log.info('Detected CI: {0}'.format(ctx.ci.name))
+    if ctx.ci_provider:
+        log.info('Detected CI Provider: {0}'.format(ctx.ci_provider.name))
 
 
 @click.group()
@@ -87,10 +87,11 @@ def github(ctx, repo):
     Sub-command for Github operations.
     """
 
-    repo = release.detect_repo(ctx.parent.ci, repo)
+    repo = release.detect_repo(ctx.parent.ci_provider, repo)
 
-    ctx.github = GitHubRepository.create(repo=repo,
-                                         access_token=secrets.github_access_token(ctx.parent.ci))
+    ctx.github = GitHubRepository.create(
+        repo=repo,
+        access_token=secrets.github_access_token(ctx.parent.ci_provider))
 
 
 @click.group()
@@ -114,7 +115,7 @@ def pack(ctx, repo, sha, path):
     """
 
     if not path:
-        repo = release.detect_repo(ctx.parent.ci, repo)
+        repo = release.detect_repo(ctx.parent.ci_provider, repo)
 
     if sha and path:
         raise click.ClickException("Use either --sha or --path, not both")
@@ -140,8 +141,8 @@ def pypi(ctx, test, repository_url):
 
     ctx.pypi = PyPI.create(repository_url=repository_url,
                            test=test,
-                           username=secrets.twine_username(ctx.parent.ci),
-                           password=secrets.twine_password(ctx.parent.ci))
+                           username=secrets.twine_username(ctx.parent.ci_provider),
+                           password=secrets.twine_password(ctx.parent.ci_provider))
 
 
 github.add_command(github_group.release_branch)
