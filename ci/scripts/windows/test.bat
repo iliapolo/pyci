@@ -1,5 +1,14 @@
+@echo on
 set PATH=%~dp0
 set DIR=%PATH:~0,-1%
+
+:create_wheel
+%PYTHON%\\Scripts\\pyci.exe pack --path %DIR%\\..\\..\\..\\ wheel
+exit /b 0
+
+:create_binary
+%PYTHON%\\Scripts\\pyci.exe pack --path %DIR%\\..\\..\\..\\ binary
+exit /b 0
 
 echo "[test] Starting script"
 
