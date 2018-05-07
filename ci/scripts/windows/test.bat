@@ -11,7 +11,7 @@ echo "[test] Running source tests"
 %PYTHON%\\python.exe -m pip uninstall -y py-ci || goto :error
 %PYTHON%\\python.exe -m pip install %DIR%\\..\\..\\..\\. || goto :error
 set PYCI_TEST_PACKAGE=source
-$COMMAND% || goto :error
+%COMMAND% || goto :error
 
 echo "[test] Done!"
 
