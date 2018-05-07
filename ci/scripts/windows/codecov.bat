@@ -3,8 +3,6 @@ set DIR=%PATH:~0,-1%
 
 echo "[codecov] Starting script"
 
-CALL %DIR%\\install.bat
-
 echo "[codecov] Creating coverage xml..."
 %PYTHON%\\Scripts\\coverage xml -i
 

@@ -31,8 +31,6 @@ echo "[test] Starting script"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-source ${DIR}/install.sh
-
 echo "[test] Creating wheel"
 wheel_path=$(create_wheel)
 
@@ -41,7 +39,7 @@ binary_path=$(create_binary)
 
 rm -rf .coverage
 
-command="py.test -rs --cov-append -c ${DIR}/../../config/pytest.ini --cov-config=${DIR}/../../config/coverage.ini --cov=pyci ${DIR}/../../../pyci/tests"
+command="py.test --cov-append -c ${DIR}/../../config/pytest.ini --cov-config=${DIR}/../../config/coverage.ini --cov=pyci ${DIR}/../../../pyci/tests"
 
 echo "[test] Running source tests"
 pip uninstall -y py-ci
