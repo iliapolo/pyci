@@ -45,7 +45,7 @@ command="py.test -rsX --cov-append -c ${DIR}/../../config/pytest.ini --cov-confi
 
 echo "[test] Running source tests"
 pip uninstall -y py-ci
-pip install -e ${DIR}/../../../.
+pip install ${DIR}/../../../.
 PYCI_TEST_PACKAGE=source ${command}
 
 echo "[test] Running wheel tests"

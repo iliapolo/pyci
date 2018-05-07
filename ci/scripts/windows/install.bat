@@ -9,6 +9,9 @@ echo "[install] Installing test dependencies"
 echo "[install ]Installing dependencies"
 %PYTHON%\\python.exe -m pip install -r %DIR%\\..\\..\\..\\requirements.txt || goto :error
 
+echo "[install ]Installing package"
+%PYTHON%\\python.exe -m pip install -e %DIR%\\..\\..\\..\\. || goto :error
+
 echo "[install] Done!"
 
 

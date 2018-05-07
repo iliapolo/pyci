@@ -3,10 +3,15 @@ set DIR=%PATH:~0,-1%
 
 echo "[test] Starting script"
 
-CALL %DIR%\\install.bat
+call %DIR%\\install.bat
 
-echo "[test] Running tests"
-%PYTHON%\\Scripts\\py.test.exe -c %DIR%\\..\\..\\config\\pytest.ini --cov-config=%DIR%\\..\\..\\config\\coverage.ini --cov=pyci pyci/tests || goto :error
+set COMMAND="%PYTHON%\\Scripts\\py.test.exe -c %DIR%\\..\\..\\config\\pytest.ini --cov-config=%DIR%\\..\\..\\config\\coverage.ini --cov=pyci pyci/tests"
+
+echo "[test] Running source tests"
+%PYTHON%\\python.exe -m pip uninstall -y py-ci || goto :error
+%PYTHON%\\python.exe -m pip install %DIR%\\..\\..\\..\\. || goto :error
+set PYCI_TEST_PACKAGE=source
+$COMMAND% || goto :error
 
 echo "[test] Done!"
 

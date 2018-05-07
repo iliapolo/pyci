@@ -48,9 +48,6 @@ fi
 
 if [ ! -z ${CIRCLECI} ]; then
 
-    echo "Installing virtualenv"
-    sudo pip install virtualenv
-
     echo "Creating a new virtualenv"
     virtualenv virtualenv
 

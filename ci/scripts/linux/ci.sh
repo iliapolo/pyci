@@ -8,11 +8,11 @@ echo "[ci] Starting script"
 
 source ${DIR}/install.sh
 
-#source ${DIR}/lint.sh
-#
-#source ${DIR}/test.sh
-#
-#source ${DIR}/codecov.sh
+source ${DIR}/lint.sh
+
+source ${DIR}/test.sh
+
+source ${DIR}/codecov.sh
 
 source ${DIR}/release.sh
 
