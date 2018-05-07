@@ -9,9 +9,9 @@ call %DIR%\\lint.bat || goto :error
 
 call %DIR%\\test.bat || goto :error
 
-rem CALL %DIR%\\codecov.bat || goto :error
+call %DIR%\\codecov.bat || goto :error
 
-rem CALL %DIR%\\release.bat || goto :error
+call %DIR%\\release.bat || goto :error
 
 echo "[ci] Done"
 
