@@ -28,7 +28,8 @@ from pyci.api import ci, exceptions
                              (
                                  {
                                      'CIRCLECI': 'True',
-                                     'CIRCLE_REPOSITORY_URL': 'https://github.com/iliapolo/pyci',
+                                     'CIRCLE_PROJECT_USERNAME': 'iliapolo',
+                                     'CIRCLE_PROJECT_REPONAME': 'pyci',
                                      'CIRCLE_BRANCH': 'master',
                                      'CIRCLE_SHA1': '33526a9e0445541d96e027db2aeb93d07cdf8bd6',
                                      'CIRCLE_TAG': '0.0.1'

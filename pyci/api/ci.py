@@ -114,8 +114,8 @@ class _CircleCI(_Provider):
 
     @property
     def repo(self):
-        name = self.environ.get('CIRCLE_PROJECT_USERNAME')
-        org = self.environ.get('CIRCLE_PROJECT_REPONAME')
+        org = self.environ.get('CIRCLE_PROJECT_USERNAME')
+        name = self.environ.get('CIRCLE_PROJECT_REPONAME')
         if org and name:
             return '{}/{}'.format(org, name)
         return None

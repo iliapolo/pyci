@@ -261,6 +261,18 @@ def _runner():
     yield LocalCommandRunner()
 
 
+@pytest.fixture(name='version')
+def _version(runner):
+
+    setup_py_path = os.path.abspath(os.path.join(pyci.__file__,
+                                                 os.pardir,
+                                                 os.pardir,
+                                                 'setup.py'))
+
+    yield runner.run('{} {} --version'.format(utils.get_executable('python'),
+                                              setup_py_path)).std_out
+
+
 @pytest.fixture(name='isolated')
 def _isolated():
 

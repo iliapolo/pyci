@@ -18,9 +18,6 @@ import logging
 import os
 import platform
 
-import pkg_resources
-
-# noinspection PyPackageRequirements
 import pytest
 
 from pyci.api import logger, exceptions
@@ -30,9 +27,7 @@ from pyci.tests.conftest import REPO_UNDER_TEST
 logger.setup_loggers(logging.DEBUG)
 
 
-def test_wheel(packager, temp_dir):
-
-    version = pkg_resources.get_distribution('py-ci').version
+def test_wheel(packager, temp_dir, version):
 
     expected = os.path.join(temp_dir, 'py_ci-{0}-py2-none-any.whl'.format(version))
 
@@ -50,9 +45,7 @@ def test_wheel_not_python_project(temp_dir):
         packager.wheel(target_dir=temp_dir)
 
 
-def test_wheel_universal(packager, temp_dir):
-
-    version = pkg_resources.get_distribution('py-ci').version
+def test_wheel_universal(packager, temp_dir, version):
 
     expected = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(version))
 
