@@ -7,5 +7,4 @@ environment:
 build: off
 
 test_script:
-  - SET PATH=C:\\Python27\\Scripts;%PATH%
-  - C:\\cygwin64\\bin\\bash .\\ci\\scripts\\linux\\lint.sh
+  - .\\ci\\scripts\\windows\\ci.bat

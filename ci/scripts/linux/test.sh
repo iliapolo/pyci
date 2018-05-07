@@ -41,7 +41,7 @@ binary_path=$(create_binary)
 
 rm -rf .coverage
 
-command="py.test -rsX --cov-append -c ${DIR}/../../config/pytest.ini --cov-config=${DIR}/../../config/coverage.ini --cov=pyci ${DIR}/../../../pyci/tests"
+command="py.test -rsX --cov-append -c ${DIR}/../../config/pytest.ini --cov-config=${DIR}/../../config/coverage.ini --cov=pyci ${DIR}/../../../pyci/tests -v"
 
 echo "[test] Running source tests"
 pip uninstall -y py-ci
