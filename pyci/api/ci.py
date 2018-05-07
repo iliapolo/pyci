@@ -114,9 +114,11 @@ class _CircleCI(_Provider):
 
     @property
     def repo(self):
-        repository_url = self.environ.get('CIRCLE_REPOSITORY_URL')
-        log.info('repository url = {}'.format(repository_url))
-        return repository_url.split('https://github.com/')[1] if repository_url else None
+        name = self.environ.get('CIRCLE_PROJECT_USERNAME')
+        org = self.environ.get('CIRCLE_PROJECT_REPONAME')
+        if org and name:
+            return '{}/{}'.format(org, name)
+        return None
 
     @property
     def sha(self):
