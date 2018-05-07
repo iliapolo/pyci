@@ -19,6 +19,7 @@ import platform
 import shutil
 import tempfile
 import time
+import contextlib
 
 import pytest
 from github import Github
@@ -133,7 +134,7 @@ def _patched_github(temp_dir, mocker):
 
 
 @pytest.fixture(name='github')
-def _github(temp_dir, gh):
+def _github(request, temp_dir, gh):
 
     # pylint: disable=too-few-public-methods
     class GithubSubCommand(Runner):
@@ -152,19 +153,21 @@ def _github(temp_dir, gh):
 
     try:
         os.chdir(temp_dir)
-        yield GithubSubCommand(gh)
+        with _github_cleanup(request, gh.repo):
+            yield GithubSubCommand(gh)
     finally:
         os.chdir(cwd)
 
 
 @pytest.fixture(name='pyci')
-def _pyci(temp_dir):
+def _pyci(request, repo, temp_dir):
 
     cwd = os.getcwd()
 
     try:
         os.chdir(temp_dir)
-        yield Runner()
+        with _github_cleanup(request, repo):
+            yield Runner()
     finally:
         os.chdir(cwd)
 
@@ -178,11 +181,12 @@ def _pypi():
 
 
 @pytest.fixture(name='gh')
-def _gh(repo):
+def _gh(request, repo):
     repository = GitHubRepository.create(repo=REPO_UNDER_TEST,
                                          access_token=secrets.github_access_token(True))
     setattr(repository, 'repo', repo)
-    return repository
+    with _github_cleanup(request, repo):
+        yield repository
 
 
 @pytest.fixture(name='repo', scope='module')
@@ -270,7 +274,7 @@ def _isolated():
         utils.rmf(t)
 
 
-@pytest.fixture(name='skip')
+@pytest.fixture(name='skip', autouse=True)
 def _skip(request):
 
     def __skip(reason):
@@ -307,8 +311,8 @@ def _skip(request):
         __skip('Wet tests should only run on the PR build')
 
 
-@pytest.fixture(name='cleanup', autouse=True)
-def _cleanup(request, repo, skip):
+@contextlib.contextmanager
+def _github_cleanup(request, repo):
 
     current_commit = None
     wet = None

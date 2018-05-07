@@ -40,8 +40,7 @@ class Runner(object):
         executable_path = os.environ.get('PYCI_EXECUTABLE_PATH')
         if executable_path:
             return self._run_executable(executable_path, command, catch_exceptions)
-        else:
-            return self._run_source(command, catch_exceptions)
+        return self._run_source(command, catch_exceptions)
 
     def _run_source(self, command, catch_exceptions):
 

@@ -7,11 +7,11 @@ CALL %DIR%\\install.bat || goto :error
 
 CALL %DIR%\\lint.bat || goto :error
 
-CALL %DIR%\\test.bat || goto :error
+REM CALL %DIR%\\test.bat || goto :error
 
-CALL %DIR%\\codecov.bat || goto :error
+REM CALL %DIR%\\codecov.bat || goto :error
 
-CALL %DIR%\\release.bat || goto :error
+REM CALL %DIR%\\release.bat || goto :error
 
 echo "[ci] Done"
 

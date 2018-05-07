@@ -35,7 +35,6 @@ from pyci.api import utils
 from pyci.api.model import Branch, Bump, Commit, Issue, Release, Changelog, ChangelogIssue, \
     ChangelogCommit
 from pyci.api.runner import LocalCommandRunner
-from pyci.api.utils import download, unzip
 
 log = logger.get_logger(__name__)
 

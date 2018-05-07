@@ -19,15 +19,12 @@ import logging
 import sys
 
 import click
-import os
 
 from pyci.api import ci
 from pyci.api import logger
-from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
-from pyci.api.runner import LocalCommandRunner
 from pyci.shell import REPO_HELP
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets

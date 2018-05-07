@@ -137,7 +137,7 @@ class Packager(object):
             self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
             result = self._runner.run(
                 '{} '
-                '--onefile '                
+                '--onefile '
                 '--distpath {} '
                 '--workpath {} '
                 '--specpath {} {}'
