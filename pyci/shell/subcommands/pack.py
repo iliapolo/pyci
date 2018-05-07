@@ -22,6 +22,7 @@ import click
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.shell import handle_exceptions
+from pyci.shell import is_binary
 
 log = logger.get_logger(__name__)
 
@@ -59,6 +60,10 @@ def binary(ctx, name, entrypoint, target_dir):
 
     """
 
+    if is_binary():
+        raise click.ClickException('Creating a binary package is not supported when running from '
+                                   'within a binary')
+
     try:
         binary_internal(entrypoint=entrypoint,
                         name=name,
@@ -93,7 +98,6 @@ def binary(ctx, name, entrypoint, target_dir):
 def wheel(ctx, target_dir, universal):
 
     """
-
     Create a python wheel.
 
     see https://pythonwheels.com/
@@ -130,6 +134,7 @@ def wheel_internal(target_dir, universal, packager):
 
 
 def binary_internal(entrypoint, name, target_dir, packager):
+
     log.info('Packaging... (this may take some time)')
     package_path = packager.binary(entrypoint=entrypoint,
                                    name=name,

@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import os
 
 from setuptools import setup
 
@@ -26,6 +27,16 @@ PROGRAM_NAME = 'pyci'
 # this is different because it determines the name of the project
 # in PyPi, and unfortunately 'pyci' is taken :(
 PROJECT_NAME = 'py-ci'
+
+requirements = []
+
+requirements_file = os.path.abspath(os.path.join(__file__, os.pardir, 'requirements.txt'))
+
+with open(requirements_file) as stream:
+    for requirement in stream.read().splitlines():
+        if not 'https' in requirement:
+            requirements.append(requirement)
+
 
 setup(
     name=PROJECT_NAME,
@@ -40,6 +51,11 @@ setup(
         '{0}.shell.commands'.format(BASE_PACKAGE_NAME),
         '{0}.shell.subcommands'.format(BASE_PACKAGE_NAME)
     ],
+    package_data={
+        '{}'.format(BASE_PACKAGE_NAME): [
+            'resources/changelog.jinja'
+        ],
+    },
     license='LICENSE',
     description="Command Line Interface for releasing open source python libraries",
     entry_points={
@@ -47,16 +63,5 @@ setup(
             '{0} = {1}.shell.main:app'.format(PROGRAM_NAME, BASE_PACKAGE_NAME)
         ]
     },
-    dependency_links=['https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip'],
-    install_requires=[
-        'click==6.7',
-        'wryte==0.2.1',
-        'semver==2.7.9',
-        'pyinstaller==3.3.1',
-        'requests==2.18.4',
-        'jinja2==2.10',
-        'boltons==18.0.0',
-        'wheel==0.29.0',
-        'twine==1.11.0'
-    ]
+    install_requires=requirements
 )

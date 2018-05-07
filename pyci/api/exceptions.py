@@ -402,3 +402,13 @@ class BranchAlreadyExistsException(ApiException):
 
     def __str__(self):
         return 'Branch ({}) in repo ({}) already exists'.format(self.branch, self.repo)
+
+
+class BinaryPackNotSupportedException(ApiException):
+
+    def __init__(self):
+        super(BinaryPackNotSupportedException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Creating binary packages is not supported when running from within a binary ' \
+               'package'

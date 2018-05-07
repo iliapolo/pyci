@@ -16,9 +16,6 @@
 #############################################################################
 
 
-# noinspection PyPackageRequirements
-
-# noinspection PyPackageRequirements
 from mock import MagicMock
 
 from pyci.api import exceptions

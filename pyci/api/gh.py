@@ -35,7 +35,7 @@ from pyci.api import utils
 from pyci.api.model import Branch, Bump, Commit, Issue, Release, Changelog, ChangelogIssue, \
     ChangelogCommit
 from pyci.api.runner import LocalCommandRunner
-from pyci.api.utils import download
+from pyci.api.utils import download, unzip
 
 log = logger.get_logger(__name__)
 
@@ -860,20 +860,14 @@ class _GitHubCommit(object):
         return labels
 
     @cachedproperty
+    def repo_path(self):
+        repo_name = self._branch.github.repo.full_name
+        repo_dir = utils.download_repo(repo_name, self.commit.sha)
+        return repo_dir
+
+    @cachedproperty
     def setup_py_path(self):
-        setup_py_url = 'https://raw.githubusercontent.com/{}/{}/setup.py'.format(
-            self._branch.github.repo.full_name, self.commit.sha)
-        self._debug('Fetching setup.py...', setup_py_url=setup_py_url)
-        try:
-            setup_py_path = download(url=setup_py_url)
-        except exceptions.DownloadFailedException as e:
-            if e.code == 404:
-                raise exceptions.NotPythonProjectException(repo=self._branch.github.repo.full_name,
-                                                           cause='setup.py not found',
-                                                           sha=self.commit.sha)
-            raise  # pragma: no cover
-        self._debug('Fetched setup.py.', setup_py_url=setup_py_url, setup_py_path=setup_py_path)
-        return setup_py_path
+        return os.path.join(self.repo_path, 'setup.py')
 
     @cachedproperty
     def setup_py(self):

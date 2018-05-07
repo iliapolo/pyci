@@ -253,10 +253,50 @@ def get_executable(name):
 
     """
 
+    bin_directory = os.path.abspath(os.path.join(sys.executable, os.pardir))
+
+    try:
+        # running inside a bundled pyinstaller app
+        boot_loader = getattr(sys, '_MEIPASS')
+        bin_directory = os.path.join(boot_loader, 'bin')
+    except AttributeError:
+        pass
+
     executable = name
     if platform.system().lower() == 'windows':
-        executable = os.path.abspath(os.path.join(sys.executable,
-                                                  os.pardir,
-                                                  'Scripts',
-                                                  '{}.exe'.format(executable)))
+        executable = os.path.join(bin_directory, 'Scripts', '{}.exe'.format(executable))
+    else:
+        executable = os.path.join(bin_directory, executable)
     return executable
+
+
+def download_repo(repo_name, sha):
+
+    """
+    Download and validate the repository from a specific sha.
+
+    Args:
+        repo_name (str): The repository full name. (e.g iliapolo/pyci)
+        sha (str): The sha of the commit to download.
+
+    Raises:
+        exceptions.NotPythonProjectException: Raised when the repository does not contain
+            a setup.py file.
+    """
+
+    repo_base_name = '/'.join(repo_name.split('/')[1:])
+
+    url = 'https://github.com/{0}/archive/{1}.zip'.format(repo_name, sha)
+    archive = download(url)
+    repo_dir = unzip(archive=archive)
+
+    repo_dir = os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, sha))
+
+    setup_py_file = os.path.join(repo_dir, 'setup.py')
+
+    try:
+        validate_file_exists(setup_py_file)
+    except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
+        raise exceptions.NotPythonProjectException(repo=repo_name, cause=str(e), sha=sha)
+
+    return repo_dir

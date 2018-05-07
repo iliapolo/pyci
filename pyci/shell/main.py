@@ -19,12 +19,15 @@ import logging
 import sys
 
 import click
+import os
 
 from pyci.api import ci
 from pyci.api import logger
+from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
+from pyci.api.runner import LocalCommandRunner
 from pyci.shell import REPO_HELP
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
@@ -113,7 +116,8 @@ def pack(ctx, repo, sha, path):
 
     """
 
-    repo = release.detect_repo(ctx.parent.ci, repo)
+    if not path:
+        repo = release.detect_repo(ctx.parent.ci, repo)
 
     if sha and path:
         raise click.ClickException("Use either --sha or --path, not both")

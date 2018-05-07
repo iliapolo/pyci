@@ -27,10 +27,10 @@ from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
-from pyci.shell import BRANCH_HELP
-from pyci.shell import REPO_HELP
+from pyci.shell import BRANCH_HELP, is_binary
 from pyci.shell import MASTER_BRANCH_HELP
 from pyci.shell import RELEASE_BRANCH_HELP
+from pyci.shell import REPO_HELP
 from pyci.shell import handle_exceptions, secrets
 from pyci.shell.subcommands import github
 from pyci.shell.subcommands import pack
@@ -100,6 +100,15 @@ def release(ctx,
     branch_name = branch_name or (ci.branch if ci else None)
 
     repo = detect_repo(ctx.parent.ci, repo)
+
+    if not no_binary and is_binary():
+        error = click.ClickException('Creating a binary package is not supported when '
+                                     'running from within a binary')
+        error.possible_solutions = [
+            'Use --no-binary to skip creating the binary package',
+            'Run the command after installing pyci as a wheel (pip install pyci)'
+        ]
+        raise error
 
     try:
 

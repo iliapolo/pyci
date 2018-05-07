@@ -21,6 +21,7 @@ import re
 from click.testing import CliRunner
 
 from pyci.api import logger
+from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app
 
 log = logger.get_logger(__name__)
@@ -32,8 +33,17 @@ class Runner(object):
     def __init__(self):
         super(Runner, self).__init__()
         self._click_runner = CliRunner()
+        self._local_runner = LocalCommandRunner()
 
     def run(self, command, catch_exceptions=False):
+
+        executable_path = os.environ.get('PYCI_EXECUTABLE_PATH')
+        if executable_path:
+            return self._run_executable(executable_path, command, catch_exceptions)
+        else:
+            return self._run_source(command, catch_exceptions)
+
+    def _run_source(self, command, catch_exceptions):
 
         args = split(command)
 
@@ -45,6 +55,11 @@ class Runner(object):
             raise SystemExit(result.output)  # pragma: no cover
 
         return result
+
+    def _run_executable(self, executable_path, command, catch_exceptions):
+
+        return self._local_runner.run('{} {}'.format(executable_path, command),
+                                      exit_on_failure=not catch_exceptions)
 
 
 # take from https://stackoverflow.com/questions/33560364/python-windows-parsing-command-

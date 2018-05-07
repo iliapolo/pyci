@@ -66,6 +66,14 @@ def build_info(exception):
     return info
 
 
+def is_binary():
+    try:
+        getattr(sys, '_MEIPASS')
+        return True
+    except AttributeError:
+        return False
+
+
 BRANCH_HELP = 'The name of the branch you want to release. The defaulting heuristics ' \
                       'are as follows: ' \
                       '1) The branch the build was triggered on. ' \

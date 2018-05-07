@@ -20,13 +20,9 @@ import shutil
 import tempfile
 import time
 
-# noinspection PyPackageRequirements
 import pytest
-# noinspection PyPackageRequirements
 from github import Github
-# noinspection PyPackageRequirements
 from mock import MagicMock
-# noinspection PyPackageRequirements
 from testfixtures import LogCapture
 
 import pyci
@@ -43,7 +39,10 @@ from pyci.tests.shell import Runner
 log = logger.get_logger(__name__)
 
 
+logger.setup_loggers(logging.DEBUG)
+
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
+PATCHED_FIXTURES = ['patched_pack', 'patched_pypi', 'patched_github', 'capture', 'mocker']
 
 
 @pytest.fixture(name='patched_pack')
@@ -221,7 +220,7 @@ def _pypi_packager(temp_dir):
         packager.clean()
 
 
-@pytest.fixture(name='capture', autouse=True)
+@pytest.fixture(name='capture')
 def _capture():
 
     from pyci.shell.subcommands import github
@@ -271,66 +270,59 @@ def _isolated():
         utils.rmf(t)
 
 
-# @pytest.fixture(autouse=False)
-# def prepare(temp_dir, runner):
-#
-#     package_type = os.environ.get('PACKAGE_TYPE', 'source')
-#
-#     packager = Packager.create(path='')
-#
-#     if package_type == 'wheel':
-#
-#         # uninstall the editable version and install the wheel
-#         runner.run('pip uninstall -y py-ci')
-#         wheel_path = packager.wheel(target_dir=temp_dir)
-#         runner.run('pip install {}'.format(wheel_path))
-#
-#     if package_type == 'binary':
-#
-#         # uninstall the editable version and install the wheel
-#         runner.run('pip uninstall -y py-ci')
-#         binary_path = packager.binary(target_dir=temp_dir)
-#
-#         os.environ['BINARY_PATH'] = binary_path
+@pytest.fixture(name='skip')
+def _skip(request):
+
+    def __skip(reason):
+        pytest.skip('[{}] {}'.format(request.node.location, reason))
+
+    system = platform.system().lower()
+    provider = ci.detect()
+    fixtures = request.node.fixturenames
+
+    test_package = os.environ.get('PYCI_TEST_PACKAGE', 'source')
+
+    if test_package != 'source' and any(patch in fixtures for patch in PATCHED_FIXTURES):
+        __skip('Tests using patched objects should only run in process')
+
+    if test_package == 'binary' and 'api' in request.fspath.strpath:
+        __skip('Api tests should not run on the binary package')
+
+    if test_package == 'wheel' and 'api' in request.fspath.strpath:
+        __skip('Api tests should not run on the wheel package')
+
+    if hasattr(request.node.function, 'binary') and test_package != 'binary':
+        __skip('This test should only run on the binary package')
+
+    if hasattr(request.node.function, 'linux') and system == 'windows':
+        __skip('This test should not run on windows')
+
+    if hasattr(request.node.function, 'wet') and system != 'darwin':
+        __skip('Wet tests should only run on the Darwin build')
+
+    if hasattr(request.node.function, 'wet') and provider and provider.name != ci.TRAVIS:
+        __skip('Wet tests should only run on Travis-CI')
+
+    if hasattr(request.node.function, 'wet') and provider and not provider.pull_request:
+        __skip('Wet tests should only run on the PR build')
 
 
 @pytest.fixture(name='cleanup', autouse=True)
-def _cleanup(request, repo):
-
-    system = platform.system().lower()
-
-    if system == 'windows' and hasattr(request.node.function, 'linux'):
-        pytest.skip('This test should not run on windows')
-
-    provider = ci.detect()
+def _cleanup(request, repo, skip):
 
     current_commit = None
     wet = None
 
     try:
         wet = getattr(request.node.function, 'wet')
-
-        if system != 'darwin':
-            pytest.skip('Wet tests should only run on the Darwin build')
-
-        if provider.name != ci.TRAVIS:
-            pytest.skip('Wet tests should only run on Travis-CI')
-
-        if not provider.pull_request:
-            pytest.skip('Wet tests should only run on the PR build')
-
         current_commit = repo.get_commit(sha='release')
     except AttributeError:
         pass
 
     try:
-
         yield
-
     finally:
-
         if wet:
-
             _reset_repo(current_commit, repo, wet)
 
 

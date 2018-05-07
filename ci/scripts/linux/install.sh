@@ -45,9 +45,6 @@ if [ ${os} == "Darwin" ] && [ ! -z ${TRAVIS_BRANCH} ]; then
     install_python_on_mac
 fi
 
-
-env
-
 if [ -z ${VIRTUAL_ENV} ]; then
 
     pip list
@@ -63,11 +60,13 @@ if [ -z ${VIRTUAL_ENV} ]; then
 
 fi
 
-echo "[install] Installing test requirements"
+echo "[install] Installing test dependencies"
 pip install -r ${DIR}/../../../test-requirements.txt
 
 echo "[install] Installing dependencies"
-pip install https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip
+pip install -r ${DIR}/../../../requirements.txt
+
+echo "[install] Installing package"
 pip install -e ${DIR}/../../../.
 
 echo "[install] Done!"

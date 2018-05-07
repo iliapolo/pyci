@@ -29,17 +29,41 @@ from pyci.tests.conftest import REPO_UNDER_TEST
 @pytest.mark.wet
 def test_release(pyci, repo):
 
-    pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-             '--binary-entrypoint {}'
-             .format(REPO_UNDER_TEST, os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')))
+    release_options = '--pypi-test --binary-entrypoint {}'.format(
+        os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
+
+    test_package = os.environ.get('PYCI_TEST_PACKAGE', 'source')
+
+    if test_package == 'binary':
+        # we currently do not support creating binaries when running from within
+        # a binary bundle.
+        release_options = '--no-binary {}'.format(release_options)
+
+    pyci.run('--debug --no-ci release --repo {} --branch-name release {}'
+             .format(REPO_UNDER_TEST, release_options))
 
     github_release = repo.get_release(id='1.0.0')
 
     expected_asset_name = 'pyci-guinea-pig-{}-{}'.format(platform.machine(), platform.system())
 
-    assets = [asset.name for asset in github_release.get_assets()]
+    if test_package != 'binary':
+        assets = [asset.name for asset in github_release.get_assets()]
+        assert expected_asset_name in assets
 
-    assert expected_asset_name in assets
+
+@pytest.mark.binary
+def test_release_binary_from_binary(pyci):
+
+    result = pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
+                      '--binary-entrypoint {}'
+                      .format(REPO_UNDER_TEST,
+                              os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                      catch_exceptions=True)
+
+    expected_output = 'Creating a binary package is not supported when running ' \
+                      'from within a binary'
+
+    assert expected_output in result.std_err
 
 
 def test_release_validation_failed(pyci, capture, mocker):

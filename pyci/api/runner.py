@@ -40,7 +40,7 @@ class LocalCommandRunner(object):
             'host': host
         }
 
-    def run(self, command, exit_on_failure=True, cwd=None, execution_env=None):
+    def run(self, command, exit_on_failure=True, cwd=None, execution_env=None, pipe=True):
 
         """
         Runs the specified command.
@@ -82,8 +82,8 @@ class LocalCommandRunner(object):
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
         p = subprocess.Popen(args=popen_args,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE if pipe else None,
+                             stderr=subprocess.PIPE if pipe else None,
                              cwd=cwd,
                              env=command_env)
         out, err = p.communicate()

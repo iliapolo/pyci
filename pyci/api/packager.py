@@ -19,7 +19,6 @@ import copy
 import os
 import platform
 import shutil
-import sys
 import tempfile
 
 from boltons.cacheutils import cachedproperty
@@ -27,7 +26,6 @@ from boltons.cacheutils import cachedproperty
 from pyci.api import logger, exceptions
 from pyci.api import utils
 from pyci.api.runner import LocalCommandRunner
-from pyci.api.utils import unzip, download
 
 log = logger.get_logger(__name__)
 
@@ -83,7 +81,7 @@ class Packager(object):
 
         This method will create a self-contained, platform dependent, executable file. The
         executable will include a full copy of the current python version, meaning you will be
-        able to run this executable even on environments that dont have python installed.
+        able to run this executable even on environments that don't have python installed.
 
         Under the hood, this uses the PyInstaller project.
 
@@ -137,13 +135,17 @@ class Packager(object):
                                                              entrypoint=entrypoint)
 
             self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
-            result = self._runner.run('{} --onefile --distpath {} '
-                                      '--workpath {} --specpath {} {}'
-                                      .format(utils.get_executable('pyinstaller'),
-                                              dist_dir,
-                                              build_dir,
-                                              temp_dir,
-                                              script))
+            result = self._runner.run(
+                '{} '
+                '--onefile '                
+                '--distpath {} '
+                '--workpath {} '
+                '--specpath {} {}'
+                .format(utils.get_executable('pyinstaller'),
+                        dist_dir,
+                        build_dir,
+                        temp_dir,
+                        script))
 
             self._debug('Finished running pyinstaller', entrypoint=entrypoint,
                         destination=destination)
@@ -193,7 +195,7 @@ class Packager(object):
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
             command = '{} setup.py bdist_wheel --bdist-dir {} --dist-dir {}'\
-                      .format(sys.executable, bdist_dir, dist_dir)
+                      .format(utils.get_executable('python'), bdist_dir, dist_dir)
 
             if universal:
                 command = '{0} --universal'.format(command)
@@ -239,29 +241,14 @@ class Packager(object):
             self._debug('Successfully copied repo.', repo_copy=repo_copy)
             return repo_copy
 
-        repo_base_name = '/'.join(self._repo.split('/')[1:])
-
-        self._debug('Fetching repository...')
-        url = 'https://github.com/{0}/archive/{1}.zip'.format(self._repo, self._sha)
-        archive = download(url)
-        repo_dir = unzip(archive=archive)
-        self._debug('Successfully fetched repository.', repo_dir=repo_dir)
-
-        repo_dir = os.path.join(repo_dir, '{0}-{1}'.format(repo_base_name, self._sha))
-
-        setup_py_file = os.path.join(repo_dir, 'setup.py')
-
-        try:
-            utils.validate_file_exists(setup_py_file)
-        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
-            raise exceptions.NotPythonProjectException(repo=self._repo, cause=str(e), sha=self._sha)
-
+        repo_dir = utils.download_repo(self._repo, self._sha)
         return repo_dir
 
     @cachedproperty
     def _default_name(self):
         setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-        return self._runner.run('{} {} --name'.format(sys.executable, setup_py_file)).std_out
+        return self._runner.run('{} {} --name'.format(utils.get_executable('python'),
+                                                      setup_py_file)).std_out
 
     @cachedproperty
     def _default_entrypoint(self):
