@@ -42,8 +42,6 @@ rm -rf .coverage
 command="py.test --cov-append -c ${DIR}/../../config/pytest.ini --cov-config=${DIR}/../../config/coverage.ini --cov=pyci ${DIR}/../../../pyci/tests"
 
 echo "[test] Running source tests"
-pip uninstall -y py-ci
-pip install ${DIR}/../../../.
 PYCI_TEST_PACKAGE=source ${command}
 
 echo "[test] Running wheel tests"
@@ -55,6 +53,6 @@ echo "[test] Running binary tests"
 pip uninstall -y py-ci
 PYCI_TEST_PACKAGE=binary PYCI_EXECUTABLE_PATH=${binary_path} ${command}
 
-pip install -e ${DIR}/../../../.
+pip install ${DIR}/../../../.
 
 echo "[test] Done!"

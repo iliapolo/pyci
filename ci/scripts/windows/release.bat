@@ -4,7 +4,6 @@ set DIR=%PATH:~0,-1%
 echo "[release] Starting script"
 
 echo "[release] Running release"
-dir %PYTHON%\\Scripts
 %PYTHON%\\Scripts\\pyci.exe --debug release --pypi-test || goto :error
 
 echo "[release] Done!"

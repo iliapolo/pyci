@@ -12,8 +12,6 @@ echo "[install ]Installing dependencies"
 echo "[install ]Installing package"
 %PYTHON%\\python.exe -m pip install %DIR%\\..\\..\\..\\. || goto :error
 
-dir %PYTHON%\\Scripts
-
 echo "[install] Done!"
 
 exit /b 0

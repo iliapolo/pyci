@@ -63,6 +63,6 @@ echo "[install] Installing dependencies"
 pip install -r ${DIR}/../../../requirements.txt
 
 echo "[install] Installing package"
-pip install -e ${DIR}/../../../.
+pip install ${DIR}/../../../.
 
 echo "[install] Done!"
