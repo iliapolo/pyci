@@ -231,7 +231,7 @@ def _upload_binary(binary_entrypoint, gh, package_directory, packager, github_re
 
 def detect_repo(ci_provider, repo):
 
-    repo = repo or (ci_provider.repo if ci_provider else utils.get_local_repo())
+    repo = repo or (ci_provider.repo if ci_provider else None)
     if repo is None:
         error = click.ClickException(message='Failed detecting repository name')
         error.possible_solutions = [

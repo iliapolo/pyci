@@ -15,46 +15,13 @@
 #
 #############################################################################
 
-import os
 import tempfile
 
-# noinspection PyPackageRequirements
 import pytest
 
 import pyci
 import pyci.api
 from pyci.api import utils, exceptions
-
-
-@pytest.mark.parametrize("url,expected", [
-    ("git@github.com:iliapolo/pyci.git", "iliapolo/pyci"),
-    ("https://github.com/iliapolo/pyci.git", "iliapolo/pyci"),
-    ("not-a-git-url", None),
-])
-def test_parse_repo(url, expected):
-
-    actual = utils.extract_repo(url)
-
-    assert expected == actual
-
-
-@pytest.mark.linux
-@pytest.mark.parametrize("cwd,expected", [
-    (os.path.abspath(os.path.join(os.path.abspath(pyci.__file__), os.pardir, os.pardir)),
-     'iliapolo/pyci'),
-    (tempfile.mkdtemp(), None)
-])
-def test_get_local_repo(cwd, expected):
-
-    prev_cwd = os.getcwd()
-
-    try:
-        os.chdir(cwd)
-        actual = utils.get_local_repo()
-
-        assert expected == actual
-    finally:
-        os.chdir(prev_cwd)
 
 
 @pytest.mark.parametrize("setup_py,version,expected", [

@@ -28,7 +28,6 @@ import zipfile
 import requests
 
 from pyci.api import exceptions
-from pyci.api.runner import LocalCommandRunner
 
 
 def extract_link(commit_message):
@@ -84,41 +83,6 @@ def rmf(directory):
         func(path)
 
     shutil.rmtree(directory, onerror=remove_read_only)
-
-
-def get_local_repo():
-
-    """
-    Detect the git repository of the current directory.
-
-    Returns:
-        str: The repository full name. (e.g iliapolo/pyci).
-    """
-
-    runner = LocalCommandRunner()
-    try:
-        result = runner.run('git remote -v')
-        return extract_repo(result.std_out.splitlines()[0])
-    except exceptions.CommandExecutionException:
-        return None
-
-
-def extract_repo(git_url):
-
-    """
-    Extracts the repository name from a git URL.
-
-    Args:
-        git_url (str): The git remote url.
-
-    Returns:
-        str: The full repository name or None if not found.
-    """
-
-    try:
-        return git_url.split(' ')[0].split('.git')[0].split('.com')[1][1:]
-    except IndexError:
-        return None
 
 
 def validate_file_exists(path):

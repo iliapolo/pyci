@@ -55,65 +55,6 @@ def _create_commit(patched_github, request, message=None):
         branch='release')
 
 
-@pytest.mark.linux
-def test_no_repo(pyci, patched_github, capture):
-
-    # the 'validate-commit' part isn't important, it could have been any other command.
-    # we just want main.py to run the 'github' function.
-    pyci.run('--no-ci github validate-commit', catch_exceptions=True)
-
-    expected_output = 'Failed detecting repository name'
-
-    expected_solution1 = 'Provide it using the --repo option'
-
-    expected_solution2 = 'Run the command from the project root directory, the repository ' \
-                         'name will be detected using git commands'
-
-    assert expected_output in capture.records[1].msg
-    assert expected_solution1 in capture.records[1].msg
-    assert expected_solution2 in capture.records[1].msg
-    patched_github.gh.validate_commit.assert_not_called()
-
-
-def test_release_branch_failed(patched_github, capture):
-
-    exception = ApiException('error')
-
-    patched_github.gh.generate_changelog = MagicMock(side_effect=exception)
-
-    patched_github.run('release --branch-name release', catch_exceptions=True)
-
-    expected_output = 'Failed releasing: error'
-
-    assert expected_output == capture.records[7].msg
-
-
-def test_release_validation_failed(patched_github, capture):
-
-    exception = ReleaseValidationFailedException('error')
-
-    patched_github.gh.generate_changelog = MagicMock(side_effect=exception)
-
-    patched_github.run('release --branch-name release', catch_exceptions=True)
-
-    expected_output = 'Not releasing: error'
-
-    assert expected_output == capture.records[6].msg
-
-
-@pytest.mark.wet(issues=False)
-def test_release_branch_cannot_determine_next_version(github, capture, request):
-
-    expected_cause = 'Failed releasing: Cannot determine what the next version number should be'
-
-    _create_release(github, request, '6536eefd0ec33141cc5c14be50a34631e8d79af8', '0.0.1')
-    _create_commit(github, request)
-
-    github.run('release --branch-name release --force', catch_exceptions=True)
-
-    assert expected_cause in capture.records[3].msg
-
-
 @pytest.mark.wet
 def test_release_branch(github):
 
@@ -153,6 +94,46 @@ def test_release_branch(github):
     assert release_tag_sha == master_branch_sha
 
     assert expected_message in github_release.body
+
+
+def test_release_branch_cannot_determine_next_version(patched_github, capture):
+
+    expected_cause = 'Failed releasing: Cannot determine what the next version number should be'
+
+    changelog = MagicMock()
+    changelog.next_version = None
+
+    patched_github.gh.generate_changelog = MagicMock(return_value=changelog)
+
+    patched_github.run('release --branch-name release --force', catch_exceptions=True)
+
+    assert expected_cause in capture.records[3].msg
+
+
+def test_release_branch_failed(patched_github, capture):
+
+    exception = ApiException('error')
+
+    patched_github.gh.generate_changelog = MagicMock(side_effect=exception)
+
+    patched_github.run('release --branch-name release', catch_exceptions=True)
+
+    expected_output = 'Failed releasing: error'
+
+    assert expected_output == capture.records[7].msg
+
+
+def test_release_validation_failed(patched_github, capture):
+
+    exception = ReleaseValidationFailedException('error')
+
+    patched_github.gh.generate_changelog = MagicMock(side_effect=exception)
+
+    patched_github.run('release --branch-name release', catch_exceptions=True)
+
+    expected_output = 'Not releasing: error'
+
+    assert expected_output == capture.records[6].msg
 
 
 def test_validate_build(pyci, capture, mocker):

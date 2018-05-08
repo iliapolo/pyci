@@ -13,6 +13,7 @@
 #   * limitations under the License.
 #
 #############################################################################
+
 import logging
 import os
 import platform
@@ -26,7 +27,6 @@ from github import Github
 from mock import MagicMock
 from testfixtures import LogCapture
 
-import pyci
 from pyci import shell
 from pyci.api import logger, ci
 from pyci.api import utils
@@ -39,142 +39,62 @@ from pyci.tests.shell import Runner
 
 log = logger.get_logger(__name__)
 
+logger.setup_loggers(logging.DEBUG)
+
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
-PATCHED_FIXTURES = ['patched_pack', 'patched_pypi', 'patched_github', 'capture', 'mocker']
-
-
-@pytest.fixture(name='patched_pack')
-def _patched_pack(temp_dir, mocker):
-
-    packager = MagicMock()
-
-    mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock(return_value=packager))
-
-    # pylint: disable=too-few-public-methods
-    class PackSubCommand(Runner):
-
-        def __init__(self, _packager):
-            super(PackSubCommand, self).__init__()
-            self.packager = _packager
-
-        def run(self, command, catch_exceptions=False):
-
-            command = 'pack --sha sha --repo {} {}'.format(REPO_UNDER_TEST, command)
-
-            return super(PackSubCommand, self).run(command, catch_exceptions)
-
-    cwd = os.getcwd()
-
-    try:
-        os.chdir(temp_dir)
-        yield PackSubCommand(packager)
-    finally:
-        os.chdir(cwd)
-
-
-@pytest.fixture(name='patched_pypi')
-def _patched_pypi(temp_dir, mocker):
-
-    pypi = MagicMock()
-
-    mocker.patch(target='pyci.api.pypi.PyPI.create', new=MagicMock(return_value=pypi))
-
-    # pylint: disable=too-few-public-methods
-    class PyPISubCommand(Runner):
-
-        def __init__(self, _pypi):
-            super(PyPISubCommand, self).__init__()
-            self.pypi = _pypi
-
-        def run(self, command, catch_exceptions=False):
-
-            command = 'pypi {}'.format(command)
-
-            return super(PyPISubCommand, self).run(command, catch_exceptions)
-
-    cwd = os.getcwd()
-
-    try:
-        os.chdir(temp_dir)
-        yield PyPISubCommand(pypi)
-    finally:
-        os.chdir(cwd)
-
-
-@pytest.fixture(name='patched_github')
-def _patched_github(temp_dir, mocker):
-
-    gh = MagicMock()
-
-    mocker.patch(target='pyci.api.gh.GitHubRepository.create', new=MagicMock(return_value=gh))
-
-    # pylint: disable=too-few-public-methods
-    class GithubSubCommand(Runner):
-
-        def __init__(self, _gh):
-            super(GithubSubCommand, self).__init__()
-            self.gh = _gh
-
-        def run(self, command, catch_exceptions=False):
-
-            command = '--debug --no-ci github --repo {} {}'.format(REPO_UNDER_TEST, command)
-
-            return super(GithubSubCommand, self).run(command, catch_exceptions)
-
-    cwd = os.getcwd()
-
-    try:
-        os.chdir(temp_dir)
-        yield GithubSubCommand(gh)
-    finally:
-        os.chdir(cwd)
-
-
-@pytest.fixture(name='github')
-def _github(request, temp_dir, gh):
-
-    # pylint: disable=too-few-public-methods
-    class GithubSubCommand(Runner):
-
-        def __init__(self, _gh):
-            super(GithubSubCommand, self).__init__()
-            self.gh = _gh
-
-        def run(self, command, catch_exceptions=False):
-
-            command = '--debug --no-ci github --repo {} {}'.format(REPO_UNDER_TEST, command)
-
-            return super(GithubSubCommand, self).run(command, catch_exceptions)
-
-    cwd = os.getcwd()
-
-    try:
-        os.chdir(temp_dir)
-        with _github_cleanup(request, gh.repo):
-            yield GithubSubCommand(gh)
-    finally:
-        os.chdir(cwd)
 
 
 @pytest.fixture(name='pyci')
-def _pyci(request, repo, temp_dir):
+def _pyci(request, repo, repo_path):
 
-    cwd = os.getcwd()
-
-    try:
-        os.chdir(temp_dir)
-        with _github_cleanup(request, repo):
-            yield Runner()
-    finally:
-        os.chdir(cwd)
+    with _github_cleanup(request, repo):
+        yield Runner(repo_path)
 
 
-@pytest.fixture(name='pypi')
-def _pypi():
+@pytest.fixture(name='release')
+def _release(request, pyci, gh):
 
-    yield PyPI.create(username=secrets.twine_username(True),
-                      password=secrets.twine_password(True),
-                      test=True)
+    # pylint: disable=too-few-public-methods
+    class ReleaseCommand(object):
+
+        def __init__(self):
+            self.gh = gh
+
+        @staticmethod
+        def run(command, binary=False, pipe=False, catch_exceptions=False):
+
+            command = '--debug --no-ci release --repo {} {}'.format(REPO_UNDER_TEST, command)
+
+            return pyci.run(command=command,
+                            binary=binary,
+                            pipe=pipe,
+                            catch_exceptions=catch_exceptions)
+
+    with _github_cleanup(request, gh.repo):
+        yield ReleaseCommand()
+
+
+@pytest.fixture(name='github')
+def _github(request, pyci, gh):
+
+    # pylint: disable=too-few-public-methods
+    class GithubSubCommand(object):
+
+        def __init__(self):
+            self.gh = gh
+
+        @staticmethod
+        def run(command, binary=False, pipe=False, catch_exceptions=False):
+
+            command = '--debug --no-ci github --repo {} {}'.format(REPO_UNDER_TEST, command)
+
+            return pyci.run(command=command,
+                            binary=binary,
+                            pipe=pipe,
+                            catch_exceptions=catch_exceptions)
+
+    with _github_cleanup(request, gh.repo):
+        yield GithubSubCommand()
 
 
 @pytest.fixture(name='gh')
@@ -184,41 +104,6 @@ def _gh(request, repo):
     setattr(repository, 'repo', repo)
     with _github_cleanup(request, repo):
         yield repository
-
-
-@pytest.fixture(name='repo', scope='module')
-def _repo():
-    return Github(secrets.github_access_token(True)).get_repo(REPO_UNDER_TEST)
-
-
-@pytest.fixture(name='packager')
-def _packager():
-
-    local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
-    packager = Packager.create(path=local_repo_path)
-
-    try:
-        yield packager
-    finally:
-        packager.clean()
-
-
-@pytest.fixture(name='pypi_packager')
-def _pypi_packager(temp_dir):
-
-    local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
-
-    dest = os.path.join(temp_dir, 'repo')
-    shutil.copytree(local_repo_path, dest)
-
-    patch_setup_py(dest)
-
-    packager = Packager.create(path=dest)
-
-    try:
-        yield packager
-    finally:
-        packager.clean()
 
 
 @pytest.fixture(name='capture')
@@ -252,24 +137,6 @@ def _temp_dir(request):
         utils.rmf(dir_path)
 
 
-@pytest.fixture(name='runner')
-def _runner():
-
-    yield LocalCommandRunner()
-
-
-@pytest.fixture(name='version')
-def _version(runner):
-
-    setup_py_path = os.path.abspath(os.path.join(pyci.__file__,
-                                                 os.pardir,
-                                                 os.pardir,
-                                                 'setup.py'))
-
-    yield runner.run('{} {} --version'.format(utils.get_executable('python'),
-                                              setup_py_path)).std_out
-
-
 @pytest.fixture(name='skip', autouse=True)
 def _skip(request):
 
@@ -278,21 +145,6 @@ def _skip(request):
 
     system = platform.system().lower()
     provider = ci.detect()
-    fixtures = request.node.fixturenames
-
-    test_package = os.environ.get('PYCI_TEST_PACKAGE', 'source')
-
-    if test_package != 'source' and any(patch in fixtures for patch in PATCHED_FIXTURES):
-        __skip('Tests using patched objects should only run in process')
-
-    if test_package == 'binary' and 'api' in request.fspath.strpath:
-        __skip('Api tests should not run on the binary package')
-
-    if test_package == 'wheel' and 'api' in request.fspath.strpath:
-        __skip('Api tests should not run on the wheel package')
-
-    if hasattr(request.node.function, 'binary') and test_package != 'binary':
-        __skip('This test should only run on the binary package')
 
     if hasattr(request.node.function, 'linux') and system == 'windows':
         __skip('This test should not run on windows')
@@ -305,6 +157,145 @@ def _skip(request):
 
     if hasattr(request.node.function, 'wet') and provider and not provider.pull_request:
         __skip('Wet tests should only run on the PR build')
+
+
+@pytest.fixture(name='patched_pack')
+def _patched_pack(mocker, pyci):
+
+    packager = MagicMock()
+
+    mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock(return_value=packager))
+
+    # pylint: disable=too-few-public-methods
+    class PackSubCommand(object):
+
+        def __init__(self):
+            self.packager = packager
+
+        @staticmethod
+        def run(command, binary=False, pipe=False, catch_exceptions=False):
+
+            command = 'pack --sha sha --repo {} {}'.format(REPO_UNDER_TEST, command)
+
+            return pyci.run(command=command,
+                            binary=binary,
+                            pipe=pipe,
+                            catch_exceptions=catch_exceptions)
+
+    yield PackSubCommand()
+
+
+@pytest.fixture(name='patched_pypi')
+def _patched_pypi(mocker, pyci):
+
+    pypi = MagicMock()
+
+    mocker.patch(target='pyci.api.pypi.PyPI.create', new=MagicMock(return_value=pypi))
+
+    # pylint: disable=too-few-public-methods
+    class PyPISubCommand(object):
+
+        def __init__(self):
+            self.pypi = pypi
+
+        @staticmethod
+        def run(command, binary=False, pipe=False, catch_exceptions=False):
+
+            command = 'pypi {}'.format(command)
+
+            return pyci.run(command=command,
+                            binary=binary,
+                            pipe=pipe,
+                            catch_exceptions=catch_exceptions)
+
+    yield PyPISubCommand()
+
+
+@pytest.fixture(name='patched_github')
+def _patched_github(mocker, pyci):
+
+    gh = MagicMock()
+
+    mocker.patch(target='pyci.api.gh.GitHubRepository.create', new=MagicMock(return_value=gh))
+
+    # pylint: disable=too-few-public-methods
+    class GithubSubCommand(object):
+
+        def __init__(self):
+            self.gh = gh
+
+        @staticmethod
+        def run(command, binary=False, pipe=False, catch_exceptions=False):
+
+            command = '--debug --no-ci github --repo {} {}'.format(REPO_UNDER_TEST, command)
+
+            return pyci.run(command=command,
+                            binary=binary,
+                            pipe=pipe,
+                            catch_exceptions=catch_exceptions)
+
+    yield GithubSubCommand()
+
+
+@pytest.fixture(name='pypi', scope='session')
+def _pypi():
+
+    yield PyPI.create(username=secrets.twine_username(True),
+                      password=secrets.twine_password(True),
+                      test=True)
+
+
+@pytest.fixture(name='repo', scope='session')
+def _repo():
+    return Github(secrets.github_access_token(True)).get_repo(REPO_UNDER_TEST)
+
+
+@pytest.fixture(name='packager', scope='session')
+def _packager(repo_path):
+
+    packager = Packager.create(path=repo_path)
+
+    try:
+        yield packager
+    finally:
+        packager.clean()
+
+
+@pytest.fixture(name='pypi_packager', scope='session')
+def _pypi_packager(temp_dir, repo_path):
+
+    dest = os.path.join(temp_dir, 'repo')
+    shutil.copytree(repo_path, dest)
+
+    patch_setup_py(dest)
+
+    packager = Packager.create(path=dest)
+
+    try:
+        yield packager
+    finally:
+        packager.clean()
+
+
+@pytest.fixture(name='runner', scope='session')
+def _runner():
+
+    yield LocalCommandRunner()
+
+
+@pytest.fixture(name='version', scope='session')
+def _version(runner, repo_path):
+
+    setup_py_path = os.path.abspath(os.path.join(repo_path, 'setup.py'))
+
+    yield runner.run('{} {} --version'.format(utils.get_executable('python'),
+                                              setup_py_path)).std_out
+
+
+@pytest.fixture(name='repo_path', scope='session')
+def _repo_path():
+    import pyci
+    return os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
 
 
 @contextlib.contextmanager

@@ -17,10 +17,13 @@
 import os
 import platform
 import re
+import tempfile
 
 from click.testing import CliRunner
+from boltons.cacheutils import cachedproperty
 
 from pyci.api import logger
+from pyci.api.packager import Packager
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app
 
@@ -30,23 +33,25 @@ log = logger.get_logger(__name__)
 # pylint: disable=too-few-public-methods
 class Runner(object):
 
-    def __init__(self):
-        super(Runner, self).__init__()
+    def __init__(self, repo_path):
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
+        self._packager = Packager.create(path=repo_path)
 
-    def run(self, command, catch_exceptions=False):
+    def run(self, command, binary=False, pipe=False, catch_exceptions=False):
 
-        executable_path = os.environ.get('PYCI_EXECUTABLE_PATH')
-        if executable_path:
-            return self._run_executable(executable_path, command, catch_exceptions)
-        return self._run_source(command, catch_exceptions)
+        if binary:
+            return self._run_binary(command=command,
+                                    pipe=pipe,
+                                    catch_exceptions=catch_exceptions)
+        return self._run_source(command=command,
+                                catch_exceptions=catch_exceptions)
 
-    def _run_source(self, command, catch_exceptions):
+    def _run_source(self, command, catch_exceptions=False):
 
         args = split(command)
 
-        log.info('Invoking command: {}. [cwd={}, args={}]'.format(command, os.getcwd(), args))
+        log.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
 
         result = self._click_runner.invoke(app, args, catch_exceptions=catch_exceptions)
 
@@ -55,10 +60,17 @@ class Runner(object):
 
         return result
 
-    def _run_executable(self, executable_path, command, catch_exceptions):
+    def _run_binary(self, command, pipe=False, catch_exceptions=False):
 
-        return self._local_runner.run('{} {}'.format(executable_path, command),
-                                      exit_on_failure=not catch_exceptions)
+        command = '{} {}'.format(self._binary_path, command)
+
+        log.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
+
+        return self._local_runner.run(command, exit_on_failure=not catch_exceptions, pipe=pipe)
+
+    @cachedproperty
+    def _binary_path(self):
+        return self._packager.binary(target_dir=tempfile.mkdtemp())
 
 
 # take from https://stackoverflow.com/questions/33560364/python-windows-parsing-command-

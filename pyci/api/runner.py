@@ -58,6 +58,7 @@ class LocalCommandRunner(object):
             cwd (str): The directory to execute the command in.
             execution_env (dict): Additional environment for the execution. (on top of the
                 current one)
+            pipe (bool): True to pipe stdout and stderr, False to print in real time.
 
         Raises:
             exceptions.CommandExecutionException: Raised when the execution failed and the

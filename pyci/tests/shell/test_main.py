@@ -32,3 +32,16 @@ def test_pack_not_sha_not_path(pyci, capture):
     expected_output = 'Must specify either --sha or --path'
 
     assert expected_output == capture.records[1].msg
+
+
+def test_github_no_repo(pyci, patched_github, capture):
+
+    pyci.run('--no-ci github validate-commit', catch_exceptions=True)
+
+    expected_output = 'Failed detecting repository name'
+
+    expected_solution1 = 'Provide it using the --repo option'
+
+    assert expected_output in capture.records[1].msg
+    assert expected_solution1 in capture.records[1].msg
+    patched_github.gh.validate_commit.assert_not_called()
