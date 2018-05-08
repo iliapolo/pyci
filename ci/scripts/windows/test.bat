@@ -12,7 +12,7 @@ echo "[test] Running source tests"
 %PYTHON%\\python.exe -m pip uninstall -y py-ci || goto :error
 %PYTHON%\\python.exe -m pip install %DIR%\\..\\..\\..\\. || goto :error
 set PYCI_TEST_PACKAGE=source
-%PYTHON%\\Scripts\\py.test.exe --cov-append -c %DIR%\\..\\..\\config\\pytest.ini --cov-config=%DIR%\\..\\..\\config\\coverage.ini --cov=pyci pyci/tests || goto :error
+rem %PYTHON%\\Scripts\\py.test.exe --cov-append -c %DIR%\\..\\..\\config\\pytest.ini --cov-config=%DIR%\\..\\..\\config\\coverage.ini --cov=pyci pyci/tests || goto :error
 
 rem echo "[test] Running wheel tests"
 rem %PYTHON%\\python.exe -m pip uninstall -y py-ci || goto :error
