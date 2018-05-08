@@ -299,7 +299,6 @@ def test_generate_changelog_branch(patched_github, capture, temp_dir):
     patched_github.gh.generate_changelog.assert_called_once_with(branch='branch', sha=None)
 
 
-@pytest.mark.usefixtures("isolated")
 def test_generate_changelog_no_target(patched_github, capture):
 
     destination = os.path.join(os.getcwd(), 'sha-changelog.md')

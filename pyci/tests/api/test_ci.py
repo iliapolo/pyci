@@ -15,7 +15,6 @@
 #
 #############################################################################
 
-# noinspection PyPackageRequirements
 import pytest
 from mock import MagicMock
 
@@ -118,6 +117,7 @@ def test_validate_build_pull_request():
     ci_system.pull_request = 5
 
     with pytest.raises(exceptions.BuildIsAPullRequestException):
+        # noinspection PyTypeChecker
         ci.validate_build(ci_provider=ci_system, release_branch='release')
 
 
@@ -129,6 +129,7 @@ def test_validate_build_tag():
     ci_system.tag = 'tag'
 
     with pytest.raises(exceptions.BuildIsATagException):
+        # noinspection PyTypeChecker
         ci.validate_build(ci_provider=ci_system, release_branch='release')
 
 
@@ -141,6 +142,7 @@ def test_validate_build_branch():
     ci_system.branch = 'branch'
 
     with pytest.raises(exceptions.BuildBranchDiffersFromReleaseBranchException):
+        # noinspection PyTypeChecker
         ci.validate_build(ci_provider=ci_system, release_branch='release')
 
 
@@ -152,4 +154,5 @@ def test_validate():
     ci_system.tag = None
     ci_system.branch = 'release'
 
+    # noinspection PyTypeChecker
     ci.validate_build(ci_provider=ci_system, release_branch='release')

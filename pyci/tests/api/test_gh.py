@@ -14,27 +14,17 @@
 #   * limitations under the License.
 #
 #############################################################################
-import logging
+
 import os
 
-# noinspection PyPackageRequirements
 import pytest
-# noinspection PyPackageRequirements
 from github import UnknownObjectException, GithubException, GitRelease
 
 from pyci.api import exceptions
-from pyci.api import logger
 from pyci.api import utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.model import Changelog, ChangelogIssue
 from pyci.shell import secrets
-
-
-log = logger.get_logger(__name__)
-
-
-logger.setup_loggers(logging.DEBUG)
-
 
 CURRENT_VERSION = '0.0.1'
 

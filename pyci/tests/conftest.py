@@ -39,9 +39,6 @@ from pyci.tests.shell import Runner
 
 log = logger.get_logger(__name__)
 
-
-logger.setup_loggers(logging.DEBUG)
-
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 PATCHED_FIXTURES = ['patched_pack', 'patched_pypi', 'patched_github', 'capture', 'mocker']
 
@@ -271,19 +268,6 @@ def _version(runner):
 
     yield runner.run('{} {} --version'.format(utils.get_executable('python'),
                                               setup_py_path)).std_out
-
-
-@pytest.fixture(name='isolated')
-def _isolated():
-
-    cwd = os.getcwd()
-    t = tempfile.mkdtemp()
-    os.chdir(t)
-    try:
-        yield t
-    finally:
-        os.chdir(cwd)
-        utils.rmf(t)
 
 
 @pytest.fixture(name='skip', autouse=True)

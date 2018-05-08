@@ -14,17 +14,14 @@
 #   * limitations under the License.
 #
 #############################################################################
-import logging
 import os
 import platform
 
 import pytest
 
-from pyci.api import logger, exceptions
+from pyci.api import exceptions
 from pyci.api.packager import Packager
 from pyci.tests.conftest import REPO_UNDER_TEST
-
-logger.setup_loggers(logging.DEBUG)
 
 
 def test_wheel(packager, temp_dir, version):

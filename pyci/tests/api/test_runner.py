@@ -15,14 +15,9 @@
 #
 #############################################################################
 
-import logging
-
-# noinspection PyPackageRequirements
 import pytest
 
-from pyci.api import logger, exceptions
-
-logger.setup_loggers(logging.DEBUG)
+from pyci.api import exceptions
 
 
 @pytest.mark.linux

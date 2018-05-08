@@ -14,20 +14,16 @@
 #   * limitations under the License.
 #
 #############################################################################
-import logging
 import os
 
-# noinspection PyPackageRequirements
 import pytest
 
-from pyci.api import logger, exceptions
+from pyci.api import exceptions
 from pyci.api import utils
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.shell import secrets
 from pyci.tests.conftest import patch_setup_py, REPO_UNDER_TEST
-
-logger.setup_loggers(logging.DEBUG)
 
 
 def test_upload(pypi_packager, pypi, temp_dir):

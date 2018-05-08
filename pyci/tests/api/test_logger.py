@@ -15,7 +15,6 @@
 #
 #############################################################################
 
-# noinspection PyPackageRequirements
 import pytest
 
 from pyci.api import exceptions

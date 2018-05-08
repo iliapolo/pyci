@@ -15,14 +15,10 @@
 #
 #############################################################################
 
-import logging
-# noinspection PyPackageRequirements
 import pytest
 
-from pyci.api import logger, exceptions
+from pyci.api import exceptions
 from pyci.api.model import Changelog, ChangelogIssue, ChangelogCommit
-
-logger.setup_loggers(logging.DEBUG)
 
 
 class TestChangelogIssue(object):

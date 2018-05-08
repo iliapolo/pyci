@@ -34,7 +34,7 @@ requirements_file = os.path.abspath(os.path.join(__file__, os.pardir, 'requireme
 
 with open(requirements_file) as stream:
     for requirement in stream.read().splitlines():
-        if not 'https' in requirement:
+        if 'https' not in requirement:
             requirements.append(requirement)
 
 
