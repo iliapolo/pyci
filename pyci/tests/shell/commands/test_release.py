@@ -27,91 +27,39 @@ from pyci.tests.conftest import REPO_UNDER_TEST
 
 
 @pytest.mark.wet
-def test_release(pyci, repo):
+@pytest.mark.paremtrize("binary", [True, False])
+def test_release(release, repo, binary):
 
     release_options = '--pypi-test --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
 
-    test_package = os.environ.get('PYCI_TEST_PACKAGE', 'source')
-
-    if test_package == 'binary':
+    if binary:
         # we currently do not support creating binaries when running from within
         # a binary bundle.
         release_options = '--no-binary {}'.format(release_options)
 
-    pyci.run('--debug --no-ci release --repo {} --branch-name release {}'
-             .format(REPO_UNDER_TEST, release_options))
+    release.run('--branch-name release {}'.format(release_options), binary=binary)
 
     github_release = repo.get_release(id='1.0.0')
 
     expected_asset_name = 'pyci-guinea-pig-{}-{}'.format(platform.machine(), platform.system())
 
-    if test_package != 'binary':
+    if not binary:
         assets = [asset.name for asset in github_release.get_assets()]
         assert expected_asset_name in assets
 
 
-@pytest.mark.binary
-def test_release_binary_from_binary(pyci):
-
-    result = pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-                      '--binary-entrypoint {}'
-                      .format(REPO_UNDER_TEST,
-                              os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
-                      catch_exceptions=True)
-
-    expected_output = 'Creating a binary package is not supported when running ' \
-                      'from within a binary'
-
-    assert expected_output in result.std_err
-
-
-def test_release_validation_failed(pyci, capture, mocker):
-
-    exception = exceptions.ReleaseValidationFailedException('error')
-
-    mocker.patch(target='pyci.shell.commands.release.release_internal',
-                 new=MagicMock(side_effect=exception))
-
-    pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-             '--binary-entrypoint {}'
-             .format(REPO_UNDER_TEST, os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
-             catch_exceptions=True)
-
-    expected_output = 'Not releasing: error'
-
-    assert expected_output == capture.records[0].msg
-
-
-def test_release_failed(pyci, capture, mocker):
-
-    exception = exceptions.ApiException('error')
-
-    mocker.patch(target='pyci.shell.commands.release.release_internal',
-                 new=MagicMock(side_effect=exception))
-
-    pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-             '--binary-entrypoint {}'
-             .format(REPO_UNDER_TEST, os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
-             catch_exceptions=True)
-
-    expected_output = 'Failed releasing: error'
-
-    assert expected_output == capture.records[1].msg
-
-
 @pytest.mark.wet
-def test_release_wheel_already_published(pyci, repo, mocker):
+def test_release_wheel_already_published(release, repo, mocker):
 
     exception = exceptions.WheelAlreadyPublishedException(wheel='wheel', url='url')
 
     mocker.patch(target='pyci.shell.subcommands.pypi.upload_internal',
                  new=MagicMock(side_effect=exception))
 
-    pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-             '--binary-entrypoint {}'
-             .format(REPO_UNDER_TEST, os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
-             catch_exceptions=True)
+    release.run('--branch-name release --pypi-test --binary-entrypoint {}'
+                .format(os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                catch_exceptions=True)
 
     github_release = repo.get_release(id='1.0.0')
 
@@ -123,17 +71,16 @@ def test_release_wheel_already_published(pyci, repo, mocker):
 
 
 @pytest.mark.wet
-def test_release_asset_already_published(pyci, repo, mocker):
+def test_release_asset_already_published(release, repo, mocker):
 
     exception = exceptions.AssetAlreadyPublishedException(asset='asset', release='release')
 
     mocker.patch(target='pyci.shell.subcommands.github.upload_asset_internal',
                  new=MagicMock(side_effect=exception))
 
-    pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-             '--binary-entrypoint {}'
-             .format(REPO_UNDER_TEST, os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
-             catch_exceptions=True)
+    release.run('--branch-name release --pypi-test --binary-entrypoint {}'
+                .format(os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                catch_exceptions=True)
 
     github_release = repo.get_release(id='1.0.0')
 
@@ -145,7 +92,7 @@ def test_release_asset_already_published(pyci, repo, mocker):
 
 
 @pytest.mark.wet
-def test_release_default_entrypoint_not_found(pyci, repo, capture, mocker):
+def test_release_default_entrypoint_not_found(release, repo, capture, mocker):
 
     exception = exceptions.DefaultEntrypointNotFoundException(repo='repo', name='name',
                                                               expected_paths=['path'])
@@ -153,10 +100,9 @@ def test_release_default_entrypoint_not_found(pyci, repo, capture, mocker):
     mocker.patch(target='pyci.shell.subcommands.pack.binary_internal',
                  new=MagicMock(side_effect=exception))
 
-    pyci.run('--debug --no-ci release --repo {} --branch-name release --pypi-test '
-             '--binary-entrypoint {}'
-             .format(REPO_UNDER_TEST, os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
-             catch_exceptions=True)
+    release.run('--branch-name release --pypi-test --binary-entrypoint {}'
+                .format(os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                catch_exceptions=True)
 
     github_release = repo.get_release(id='1.0.0')
 
@@ -167,3 +113,47 @@ def test_release_default_entrypoint_not_found(pyci, repo, capture, mocker):
     expected_message = "Binary package will not be created"
     assert expected_asset_name not in assets
     assert expected_message in capture.records[26].msg
+
+
+def test_release_binary_from_binary(release):
+
+    result = release.run('--branch-name release --pypi-test --binary-entrypoint {}'
+                         .format(os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                         catch_exceptions=True, pipe=True, binary=True)
+
+    expected_output = 'Creating a binary package is not supported when running ' \
+                      'from within a binary'
+
+    assert expected_output in result.std_err
+
+
+def test_release_validation_failed(release, capture, mocker):
+
+    exception = exceptions.ReleaseValidationFailedException('error')
+
+    mocker.patch(target='pyci.shell.commands.release.release_internal',
+                 new=MagicMock(side_effect=exception))
+
+    release.run('--branch-name release --pypi-test --binary-entrypoint {}'
+                .format(os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                catch_exceptions=True)
+
+    expected_output = 'Not releasing: error'
+
+    assert expected_output == capture.records[0].msg
+
+
+def test_release_failed(release, capture, mocker):
+
+    exception = exceptions.ApiException('error')
+
+    mocker.patch(target='pyci.shell.commands.release.release_internal',
+                 new=MagicMock(side_effect=exception))
+
+    release.run('--branch-name release --pypi-test --binary-entrypoint {}'
+                .format(os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py')),
+                catch_exceptions=True)
+
+    expected_output = 'Failed releasing: error'
+
+    assert expected_output == capture.records[1].msg

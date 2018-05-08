@@ -56,9 +56,10 @@ def _create_commit(patched_github, request, message=None):
 
 
 @pytest.mark.wet
-def test_release_branch(github):
+@pytest.mark.paremtrize("binary", [True, False])
+def test_release_branch(github, binary):
 
-    github.run('release --branch-name release')
+    github.run('release --branch-name release', binary=binary)
 
     expected_release_title = '1.0.0'
     repo = github.gh.repo

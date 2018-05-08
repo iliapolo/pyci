@@ -19,11 +19,10 @@ import platform
 import re
 import tempfile
 
-from click.testing import CliRunner
 from boltons.cacheutils import cachedproperty
+from click.testing import CliRunner
 
 from pyci.api import logger
-from pyci.api.packager import Packager
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app
 
@@ -33,10 +32,10 @@ log = logger.get_logger(__name__)
 # pylint: disable=too-few-public-methods
 class Runner(object):
 
-    def __init__(self, repo_path):
+    def __init__(self, packager):
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
-        self._packager = Packager.create(path=repo_path)
+        self._packager = packager
 
     def run(self, command, binary=False, pipe=False, catch_exceptions=False):
 

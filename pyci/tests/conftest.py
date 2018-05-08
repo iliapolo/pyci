@@ -45,10 +45,10 @@ REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 
 
 @pytest.fixture(name='pyci')
-def _pyci(request, repo, repo_path):
+def _pyci(request, repo, packager):
 
     with _github_cleanup(request, repo):
-        yield Runner(repo_path)
+        yield Runner(packager)
 
 
 @pytest.fixture(name='release')
@@ -255,10 +255,7 @@ def _packager(repo_path):
 
     packager = Packager.create(path=repo_path)
 
-    try:
-        yield packager
-    finally:
-        packager.clean()
+    yield packager
 
 
 @pytest.fixture(name='pypi_packager', scope='session')
@@ -271,10 +268,7 @@ def _pypi_packager(temp_dir, repo_path):
 
     packager = Packager.create(path=dest)
 
-    try:
-        yield packager
-    finally:
-        packager.clean()
+    yield packager
 
 
 @pytest.fixture(name='runner', scope='session')

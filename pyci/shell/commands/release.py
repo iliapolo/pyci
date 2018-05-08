@@ -180,7 +180,6 @@ def release_internal(binary_entrypoint,
         log.info('Hip Hip, Hurray! :). Your new version is released and ready to go.')
 
     finally:
-        packager.clean()
         utils.rmf(package_directory)
 
 

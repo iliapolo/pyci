@@ -219,27 +219,11 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def clean(self):
-
-        """
-        Clean the resources this packager instance used.
-
-        """
-
-        utils.rmf(self._repo_dir)
-        delattr(self, '_repo_dir')
-
     @cachedproperty
     def _repo_dir(self):
 
         if self._path:
-
-            self._debug('Copying local repository to temp directory...')
-            temp_dir = tempfile.mkdtemp()
-            repo_copy = os.path.join(temp_dir, 'repo')
-            shutil.copytree(self._path, repo_copy)
-            self._debug('Successfully copied repo.', repo_copy=repo_copy)
-            return repo_copy
+            return self._path
 
         repo_dir = utils.download_repo(self._repo, self._sha)
         return repo_dir
