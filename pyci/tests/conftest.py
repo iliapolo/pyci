@@ -126,7 +126,9 @@ def _capture():
 @pytest.fixture(name='temp_dir')
 def _temp_dir(request):
 
-    dir_path = tempfile.mkdtemp(suffix=request.node.name)
+    name = request.node.originalname or request.node.name
+
+    dir_path = tempfile.mkdtemp(suffix=name)
 
     try:
         yield dir_path
@@ -155,6 +157,18 @@ def _skip(request):
 
     if hasattr(request.node.function, 'wet') and provider and not provider.pull_request:
         __skip('Wet tests should only run on the PR build')
+
+
+@pytest.fixture(name='cwd', autouse=True)
+def _cwd(temp_dir):
+
+    cwd = os.getcwd()
+
+    try:
+        os.chdir(temp_dir)
+        yield
+    finally:
+        os.chdir(cwd)
 
 
 @pytest.fixture(name='patched_pack')
@@ -266,7 +280,10 @@ def _pypi_packager(repo_path):
 
     packager = Packager.create(path=dest)
 
-    yield packager
+    try:
+        yield packager
+    finally:
+        shutil.rmtree(dest)
 
 
 @pytest.fixture(name='runner', scope='session')

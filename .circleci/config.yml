@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  pyton27:
+  python27:
     docker:
       - image: circleci/python:2.7
     working_directory: ~/repo
@@ -9,3 +9,9 @@ jobs:
       - run:
           name: tox
           command: tox
+
+workflows:
+  version: 2
+  python:
+    jobs:
+      - python27
