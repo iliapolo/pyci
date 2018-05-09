@@ -260,7 +260,7 @@ class Changelog(object):
 
         self._debug('Rendering changelog markdown file')
         markdown = Template(get_resource('changelog.jinja')).render(**kw)
-        self._debug('Rendered markdown', changelog=markdown)
+        self._debug('Rendered markdown')
         return markdown
 
     @staticmethod

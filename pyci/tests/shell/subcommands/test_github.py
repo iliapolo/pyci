@@ -25,7 +25,7 @@ from github import GithubException
 # noinspection PyPackageRequirements
 from mock import MagicMock
 
-from pyci.api import logger, exceptions, ci
+from pyci.api import logger, exceptions
 from pyci.api.exceptions import ApiException, ReleaseValidationFailedException
 from pyci.api.model import Bump, Commit, Issue, Release
 
@@ -56,7 +56,7 @@ def _create_commit(patched_github, request, message=None):
 
 
 @pytest.mark.wet
-@pytest.mark.paremtrize("binary", [True, False])
+@pytest.mark.parametrize("binary", [True, False])
 def test_release_branch(github, binary):
 
     github.run('release --branch-name release', binary=binary)
@@ -140,9 +140,11 @@ def test_release_validation_failed(patched_github, capture):
 def test_validate_build(pyci, capture, mocker):
 
     ci_provider = MagicMock()
+    detect = MagicMock(return_value=ci_provider)
+    validate_build = MagicMock(return_value=None)
 
-    mocker.patch(target='pyci.api.ci.detect', new=MagicMock(return_value=ci_provider))
-    mocker.patch(target='pyci.api.ci.validate_build', new=MagicMock(return_value=None))
+    mocker.patch(target='pyci.api.ci.detect', new=detect)
+    mocker.patch(target='pyci.api.ci.validate_build', new=validate_build)
 
     pyci.run('github validate-build --release-branch-name release')
 
@@ -150,19 +152,19 @@ def test_validate_build(pyci, capture, mocker):
 
     assert expected_output == capture.records[1].msg
 
-    # pylint: disable=no-member
-    # noinspection PyUnresolvedReferences
-    ci.validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
+    validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
 
 
 def test_validate_build_failed(pyci, capture, mocker):
 
-    ci_provider = MagicMock()
-
     exception = exceptions.ApiException('error')
 
-    mocker.patch(target='pyci.api.ci.detect', new=MagicMock(return_value=ci_provider))
-    mocker.patch(target='pyci.api.ci.validate_build', new=MagicMock(side_effect=exception))
+    ci_provider = MagicMock()
+    detect = MagicMock(return_value=ci_provider)
+    validate_build = MagicMock(side_effect=exception)
+
+    mocker.patch(target='pyci.api.ci.detect', new=detect)
+    mocker.patch(target='pyci.api.ci.validate_build', new=validate_build)
 
     pyci.run('github validate-build --release-branch-name release', catch_exceptions=True)
 
@@ -170,9 +172,7 @@ def test_validate_build_failed(pyci, capture, mocker):
 
     assert expected_output == capture.records[2].msg
 
-    # pylint: disable=no-member
-    # noinspection PyUnresolvedReferences
-    ci.validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
+    validate_build.assert_called_once_with(ci_provider=ci_provider, release_branch='release')
 
 
 def test_validate_commit_no_sha_no_branch(patched_github, capture):

@@ -14,13 +14,13 @@
 #
 #############################################################################
 
+import contextlib
 import logging
 import os
 import platform
 import shutil
 import tempfile
 import time
-import contextlib
 
 import pytest
 from github import Github
@@ -45,14 +45,13 @@ REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 
 
 @pytest.fixture(name='pyci')
-def _pyci(request, repo, packager):
+def _pyci(packager):
 
-    with _github_cleanup(request, repo):
-        yield Runner(packager)
+    yield Runner(packager)
 
 
 @pytest.fixture(name='release')
-def _release(request, pyci, gh):
+def _release(pyci, gh):
 
     # pylint: disable=too-few-public-methods
     class ReleaseCommand(object):
@@ -70,12 +69,11 @@ def _release(request, pyci, gh):
                             pipe=pipe,
                             catch_exceptions=catch_exceptions)
 
-    with _github_cleanup(request, gh.repo):
-        yield ReleaseCommand()
+    yield ReleaseCommand()
 
 
 @pytest.fixture(name='github')
-def _github(request, pyci, gh):
+def _github(pyci, gh):
 
     # pylint: disable=too-few-public-methods
     class GithubSubCommand(object):
@@ -93,8 +91,7 @@ def _github(request, pyci, gh):
                             pipe=pipe,
                             catch_exceptions=catch_exceptions)
 
-    with _github_cleanup(request, gh.repo):
-        yield GithubSubCommand()
+    yield GithubSubCommand()
 
 
 @pytest.fixture(name='gh')

@@ -260,10 +260,9 @@ class GitHubRepository(object):
         except UnknownObjectException:
             raise exceptions.ReleaseNotFoundException(release=release)
 
-        log.debug('Updating release with changelog...', release=release, changelog=changelog)
+        log.debug('Updating release with changelog...', release=release)
         git_release.update_release(name=git_release.title, message=changelog)
-        log.debug('Successfully updated release with changelog', release=release,
-                  changelog=changelog)
+        log.debug('Successfully updated release with changelog', release=release)
 
         release_sha = self.repo.get_git_ref(ref='tags/{}'.format(git_release.tag_name)).object.sha
         return Release(impl=git_release,
@@ -1023,7 +1022,7 @@ class _GitHubCommit(object):
             self._debug('Adding change to changelog.', change=change.url)
             changelog.add(change)
 
-        self._debug('Generated changelog.', changelog=changelog.render())
+        self._debug('Generated changelog.')
 
         return changelog
 

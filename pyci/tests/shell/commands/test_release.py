@@ -27,7 +27,7 @@ from pyci.tests.conftest import REPO_UNDER_TEST
 
 
 @pytest.mark.wet
-@pytest.mark.paremtrize("binary", [True, False])
+@pytest.mark.parametrize("binary", [True, False])
 def test_release(release, repo, binary):
 
     release_options = '--pypi-test --binary-entrypoint {}'.format(
