@@ -28,6 +28,10 @@ import zipfile
 import requests
 
 from pyci.api import exceptions
+from pyci.api import logger
+
+
+log = logger.get_logger(__name__)
 
 
 def extract_link(commit_message):
@@ -217,7 +221,12 @@ def get_executable(name):
 
     """
 
-    bin_directory = os.path.abspath(os.path.join(sys.executable, os.pardir))
+    sys_executable = sys.executable
+
+    log.debug('sys.executable={}'.format(sys_executable))
+    bin_directory = os.path.abspath(os.path.join(sys_executable, os.pardir))
+
+    log.debug('bin_directory={}'.format(bin_directory))
 
     try:
         # running inside a bundled pyinstaller app
@@ -226,13 +235,17 @@ def get_executable(name):
     except AttributeError:
         pass
 
+    log.debug('bin_directory={}'.format(bin_directory))
+
     executable = name
     if platform.system().lower() == 'windows':
         if name.lower() != 'python':
             bin_directory = os.path.join(bin_directory, 'Scripts')
+        log.debug('bin_directory={}'.format(bin_directory))
         executable = os.path.join(bin_directory, '{}.exe'.format(executable))
     else:
         executable = os.path.join(bin_directory, executable)
+    log.debug('executable={}'.format(executable))
     return executable
 
 
