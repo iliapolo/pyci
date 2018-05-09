@@ -11,12 +11,12 @@ jobs:
           command: sudo pip install tox==3.0.0
       - restore_cache:
           keys:
-            - tox-cache
+            - tox-cache2
       - run:
           name: create tox cache
           command: tox --notest
       - save_cache:
-          key: tox-cache
+          key: tox-cache2
           paths:
             - .tox
       - run:
