@@ -21,6 +21,7 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import logger
+from pyci.api import utils
 from pyci.shell import handle_exceptions
 
 log = logger.get_logger(__name__)
@@ -44,7 +45,8 @@ def upload(ctx, wheel):
         upload_internal(wheel=wheel, pypi=ctx.parent.pypi)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed uploading wheel: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 def upload_internal(wheel, pypi):

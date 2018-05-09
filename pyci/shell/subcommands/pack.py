@@ -21,6 +21,7 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import logger
+from pyci.api import utils
 from pyci.shell import handle_exceptions
 from pyci.shell import is_binary
 
@@ -74,16 +75,19 @@ def binary(ctx, name, entrypoint, target_dir):
         err.possible_solutions = [
             'Delete/Move the file and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.FileIsADirectoryException as e:
         err = click.ClickException('Failed creating binary package: {}'.format(str(e)))
         err.possible_solutions = [
             'Delete/Move the directory and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed creating binary package: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command()
@@ -111,16 +115,19 @@ def wheel(ctx, target_dir, universal):
         err.possible_solutions = [
             'Delete/Move the file and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.FileIsADirectoryException as e:
         err = click.ClickException('Failed creating wheel package: {}'.format(str(e)))
         err.possible_solutions = [
             'Delete/Move the directory and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed creating wheel package: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 def wheel_internal(target_dir, universal, packager):

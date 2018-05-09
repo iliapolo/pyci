@@ -15,10 +15,13 @@
 #
 #############################################################################
 
-# noinspection PyPackageRequirements
-
-# noinspection PyPackageRequirements
-from mock import MagicMock
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # noinspection PyUnresolvedReferences
+    # python3
+    from unittest.mock import MagicMock
 
 from pyci.api import exceptions
 

@@ -18,12 +18,15 @@
 import os
 import tempfile
 
-# noinspection PyPackageRequirements
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # noinspection PyUnresolvedReferences
+    # python3
+    from unittest.mock import MagicMock
 import pytest
-# noinspection PyPackageRequirements
 from github import GithubException
-# noinspection PyPackageRequirements
-from mock import MagicMock
 
 from pyci.api import logger, exceptions
 from pyci.api.exceptions import ApiException, ReleaseValidationFailedException

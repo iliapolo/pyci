@@ -101,7 +101,8 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, fo
 
     except exceptions.ApiException as e:
         err = click.ClickException('Failed releasing: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('validate-commit')
@@ -134,7 +135,8 @@ def validate_commit(ctx, branch, sha):
         validate_commit_internal(branch=branch, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Commit validation failed: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('validate-build')
@@ -163,7 +165,8 @@ def validate_build(ctx, release_branch_name):
         validate_build_internal(release_branch_name=release_branch_name, ci_provider=ci_provider)
     except exceptions.ApiException as e:
         err = click.ClickException('Build validation failed: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('generate-changelog')
@@ -224,22 +227,26 @@ def generate_changelog(ctx, sha, branch, target):
         err.possible_solutions = [
             'Delete/Move the file and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.FileIsADirectoryException as e:
         err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
         err.possible_solutions = [
             'Delete/Move the directory and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.DirectoryDoesntExistException as e:
         err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
         err.possible_solutions = [
             'Create the directory and try again'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed generating changelog: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('create-release')
@@ -274,10 +281,12 @@ def create_release(ctx, sha, branch):
             'Please follow these instructions to create a standard '
             'python project --> https://packaging.python.org/tutorials/distributing-packages/'
         ]
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed creating release: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('upload-asset')
@@ -300,7 +309,8 @@ def upload_asset(ctx, asset, release):
         upload_asset_internal(asset=asset, release=release, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed uploading asset: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('upload-changelog')
@@ -323,7 +333,8 @@ def upload_changelog(ctx, changelog, release):
         upload_changelog_internal(changelog=changelog, rel=release, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed uploading changelog: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('detect-issue')
@@ -357,7 +368,8 @@ def detect_issue(ctx, sha, message):
             log.info('The commit is not related ot any issue.')
     except exceptions.ApiException as e:
         err = click.ClickException('Failed detecting issue: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('delete-release')
@@ -380,7 +392,8 @@ def delete_release(ctx, name):
         log.info('Deleted release: {}'.format(name))
     except exceptions.ApiException as e:
         err = click.ClickException('Failed deleting release: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('delete-tag')
@@ -401,7 +414,8 @@ def delete_tag(ctx, name):
         log.info('Deleted tag: {}'.format(name))
     except exceptions.ApiException as e:
         err = click.ClickException('Failed deleting tag: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('bump-version')
@@ -426,7 +440,8 @@ def bump_version(ctx, branch, semantic):
         log.info('Bumped version from {} to {}'.format(bump.prev_version, bump.next_version))
     except exceptions.ApiException as e:
         err = click.ClickException('Failed bumping version: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('set-version')
@@ -449,7 +464,8 @@ def set_version(ctx, branch, value):
         set_version_internal(branch=branch, value=value, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed setting version: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('reset-branch')
@@ -472,7 +488,8 @@ def reset_branch(ctx, name, sha):
         reset_branch_internal(name=name, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed resetting branch: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('reset-tag')
@@ -497,7 +514,8 @@ def reset_tag(ctx, name, sha):
         log.info('Tag {} is now at {}.'.format(name, sha))
     except exceptions.ApiException as e:
         err = click.ClickException('Failed resetting tag: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('create-branch')
@@ -518,7 +536,8 @@ def create_branch(ctx, name, sha):
         create_branch_internal(name=name, sha=sha, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed creating branch: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('delete-branch')
@@ -537,7 +556,8 @@ def delete_branch(ctx, name):
         delete_branch_internal(name=name, gh=ctx.parent.github)
     except exceptions.ApiException as e:
         err = click.ClickException('Failed deleting branch: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('commit-file')
@@ -568,7 +588,8 @@ def commit_file(ctx, branch, path, contents, message):
         log.info('Committed: {}'.format(commit.url))
     except exceptions.ApiException as e:
         err = click.ClickException('Failed committing file: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 @click.command('create-commit')
@@ -601,7 +622,8 @@ def create_commit(ctx, branch, path, contents, message):
         log.info('Created: {}'.format(commit.url))
     except exceptions.ApiException as e:
         err = click.ClickException('Failed creating commit: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 def generate_changelog_internal(branch, sha, gh):

@@ -24,6 +24,7 @@ import sys
 import tempfile
 import uuid
 import zipfile
+import six
 
 import requests
 
@@ -223,10 +224,7 @@ def get_executable(name):
 
     sys_executable = sys.executable
 
-    log.debug('sys.executable={}'.format(sys_executable))
     bin_directory = os.path.abspath(os.path.join(sys_executable, os.pardir))
-
-    log.debug('bin_directory={}'.format(bin_directory))
 
     try:
         # running inside a bundled pyinstaller app
@@ -235,17 +233,13 @@ def get_executable(name):
     except AttributeError:
         pass
 
-    log.debug('bin_directory={}'.format(bin_directory))
-
     executable = name
     if platform.system().lower() == 'windows':
         if name.lower() != 'python' and 'scripts' not in bin_directory.lower():
             bin_directory = os.path.join(bin_directory, 'scripts')
-        log.debug('bin_directory={}'.format(bin_directory))
         executable = os.path.join(bin_directory, '{}.exe'.format(executable))
     else:
         executable = os.path.join(bin_directory, executable)
-    log.debug('executable={}'.format(executable))
     return executable
 
 
@@ -279,3 +273,29 @@ def download_repo(repo_name, sha):
         raise exceptions.NotPythonProjectException(repo=repo_name, cause=str(e), sha=sha)
 
     return repo_dir
+
+
+def is_python_3():
+
+    """
+    Checks the current python version.
+
+    Returns:
+        True if the current python version is at least 3.0, False otherwise.
+    """
+
+    return sys.version_info >= (3, 0)
+
+
+def raise_with_traceback(err, tb):
+
+    """
+    Raise, in a python version agnostic manner, the provided error with the provided traceback.
+
+    Args:
+        err (BaseException): The exception to raise.
+        tb (types.Traceback): The traceback to attach to the error.
+
+    """
+
+    six.reraise(type(err), err, tb)

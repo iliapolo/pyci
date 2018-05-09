@@ -61,7 +61,8 @@ setup(
         'jinja2==2.10',
         'boltons==18.0.0',
         'wheel==0.29.0',
-        'twine==1.11.0'
+        'twine==1.11.0',
+        'six==1.11.0'
     ],
     classifiers=[
         'Programming Language :: Python',

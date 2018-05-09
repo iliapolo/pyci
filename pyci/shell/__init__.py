@@ -15,7 +15,12 @@
 #
 #############################################################################
 
-from StringIO import StringIO
+try:
+    # python2
+    from StringIO import StringIO
+except ImportError:
+    # python3
+    from io import StringIO
 
 import sys
 import traceback
@@ -49,8 +54,8 @@ def handle_exceptions(func):
             traceback.print_exc(file=tbio)
             log.debug(tbio.getvalue())
             log.error(str(be))
-            log.error('If you this message, it probably means you encountered a bug. Please feel '
-                      'free to report it to https://github.com/iliapolo/pyci/issues')
+            log.error('If you see this message, you probably encountered a bug. '
+                      'Please feel free to report it to https://github.com/iliapolo/pyci/issues')
             sys.exit(1)
 
     return wrapper

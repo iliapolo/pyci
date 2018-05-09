@@ -24,7 +24,13 @@ import time
 
 import pytest
 from github import Github
-from mock import MagicMock
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # noinspection PyUnresolvedReferences
+    # python3
+    from unittest.mock import MagicMock
 from testfixtures import LogCapture
 
 from pyci import shell
@@ -135,6 +141,15 @@ def _temp_dir(request):
     finally:
         # cleanup
         utils.rmf(dir_path)
+
+
+@pytest.fixture(name='magic_mock_func')
+def _magic_mock_func():
+
+    def _provider():
+        return MagicMock()
+
+    yield _provider
 
 
 @pytest.fixture(name='skip', autouse=True)

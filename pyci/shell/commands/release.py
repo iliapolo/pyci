@@ -130,7 +130,8 @@ def release(ctx,
 
     except exceptions.ApiException as e:
         err = click.ClickException('Failed releasing: {}'.format(str(e)))
-        raise type(err), err, sys.exc_info()[2]
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
 
 
 def release_internal(binary_entrypoint,
@@ -234,9 +235,7 @@ def detect_repo(ci_provider, repo):
     if repo is None:
         error = click.ClickException(message='Failed detecting repository name')
         error.possible_solutions = [
-            'Provide it using the --repo option',
-            'Run the command from the project root directory, the repository name will be '
-            'detected using git commands'
+            'Provide it using the --repo option'
         ]
         raise error
     return repo
