@@ -6,5 +6,8 @@ environment:
 
 build: off
 
+install:
+  - cmd: %PYTHON%\\Scripts\\pip.exe install tox==3.0.0
+
 test_script:
-  - .\\ci\\scripts\\windows\\ci.bat
+  - cmd: %PYTHON%\\Scripts\\tox.exe
