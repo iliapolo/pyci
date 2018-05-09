@@ -12,6 +12,9 @@ jobs:
       - restore_cache:
           keys:
             - tox-cache
+      - run:
+          name: create tox cache
+          command: tox --notest
       - save_cache:
           key: tox-cache
           paths:
