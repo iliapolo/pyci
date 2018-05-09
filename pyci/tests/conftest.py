@@ -283,7 +283,7 @@ def _pypi_packager(repo_path):
     try:
         yield packager
     finally:
-        shutil.rmtree(dest)
+        utils.rmf(dest)
 
 
 @pytest.fixture(name='runner', scope='session')
