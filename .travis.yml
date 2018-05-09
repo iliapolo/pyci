@@ -6,4 +6,4 @@ matrix:
 
 
 script:
-  - ./ci/scripts/linux/ci.sh
+  - tox
