@@ -62,5 +62,18 @@ setup(
         'boltons==18.0.0',
         'wheel==0.29.0',
         'twine==1.11.0'
+    ],
+    classifiers=[
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2.7',
+        'Natural Language :: English',
+        'Environment :: Console',
+        'Intended Audience :: Developers',
+        'Intended Audience :: Information Technology',
+        'Intended Audience :: System Administrators',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: POSIX :: Linux',
+        'Operating System :: Microsoft',
+        'Topic :: Software Development :: Libraries :: Python Modules'
     ]
 )
