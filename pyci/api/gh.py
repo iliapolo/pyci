@@ -790,10 +790,9 @@ class _GitHubBranch(object):
         current_version = commit.setup_py_version
         setup_py = commit.setup_py
 
-        self._debug('Generating setup.py file contents...', setup_py=setup_py,
-                    next_version=value)
+        self._debug('Generating setup.py file contents...', next_version=value)
         setup_py = utils.generate_setup_py(setup_py, value)
-        self._debug('Generated setup.py file contents...', setup_py=setup_py)
+        self._debug('Generated setup.py file contents.')
 
         commit_message = SET_VERSION_COMMIT_MESSAGE_FORMAT.format(value)
 
