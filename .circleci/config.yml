@@ -11,17 +11,14 @@ jobs:
           command: sudo pip install tox==3.0.0
       - restore_cache:
           keys:
-            - tox-cache2
-      - run:
-          name: create tox cache
-          command: tox --notest
-      - save_cache:
-          key: tox-cache2
-          paths:
-            - .tox
+            - tox-py27-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: run tox
           command: tox
+      - save_cache:
+          key: tox-py27-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
 
 workflows:
   version: 2
