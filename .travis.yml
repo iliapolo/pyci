@@ -4,8 +4,7 @@ matrix:
     - os: osx
       language: generic
 
-install:
-  - pip install tox==3.0.0
-
 script:
+  - which tox
+  - tox --version
   - tox
