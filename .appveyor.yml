@@ -7,7 +7,7 @@ environment:
 build: off
 
 install:
-  - cmd: %PYTHON%\\Scripts\\pip.exe install tox==3.0.0
+  - cmd: "%PYTHON%\\Scripts\\pip.exe install tox==3.0.0"
 
 test_script:
-  - cmd: %PYTHON%\\Scripts\\tox.exe
+  - cmd: "%PYTHON%\\Scripts\\tox.exe"
