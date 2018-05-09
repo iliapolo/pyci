@@ -8,7 +8,7 @@ jobs:
       - checkout
       - run:
           name: install
-          command: pip install tox==3.0.0
+          command: sudo pip install tox==3.0.0
       - run:
           name: tox
           command: tox
