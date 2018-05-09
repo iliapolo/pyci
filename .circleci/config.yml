@@ -1,11 +1,11 @@
 version: 2
 jobs:
-  pyton2.7.14:
+  pyton27:
     docker:
-      - image: circleci/python:2.7.14
+      - image: circleci/python:2.7
     working_directory: ~/repo
     steps:
       - checkout
       - run:
-          name: ci
-          command: ./ci/scripts/linux/ci.sh
+          name: tox
+          command: tox
