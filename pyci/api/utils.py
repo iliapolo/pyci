@@ -239,8 +239,8 @@ def get_executable(name):
 
     executable = name
     if platform.system().lower() == 'windows':
-        if name.lower() != 'python':
-            bin_directory = os.path.join(bin_directory, 'Scripts')
+        if name.lower() != 'python' and 'scripts' not in bin_directory.lower():
+            bin_directory = os.path.join(bin_directory, 'scripts')
         log.debug('bin_directory={}'.format(bin_directory))
         executable = os.path.join(bin_directory, '{}.exe'.format(executable))
     else:
