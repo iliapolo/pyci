@@ -7,10 +7,17 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install
+          name: install tox
           command: sudo pip install tox==3.0.0
+      - restore_cache:
+          keys:
+            - tox-cache
+      - save_cache:
+          key: tox-cache
+          paths:
+            - .tox
       - run:
-          name: tox
+          name: run tox
           command: tox
 
 workflows:

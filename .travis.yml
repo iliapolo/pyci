@@ -5,6 +5,4 @@ matrix:
       language: generic
 
 script:
-  - which tox
-  - tox --version
   - tox
