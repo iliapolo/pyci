@@ -167,6 +167,9 @@ def _skip(request):
     if hasattr(request.node.function, 'wet') and system != 'darwin':
         __skip('Wet tests should only run on the Darwin build')
 
+    if hasattr(request.node.function, 'wet') and utils.is_python_3():
+        __skip('Wet tests should only run on the python27 build')
+
     if hasattr(request.node.function, 'wet') and provider and provider.name != ci.TRAVIS:
         __skip('Wet tests should only run on Travis-CI')
 
