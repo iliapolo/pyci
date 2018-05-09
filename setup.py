@@ -28,16 +28,6 @@ PROGRAM_NAME = 'pyci'
 # in PyPi, and unfortunately 'pyci' is taken :(
 PROJECT_NAME = 'py-ci'
 
-requirements = []
-
-requirements_file = os.path.abspath(os.path.join(__file__, os.pardir, 'requirements.txt'))
-
-with open(requirements_file) as stream:
-    for requirement in stream.read().splitlines():
-        if 'https' not in requirement:
-            requirements.append(requirement)
-
-
 setup(
     name=PROJECT_NAME,
     version='0.0.1',
@@ -63,5 +53,14 @@ setup(
             '{0} = {1}.shell.main:app'.format(PROGRAM_NAME, BASE_PACKAGE_NAME)
         ]
     },
-    install_requires=requirements
+    install_requires=[
+        'click==6.7',
+        'semver==2.7.9',
+        'pyinstaller==3.3.1',
+        'requests==2.18.4',
+        'jinja2==2.10',
+        'boltons==18.0.0',
+        'wheel==0.29.0',
+        'twine==1.11.0'
+    ]
 )

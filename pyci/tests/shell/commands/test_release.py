@@ -15,15 +15,14 @@
 #
 #############################################################################
 
-import platform
 import os
+import platform
 
 # noinspection PyPackageRequirements
 import pytest
 from mock import MagicMock
 
 from pyci.api import exceptions
-from pyci.tests.conftest import REPO_UNDER_TEST
 
 
 @pytest.mark.wet

@@ -1,9 +1,1 @@
 https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip
-click==6.7
-semver==2.7.9
-pyinstaller==3.3.1
-requests==2.18.4
-jinja2==2.10
-boltons==18.0.0
-wheel==0.29.0
-twine==1.11.0
