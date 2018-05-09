@@ -42,6 +42,7 @@ log = logger.get_logger(__name__)
 logger.setup_loggers(logging.DEBUG)
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
+LAST_COMMIT = '6536eefd0ec33141cc5c14be50a34631e8d79af8'
 
 
 @pytest.fixture(name='pyci')
@@ -256,9 +257,9 @@ def _packager(repo_path):
 
 
 @pytest.fixture(name='pypi_packager', scope='session')
-def _pypi_packager(temp_dir, repo_path):
+def _pypi_packager(repo_path):
 
-    dest = os.path.join(temp_dir, 'repo')
+    dest = os.path.join(tempfile.mkdtemp(), 'repo')
     shutil.copytree(repo_path, dest)
 
     patch_setup_py(dest)
@@ -292,12 +293,10 @@ def _repo_path():
 @contextlib.contextmanager
 def _github_cleanup(request, repo):
 
-    current_commit = None
     wet = None
 
     try:
         wet = getattr(request.node.function, 'wet')
-        current_commit = repo.get_commit(sha='release')
     except AttributeError:
         pass
 
@@ -305,27 +304,27 @@ def _github_cleanup(request, repo):
         yield
     finally:
         if wet:
-            _reset_repo(current_commit, repo, wet)
+            _reset_repo(repo, wet.kwargs)
 
 
-def _reset_repo(current_commit, repo, wet):
+def _reset_repo(repo, kwargs):
 
-    if wet.kwargs.get('commits', True):
-        _reset_release(current_commit, repo)
-    if wet.kwargs.get('releases', True):
+    if kwargs.get('commits', True):
+        _reset_release(repo)
+    if kwargs.get('releases', True):
         _delete_releases(repo)
-    if wet.kwargs.get('tags', True):
+    if kwargs.get('tags', True):
         _delete_tags(repo)
-    if wet.kwargs.get('branches', True):
+    if kwargs.get('branches', True):
         _delete_branches(repo)
-    if wet.kwargs.get('issues', True):
+    if kwargs.get('issues', True):
         _reset_issues(repo)
 
 
-def _reset_release(commit, repo):
+def _reset_release(repo):
     log.info('Resetting release branch to original state...')
     ref = repo.get_git_ref('heads/release')
-    ref.edit(sha=commit.sha, force=True)
+    ref.edit(sha=LAST_COMMIT, force=True)
 
 
 def _reset_issues(repo):
