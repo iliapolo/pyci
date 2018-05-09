@@ -15,7 +15,8 @@
 #
 #############################################################################
 
-import StringIO
+from StringIO import StringIO
+
 import sys
 import traceback
 from functools import wraps
@@ -36,7 +37,7 @@ def handle_exceptions(func):
         try:
             func(*args, **kwargs)
         except (exceptions.ApiException, click.ClickException) as e:
-            tbio = StringIO.StringIO()
+            tbio = StringIO()
             traceback.print_exc(file=tbio)
             log.debug(tbio.getvalue())
             log.error(str(e) + build_info(e))
@@ -44,7 +45,7 @@ def handle_exceptions(func):
         except BaseException as be:
             # this means we got an unexpected exception.
             # which probably means: bug...
-            tbio = StringIO.StringIO()
+            tbio = StringIO()
             traceback.print_exc(file=tbio)
             log.debug(tbio.getvalue())
             log.error(str(be))
