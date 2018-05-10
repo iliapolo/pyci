@@ -48,7 +48,7 @@ log = logger.get_logger(__name__)
 logger.setup_loggers(logging.DEBUG)
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
-LAST_COMMIT = '6536eefd0ec33141cc5c14be50a34631e8d79af8'
+LAST_COMMIT = 'c34488ef1329f18d20f369f0ddb76a74c7289abf'
 
 
 @pytest.fixture(name='pyci')

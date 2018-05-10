@@ -35,7 +35,7 @@ def test_handle_unexpected_exception(patched_github, capture):
     with pytest.raises(SystemExit):
         patched_github.run('validate-commit --sha sha')
 
-    expected_output = 'If you this message, it probably means you encountered a bug. ' \
+    expected_output = 'If you see this message, you probably encountered a bug. ' \
                       'Please feel free to report it to https://github.com/iliapolo/pyci/issues'
 
     assert expected_output == capture.records[3].msg

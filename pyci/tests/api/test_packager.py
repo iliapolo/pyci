@@ -19,14 +19,17 @@ import platform
 
 import pytest
 
-from pyci.api import exceptions
+from pyci.api import exceptions, utils
 from pyci.api.packager import Packager
+from pyci.tests import conftest
 from pyci.tests.conftest import REPO_UNDER_TEST
 
 
 def test_wheel(packager, temp_dir, version):
 
-    expected = os.path.join(temp_dir, 'py_ci-{0}-py2-none-any.whl'.format(version))
+    py_version = 'py3' if utils.is_python_3() else 'py2'
+
+    expected = os.path.join(temp_dir, 'py_ci-{}-{}-none-any.whl'.format(version, py_version))
 
     actual = packager.wheel(target_dir=temp_dir)
 
@@ -108,16 +111,16 @@ def test_binary_custom_entrypoint_and_name(request, runner, temp_dir):
     # for that we need to use our guinea-pig project...
     # using a sha with the custom main script.
     packager = Packager.create(repo='iliapolo/pyci-guinea-pig',
-                               sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6')
+                               sha=conftest.LAST_COMMIT)
 
     name = request.node.name
 
-    expected = os.path.join(temp_dir, '{0}-{1}-{2}'.format(name,
-                                                           platform.machine(),
-                                                           platform.system()))
+    expected = os.path.join(temp_dir, '{}-{}-{}'.format(name,
+                                                        platform.machine(),
+                                                        platform.system()))
 
     if platform.system() == 'Windows':
-        expected = '{0}.exe'.format(expected)
+        expected = '{}.exe'.format(expected)
 
     actual = packager.binary(target_dir=temp_dir, name=name,
                              entrypoint=os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))

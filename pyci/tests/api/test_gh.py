@@ -23,6 +23,7 @@ from github import UnknownObjectException, GithubException, GitRelease
 from pyci.api import exceptions
 from pyci.api import utils
 from pyci.api.gh import GitHubRepository
+from pyci.tests import conftest
 from pyci.api.model import Changelog, ChangelogIssue
 from pyci.shell import secrets
 
@@ -427,7 +428,7 @@ def test_set_version_same_version(gh):
 
 def test_detect_issue_direct(gh):
 
-    issue = gh.detect_issue(sha='6536eefd0ec33141cc5c14be50a34631e8d79af8')
+    issue = gh.detect_issue(sha=conftest.LAST_COMMIT)
 
     expected_issue_number = 7
 
@@ -521,7 +522,7 @@ def test_create_release_not_python_project(gh):
 def test_create_release_release_conflict(gh, request):
 
     _create_release(gh, request,
-                    sha='6536eefd0ec33141cc5c14be50a34631e8d79af8',
+                    sha=conftest.LAST_COMMIT,
                     name='0.0.1')
     with pytest.raises(exceptions.ReleaseConflictException):
         gh.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
@@ -590,7 +591,7 @@ def test_reset_branch_non_existing_sha(gh):
 @pytest.mark.wet(issues=False)
 def test_reset_branch(gh):
 
-    expected_sha = '6536eefd0ec33141cc5c14be50a34631e8d79af8'
+    expected_sha = conftest.LAST_COMMIT
 
     gh.reset_branch(name='release', sha=expected_sha)
 
