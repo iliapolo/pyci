@@ -16,7 +16,7 @@ install: |
   if [ ${TOX_ENV} != "py27" ]; then
 
     echo "[install] Installing pyenv..."
-    brew install pyenv
+    HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade pyenv
     echo "[install] Successfully installed pyenv"
 
     echo "Checking which pyenv version was installed"
