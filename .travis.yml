@@ -5,6 +5,7 @@ matrix:
       language: generic
       env:
         - TOX_ENV=py27
+        - PYTHON=2.7.14
     - os: osx
       language: generic
       env:
@@ -16,7 +17,7 @@ install: |
   if [ ${TOX_ENV} != "py27" ]; then
 
     echo "[install] Installing pyenv..."
-    HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade pyenv
+    brew upgrade pyenv
     echo "[install] Successfully installed pyenv"
 
     echo "Checking which pyenv version was installed"
