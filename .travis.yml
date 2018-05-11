@@ -19,6 +19,9 @@ install: |
     HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
     echo "[install] Successfully installed pyenv"
 
+    echo "Checking which pyenv version was installed"
+    pyenv --version
+
     echo "[install] Initializing pyenv..."
     eval "$(pyenv init -)"
     echo "[install] Successfully initialized pyenv..."
@@ -39,10 +42,6 @@ install: |
     which pip
 
     echo "[install] Finished installing and configuring python"
-
-  else
-
-    echo "TOX_ENV=${TOX_ENV}"
 
   fi
 
