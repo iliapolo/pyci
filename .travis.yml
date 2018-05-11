@@ -12,6 +12,12 @@ matrix:
         - TOX_ENV=py36
         - PYTHON=3.6.4
 
+
+cache:
+  directories:
+    - ${HOME}/Library/Caches/Homebrew
+
+
 install: |
 
   if [ ${TOX_ENV} != "py27" ]; then
