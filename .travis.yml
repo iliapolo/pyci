@@ -16,11 +16,14 @@ matrix:
 cache:
   directories:
     - ${HOME}/Library/Caches/Homebrew
+    - ${HOME}/.pyenv
+    - ${HOME}/.tox
+    - /usr/local/Cellar/pyenv/1.2.4
 
 
 install: |
 
-  if [ ${TOX_ENV} != "py27" ]; then
+  if [ ! -d ${HOME}/.pyenv/versions/${PYTHON} ]; then
 
     echo "[install] Installing pyenv..."
     brew upgrade pyenv
