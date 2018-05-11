@@ -3,7 +3,44 @@ matrix:
   include:
     - os: osx
       language: generic
-      env: TOX_ENV=py27
+      env:
+        - TOX_ENV=py27
+    - os: osx
+      language: generic
+      env:
+        - TOX_ENV=py36
+        - PYTHON=3.6.4
+
+install: |
+
+  if [ ${TOX_ENV} != "py27" ]; then
+
+    echo "[install] Installing pyenv..."
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install pyenv
+    echo "[install] Successfully installed pyenv"
+
+    echo "[install] Initializing pyenv..."
+    eval "$(pyenv init -)"
+    echo "[install] Successfully initialized pyenv..."
+
+    echo "[install] Installing python ${PYTHON} with pyenv..."
+    # --enable-shared is needed for pyinstaller.
+    env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install -s ${PYTHON}
+    pyenv global ${PYTHON}
+    echo "[install] Successfully installed python ${PYTHON} with pyenv..."
+
+    echo "[install] Checking where python is"
+    which python
+
+    echo "[install] Checking python version"
+    $(which python) --version
+
+    echo "[install] Checking where pip is"
+    which pip
+
+    echo "[install] Finished installing and configuring python"
+
+  fi
 
 script:
   - tox -e ${TOX_ENV}
