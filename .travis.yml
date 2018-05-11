@@ -40,6 +40,10 @@ install: |
 
     echo "[install] Finished installing and configuring python"
 
+  else
+
+    echo "TOX_ENV=${TOX_ENV}"
+
   fi
 
 script:
