@@ -17,11 +17,11 @@ cache:
   directories:
     - ${HOME}/Library/Caches/Homebrew
     - ${HOME}/.pyenv
-    - ${HOME}/.tox
+    - ${TRAVIS_BUILD_DIR}/.tox
     - /usr/local/Cellar/pyenv/1.2.4
 
 
-install: |
+before_install: |
 
   if [ ! -d ${HOME}/.pyenv/versions/${PYTHON} ]; then
 
@@ -48,12 +48,27 @@ install: |
     echo "[install] Checking python version"
     $(which python) --version
 
-    echo "[install] Checking where pip is"
-    which pip
-
     echo "[install] Finished installing and configuring python"
 
+  else
+
+    echo "[install] Initializing pyenv..."
+    eval "$(pyenv init -)"
+    echo "[install] Successfully initialized pyenv..."
+
+    echo "Configuring python version ${PYTHON}..."
+    pyenv global ${PYTHON}
+
+    echo "[install] Checking where python is"
+    which python
+
+    echo "[install] Checking python version"
+    $(which python) --version
+
   fi
+
+install:
+  - tox --notest -e ${TOX_ENV}
 
 script:
   - tox -e ${TOX_ENV}
