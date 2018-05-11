@@ -2,14 +2,14 @@ sudo: false
 matrix:
   include:
     - os: osx
-      language: ruby
-      rvm: 2.2
+      language: generic
+      osx_image: xcode7.3
       env:
         - TOX_ENV=py27
         - PYTHON=2.7.14
     - os: osx
-      language: ruby
-      rvm: jruby
+      language: generic
+      osx_image: xcode8.3
       env:
         - TOX_ENV=py36
         - PYTHON=3.6.4
