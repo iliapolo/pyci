@@ -6,12 +6,15 @@ jobs:
     working_directory: ~/repo
     steps:
       - checkout
-      - run:
-          name: install tox
-          command: sudo pip install tox==3.0.0
       - restore_cache:
           keys:
             - tox-py27-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install tox
+          command: sudo pip install tox==3.0.0
+      - run:
+          name: install dependencies
+          command: tox --notest -e py27
       - run:
           name: run tox
           command: tox -e py27
@@ -25,12 +28,15 @@ jobs:
     working_directory: ~/repo
     steps:
       - checkout
-      - run:
-          name: install tox
-          command: sudo pip install tox==3.0.0
       - restore_cache:
           keys:
             - tox-py36-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install tox
+          command: sudo pip install tox==3.0.0
+      - run:
+          name: install dependencies
+          command: tox --notest -e py27
       - run:
           name: run tox
           command: tox -e py36
