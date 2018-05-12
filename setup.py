@@ -60,7 +60,7 @@ setup(
         'requests==2.18.4',
         'jinja2==2.10',
         'boltons==18.0.0',
-        'wheel==0.29.0',
+        'wheel==0.31.0',
         'twine==1.11.0',
         'six==1.11.0'
     ],
