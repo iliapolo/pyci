@@ -5,3 +5,4 @@ pytest-html==1.17.0
 pylint==1.8.4
 testfixtures==6.0.2
 codecov==2.0.15
+https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip

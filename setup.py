@@ -56,6 +56,7 @@ setup(
     install_requires=[
         'click==6.7',
         'semver==2.7.9',
+        'PyGithub>=1.38',
         'pyinstaller==3.3.1',
         'requests==2.18.4',
         'jinja2==2.10',
