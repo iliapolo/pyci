@@ -88,12 +88,12 @@ class PyPI(object):
 
         wheel_version = os.path.basename(wheel).split('-')[1]
 
-        wheel_url = 'https://{0}/manage/project/{1}/release/{2}/'.format(
+        wheel_url = 'https://{}/manage/project/{}/release/{}/'.format(
             self._site, self._extract_project_name(wheel), wheel_version)
 
         command = '{} upload'.format(utils.get_executable('twine'))
         if self.repository_url:
-            command = '{0} --repository-url {1}'.format(command, self.repository_url)
+            command = '{} --repository-url {}'.format(command, self.repository_url)
 
         env = {
             'TWINE_USERNAME': self.username,
@@ -125,7 +125,8 @@ class PyPI(object):
         temp_dir = tempfile.mkdtemp()
         try:
             self._runner.run('{} unpack --dest {} {}'.format(
-                utils.get_executable('wheel'), temp_dir, wheel))
+                utils.get_executable('wheel'), temp_dir, wheel), pipe=False)
+            self._runner.run('ls -l -R {}'.format(temp_dir), pipe=False)
             wheel_project = '{}-{}'.format(wheel_parts[0], wheel_parts[1])
             metadata_file_path = os.path.join(temp_dir,
                                               wheel_project,
