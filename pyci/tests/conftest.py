@@ -165,13 +165,16 @@ def _skip(request):
         __skip('This test should not run on windows')
 
     if hasattr(request.node.function, 'wet') and provider and system != 'linux':
-        __skip('Wet tests should only run on the Linux build')
+        __skip('Wet tests should only run on the Linux build (system={})'.format(system))
 
     if hasattr(request.node.function, 'wet') and provider and provider.name != ci.CIRCLE:
-        __skip('Wet tests should only run on CircleCI')
+        __skip('Wet tests should only run on CircleCI (provider={})'.format(provider.name))
 
-    if hasattr(request.node.function, 'wet') and provider and not provider.pull_request:
-        __skip('Wet tests should only run on the PR build')
+    if hasattr(request.node.function, 'wet') and provider and provider.pull_request:
+        __skip('Wet tests should not run on the PR build (pr={})'.format(provider.pull_request))
+
+    if hasattr(request.node.function, 'wet') and provider and provider.tag:
+        __skip('Wet tests should not run on the TAG build (tag={})'.format(provider.tag))
 
     if hasattr(request.node.function, 'wet') and utils.is_python_3():
         __skip('Wet tests should only run on the python27 build')
