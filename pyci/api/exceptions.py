@@ -414,11 +414,11 @@ class BinaryPackNotSupportedException(ApiException):
                'package'
 
 
-class FailedExtractingProjectName(ApiException):
+class FailedExtractingProjectNameException(ApiException):
 
     def __init__(self, wheel):
         self.wheel = wheel
-        super(FailedExtractingProjectName, self).__init__(self.__str__())
+        super(FailedExtractingProjectNameException, self).__init__(self.__str__())
 
     def __str__(self):
         return 'Failed extracting project name from wheel ({}) metadata file'.format(self.wheel)

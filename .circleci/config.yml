@@ -37,13 +37,13 @@ jobs:
       - run:
           name: install dependencies
           command: tox --notest -e py27
-      - run:
-          name: run tox
-          command: tox -e py36
       - save_cache:
           key: tox-py36-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
             - .tox
+      - run:
+          name: run tox
+          command: tox -e py36
 
 workflows:
   version: 2
