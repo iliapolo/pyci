@@ -8,7 +8,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - tox-py27-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+            - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: install tox
           command: sudo pip install tox==3.0.0
@@ -16,7 +16,7 @@ jobs:
           name: install dependencies
           command: tox --notest -e py27
       - save_cache:
-          key: tox-py27-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          key: tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
             - .tox
       - run:
@@ -30,7 +30,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - tox-py36-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: install tox
           command: sudo pip install tox==3.0.0
@@ -38,7 +38,7 @@ jobs:
           name: install dependencies
           command: tox --notest -e py27
       - save_cache:
-          key: tox-py36-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
             - .tox
       - run:

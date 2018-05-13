@@ -1,1 +1,0 @@
-https://github.com/iliapolo/PyGithub/archive/upload-asset-temp.zip
