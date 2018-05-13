@@ -126,15 +126,15 @@ class PyPI(object):
         try:
             self._runner.run('{} unpack --dest {} {}'.format(
                 utils.get_executable('wheel'), temp_dir, wheel), pipe=False)
-            self._runner.run('ls -l -R {}'.format(temp_dir), pipe=False)
             wheel_project = '{}-{}'.format(wheel_parts[0], wheel_parts[1])
             metadata_file_path = os.path.join(temp_dir,
                                               wheel_project,
                                               '{}.dist-info'.format(wheel_project),
-                                              'metadata.json')
+                                              'METADATA')
             with open(metadata_file_path) as stream:
-                metadata = json.loads(stream.read())
-                return metadata['name']
+                for line in stream.read().splitlines():
+                    if line.startswith('Name: '):
+                        return line.split('Name: ')[1]
         finally:
             utils.rmf(temp_dir)
 
