@@ -15,13 +15,13 @@ jobs:
       - run:
           name: install dependencies
           command: tox --notest -e py27
-      - run:
-          name: run tox
-          command: tox -e py27
       - save_cache:
           key: tox-py27-{{ checksum "requirements.txt" }}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
             - .tox
+      - run:
+          name: run tox
+          command: tox -e py27
   python36:
     docker:
       - image: circleci/python:3.6

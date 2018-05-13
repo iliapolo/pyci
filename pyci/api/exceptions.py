@@ -412,3 +412,13 @@ class BinaryPackNotSupportedException(ApiException):
     def __str__(self):
         return 'Creating binary packages is not supported when running from within a binary ' \
                'package'
+
+
+class FailedExtractingProjectName(ApiException):
+
+    def __init__(self, wheel):
+        self.wheel = wheel
+        super(FailedExtractingProjectName, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Failed extracting project name from wheel ({}) metadata file'.format(self.wheel)

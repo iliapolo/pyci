@@ -16,7 +16,6 @@
 #############################################################################
 
 import copy
-import json
 import os
 import tempfile
 
@@ -135,6 +134,7 @@ class PyPI(object):
                 for line in stream.read().splitlines():
                     if line.startswith('Name: '):
                         return line.split('Name: ')[1]
+            raise exceptions.FailedExtractingProjectName(wheel=wheel)
         finally:
             utils.rmf(temp_dir)
 
