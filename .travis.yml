@@ -15,14 +15,6 @@ matrix:
         - PYTHON=3.6.4
 
 
-cache:
-  directories:
-    - ${HOME}/Library/Caches/Homebrew
-    - ${HOME}/.pyenv
-    - ${TRAVIS_BUILD_DIR}/.tox
-    - /usr/local/Cellar/pyenv/1.2.4
-
-
 before_install: |
 
   if [ ! -d ${HOME}/.pyenv/versions/${PYTHON} ]; then

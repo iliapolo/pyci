@@ -10,9 +10,6 @@ environment:
 
 build: off
 
-cache:
-  - .tox
-
 install:
   - cmd: "%PYTHON%\\Scripts\\pip.exe install tox==3.0.0"
 
