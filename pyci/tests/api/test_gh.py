@@ -168,6 +168,7 @@ def test_generate_changelog_relative_to_release(gh, request):
     assert expected_next_version == actual_next_version
 
 
+@pytest.mark.wet(issues=False, commits=False, releases=False, tags=False, branches=False)
 def test_generate_changelog_no_release(gh):
 
     changelog = gh.generate_changelog(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
