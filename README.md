@@ -157,7 +157,7 @@ _| """ |_| """"|_|"""""|_|"""""|
   → Generating changelog
     * Collecting commits
     → Analyzing 2 commits
-      * Initial Release (#1) ✓
+      * Initial release (#2) ✓
       * Initial commit ✓
   * Bumping version to 0.2.0
   * Creating a GitHub release
@@ -245,11 +245,13 @@ Here is what you do if you want to start releasing your project using PyCI.
 
 1. Create the following labels in your GitHub repo:
 
+
     - feature
     - bug
     - patch
     - minor
     - major
+
 
 2. Create an issue for the feature/bug you want to implement and label it accordingly.
 3. Checkout from master to a feature branch.
@@ -320,8 +322,8 @@ that reference a release issue. In such a case, PyCI will apply all correspondin
 of issue creation.
 
 A version bump is a commit made to the setup.py file, replacing the current version with the new
-one. To determine the current version, PyCI runs the `python setup.py --version` command, to set 
-the new version we use a regex to replace the 'version=' keyword argument. This means that you 
+one. To determine the current version, PyCI runs the `python setup.py --version` command. Setting 
+the new version is done a regex to replace the `'version='` keyword argument. This means that you 
 cannot do any fancy things for this arg, like calculate stuff or invoke functions. Keep it simple
 and let PyCI manipulate and determine version numbers. 
 
@@ -535,7 +537,7 @@ dependencies are packaged inside.
 
 Binary packages may greatly differ from the wheel distribution you are used to. That is, code 
 that runs properly from within a wheel, may fail when its running from inside the installer. The 
-main differences revolve around two issues:
+main differences revolve around these issues:
 
 - Accessing resource files
 
@@ -563,6 +565,16 @@ main differences revolve around two issues:
      
     PyCI itself relies on this, you can see how I implemented path resolution 
     [here](https://github.com/iliapolo/pyci/blob/release/pyci/api/utils.py#L214).
+
+- Script entrypoint
+
+    When you install a package via pip, it looks for the entry-points declared in your setup.py,
+    and dynamically creates python scripts to be used as the command line entry-point. 
+    PyInstaller packages obviously dont do this, this means that your entrypoint file must be 
+    invokable as a script. If you are using a framework like [click](http://click.pocoo.org/6/), 
+    this wont be the case.
+    
+    You see an example [here](./pyci/shell/main.py#L223) of how to deal with such a case.
 
 
 Basically, the main point is: **Run your tests on the binary package as well as the wheel.**
