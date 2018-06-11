@@ -622,14 +622,14 @@ Or, since PyCI itself uses PyCI for releases, you can simply download the execut
 Linux/MacOS:
 
 ```bash
-sudo curl -L https://github.com/iliapolo/pyci/releases/download/{version}/pyci-$(uname -m)-$(uname -s) -o /usr/local/bin/pyci
+sudo curl -L https://github.com/iliapolo/pyci/releases/download/{version}/py-ci-$(uname -m)-$(uname -s) -o /usr/local/bin/pyci
 ```
 
 Windows (PowerShell):
 
 ```cmd
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest "https://github.com/iliapolo/pyci/releases/download/{version}/pyci-x86-Windows.exe" -UseBasicParsing -OutFile $Env:ProgramFiles\pyci.exe
+Invoke-WebRequest "https://github.com/iliapolo/pyci/releases/download/{version}/py-ci-x86-Windows.exe" -UseBasicParsing -OutFile $Env:ProgramFiles\pyci.exe
 ```
 
 ## Key Concepts
