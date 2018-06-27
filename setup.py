@@ -15,8 +15,6 @@
 #
 #############################################################################
 
-import os
-
 from setuptools import setup
 
 
@@ -57,7 +55,7 @@ setup(
     install_requires=[
         'click==6.7',
         'semver==2.8.0',
-        'PyGithub>=1.38',
+        'PyGithub==1.40',
         'pyinstaller==3.3.1',
         'requests==2.18.4',
         'jinja2==2.10',

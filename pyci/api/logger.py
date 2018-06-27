@@ -37,7 +37,7 @@ class Logger(object):
 
     Args:
         name (str): The name of the logger.
-        level (:`str`, optional): The logger level.
+        level (:str, optional): The logger level.
     """
 
     _logger = None
