@@ -15,18 +15,11 @@
 #
 #############################################################################
 
-try:
-    # noinspection PyCompatibility
-    # python2
-    from StringIO import StringIO
-except ImportError:
-    # python3
-    from io import StringIO
-
 import sys
 import traceback
 from functools import wraps
 
+import six
 import click
 
 from pyci.api import exceptions
@@ -43,7 +36,7 @@ def handle_exceptions(func):
         try:
             func(*args, **kwargs)
         except (exceptions.ApiException, click.ClickException) as e:
-            tbio = StringIO()
+            tbio = six.StringIO()
             traceback.print_exc(file=tbio)
             log.debug(tbio.getvalue())
             log.error(str(e))
@@ -52,7 +45,7 @@ def handle_exceptions(func):
                 log.echo(info, fg='yellow', prefix=False)
             sys.exit(1)
         except BaseException as be:
-            tbio = StringIO()
+            tbio = six.StringIO()
             traceback.print_exc(file=tbio)
             log.debug(tbio.getvalue())
             log.error(str(be)
