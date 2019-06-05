@@ -27,16 +27,17 @@ from pyci.shell import secrets
 @contextlib.contextmanager
 def env(key, value):
 
-    current_value = os.environ[key]
+    current_value = os.environ.get(key)
 
     try:
-        if value is None:
+        if value is None and key in os.environ:
             del os.environ[key]
-        else:
+        elif value is not None:
             os.environ[key] = value
         yield
     finally:
-        os.environ[key] = current_value
+        if current_value is not None:
+            os.environ[key] = current_value
 
 
 def test_github_access_token():

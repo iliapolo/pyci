@@ -20,6 +20,7 @@ import os
 import platform
 import shutil
 import tempfile
+import contextlib
 
 from boltons.cacheutils import cachedproperty
 
@@ -28,6 +29,10 @@ from pyci.api import utils
 from pyci.api.runner import LocalCommandRunner
 
 log = logger.get_logger(__name__)
+
+
+DEFAULT_PY_INSTALLER_VERSION = '3.3.1'
+DEFAULT_WHEEL_VERSION = '0.31.1'
 
 
 class Packager(object):
@@ -46,6 +51,7 @@ class Packager(object):
         repo (:str, optional): The repository full name.
         sha (:str, optional): The of the repository.
         path (:str, optional): The path to your local working copy of the repository.
+        target_dir (:str, optional): Target directory where packages will be created.
 
     """
 
@@ -74,12 +80,12 @@ class Packager(object):
         self._sha = sha
         self._path = os.path.abspath(path) if path else None
         self._runner = LocalCommandRunner()
-        self._repo_dir = self._create_repo()
         self._log_ctx = {
             'repo': self._repo,
             'sha': self._sha,
             'path': self._path
         }
+        self._repo_dir = self._create_repo()
 
     @property
     def target_dir(self):
@@ -96,9 +102,12 @@ class Packager(object):
 
     @staticmethod
     def create(repo=None, sha=None, path=None, target_dir=None):
-        return Packager(repo=repo, sha=sha, path=path, target_dir=target_dir)
+        return Packager(repo=repo,
+                        sha=sha,
+                        path=path,
+                        target_dir=target_dir)
 
-    def binary(self, name=None, entrypoint=None):
+    def binary(self, name=None, entrypoint=None, pyinstaller_version=None):
 
         """
         Create a binary executable.
@@ -117,7 +126,8 @@ class Packager(object):
                is built. This can either by a .py or a .spec file.
                By default, the packager will look for the following files (in order):
                    - <name>.spec
-                   - shell/main.py
+                   - <name>/shell/main.py
+            pyinstaller_version (:str, optional): Which PyInstaller version to use.
 
         For more information please visit https://www.pyinstaller.org/.
 
@@ -137,7 +147,7 @@ class Packager(object):
             target_dir = self.target_dir or os.getcwd()
 
             name = name or self._default_name
-            entrypoint = entrypoint or self._default_entrypoint
+            entrypoint = entrypoint or self._default_entrypoint(name)
 
             destination = os.path.join(target_dir, '{0}-{1}-{2}'
                                        .format(name, platform.machine(), platform.system()))
@@ -156,21 +166,22 @@ class Packager(object):
                 raise exceptions.EntrypointNotFoundException(repo=self._repo,
                                                              entrypoint=entrypoint)
 
-            self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
-            self._runner.run(
-                '{} '
-                '--onefile '
-                '--distpath {} '
-                '--workpath {} '
-                '--specpath {} {}'
-                .format(utils.get_executable('pyinstaller'),
-                        dist_dir,
-                        build_dir,
-                        temp_dir,
-                        script))
+            with self._create_virtualenv(name, pyinstaller_version=pyinstaller_version) as virtualenv:
+                self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
+                self._runner.run(
+                    '{} '
+                    '--onefile '
+                    '--distpath {} '
+                    '--workpath {} '
+                    '--specpath {} {}'
+                    .format(os.path.join(virtualenv, 'bin', 'pyinstaller'),
+                            dist_dir,
+                            build_dir,
+                            temp_dir,
+                            script))
 
-            self._debug('Finished running pyinstaller', entrypoint=entrypoint,
-                        destination=destination)
+                self._debug('Finished running pyinstaller', entrypoint=entrypoint,
+                            destination=destination)
 
             actual_name = utils.lsf(dist_dir)[0]
 
@@ -183,7 +194,7 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def wheel(self, universal=False):
+    def wheel(self, universal=False, wheel_version=None):
 
         """
         Create a wheel package.
@@ -194,6 +205,7 @@ class Packager(object):
 
         Args:
             universal (bool): True if the created will should be universal, False otherwise.
+            wheel_version (:str, optional): Which wheel version to use.
 
         Raises:
             FileExistsException: Raised if the destination file already exists.
@@ -211,17 +223,28 @@ class Packager(object):
             dist_dir = os.path.join(temp_dir, 'dist')
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
-            command = '{} setup.py bdist_wheel --bdist-dir {} --dist-dir {}'\
-                      .format(utils.get_executable('python'), bdist_dir, dist_dir)
+            setup_py_file = os.path.join(self._repo_dir, 'setup.py')
 
-            if universal:
-                command = '{0} --universal'.format(command)
+            try:
+                utils.validate_file_exists(setup_py_file)
+            except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
+                raise exceptions.NotPythonProjectException(repo=self._repo,
+                                                           cause=str(e),
+                                                           sha=self._sha,
+                                                           path=self._path)
 
-            self._debug('Running bdist_wheel...', universal=universal)
-            result = self._runner.run(command, cwd=self._repo_dir)
-            self._debug('Finished running bdist_wheel.', universal=universal)
+            with self._create_virtualenv(self._default_name, wheel_version=wheel_version) as virtualenv:
 
-            self._debug(result.std_out)
+                command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}' \
+                    .format(os.path.join(virtualenv, 'bin', 'python'), setup_py_file, bdist_dir, dist_dir)
+
+                if universal:
+                    command = '{0} --universal'.format(command)
+
+                self._debug('Running bdist_wheel...', universal=universal)
+                result = self._runner.run(command, cwd=self._repo_dir)
+                self._debug('Finished running bdist_wheel.', universal=universal)
+                self._debug(result.std_out)
 
             actual_name = utils.lsf(dist_dir)[0]
 
@@ -241,17 +264,8 @@ class Packager(object):
         if self._path:
             repo_dir = self._path
         else:
+            self._debug('Downloading repo {}@{}...'.format(self._repo, self._sha))
             repo_dir = utils.download_repo(self._repo, self._sha)
-
-        setup_py_file = os.path.join(repo_dir, 'setup.py')
-
-        try:
-            utils.validate_file_exists(setup_py_file)
-        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
-            raise exceptions.NotPythonProjectException(
-                repo=self._repo,
-                cause=str(e),
-                sha=self._sha)
 
         return repo_dir
 
@@ -261,15 +275,11 @@ class Packager(object):
         return self._runner.run('{} {} --name'.format(utils.get_executable('python'),
                                                       setup_py_file)).std_out
 
-    @cachedproperty
-    def _default_entrypoint(self):
+    def _default_entrypoint(self, name):
 
         expected_paths = [
-            '{0}.spec'.format(self._default_name),
-            '{0}.spec'.format(self._default_name.replace('-', '_')),
-            '{0}.spec'.format(self._default_name.replace('-', '')),
-            os.path.join(self._default_name.replace('-', '_'), 'shell', 'main.py'),
-            os.path.join(self._default_name.replace('-', ''), 'shell', 'main.py')
+            '{0}.spec'.format(name),
+            os.path.join(name, 'shell', 'main.py')
         ]
 
         for path in expected_paths:
@@ -282,6 +292,52 @@ class Packager(object):
 
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
+
+    @contextlib.contextmanager
+    def _create_virtualenv(self, name, pyinstaller_version=None, wheel_version=None):
+
+        temp_dir = tempfile.mkdtemp()
+
+        virtualenv_path = os.path.join(temp_dir, name)
+
+        self._debug('Creating virtualenv {}'.format(virtualenv_path))
+        result = self._runner.run('{} {}'.format(utils.get_executable('virtualenv'), virtualenv_path),
+                                  cwd=self._repo_dir)
+
+        self._debug(result.std_out)
+
+        pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
+
+        result = self._runner.run('{} install pyinstaller=={}'
+                                  .format(pip_path, pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
+                                  cwd=self._repo_dir)
+
+        self._debug(result.std_out)
+
+        result = self._runner.run('{} install wheel=={}'.format(pip_path, wheel_version or DEFAULT_WHEEL_VERSION),
+                                  cwd=self._repo_dir)
+
+        self._debug(result.std_out)
+
+        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
+        requirements_file = os.path.join(self._repo_dir, 'requirements.txt')
+
+        if os.path.exists(setup_py_file):
+            self._debug('Detected setup.py file: {}. Installing...'.format(setup_py_file))
+            result = self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
+            self._debug(result.std_out)
+
+        if os.path.exists(requirements_file):
+            self._debug('Detected requirements.txt file: {}. Installing...'.format(requirements_file))
+            result = self._runner.run('{} install -r {}'.format(pip_path, requirements_file), cwd=self._repo_dir)
+            self._debug(result.std_out)
+
+        self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
+
+        try:
+            yield virtualenv_path
+        finally:
+            utils.rmf(temp_dir)
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)

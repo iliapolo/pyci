@@ -21,6 +21,8 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import utils
+from pyci.api.packager import DEFAULT_WHEEL_VERSION
+from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
 from pyci.shell import handle_exceptions
 from pyci.api.utils import is_pyinstaller
 from pyci.shell import logger
@@ -40,8 +42,11 @@ log = logger.get()
               help='Path (relative to the repository root) of the file to be used as the '
                    'executable entry point. This corresponds to the positional script argument '
                    'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+@click.option('--pyinstaller-version', required=False,
+              help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
+                   'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
 @handle_exceptions
-def binary(ctx, name, entrypoint):
+def binary(ctx, name, entrypoint, pyinstaller_version):
 
     """
     Create a binary executable.
@@ -66,7 +71,8 @@ def binary(ctx, name, entrypoint):
     try:
         package_path = binary_internal(entrypoint=entrypoint,
                                        name=name,
-                                       packager=ctx.parent.packager)
+                                       packager=ctx.parent.packager,
+                                       pyinstaller_version=pyinstaller_version)
         log.echo('Binary package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
         err = click.ClickException('Binary already exists: {}'.format(e.path))
@@ -101,8 +107,11 @@ def binary(ctx, name, entrypoint):
               help='Use this if your project supports both python2 and python3 natively. This '
                    'corresponds to the --universal option of bdis_wheel '
                    '(https://wheel.readthedocs.io/en/stable/)')
+@click.option('--wheel-version', required=False,
+              help='Which version of wheel to use. Note that PyCI is tested only against version {}, this is '
+                   'an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION))
 @handle_exceptions
-def wheel(ctx, universal):
+def wheel(ctx, universal, wheel_version):
 
     """
     Create a python wheel.
@@ -113,7 +122,8 @@ def wheel(ctx, universal):
 
     try:
         package_path = wheel_internal(universal=universal,
-                                      packager=ctx.parent.packager)
+                                      packager=ctx.parent.packager,
+                                      wheel_version=wheel_version)
         log.echo('Wheel package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
         err = click.ClickException('Wheel already exists: {}'.format(e.path))
@@ -125,29 +135,31 @@ def wheel(ctx, universal):
         utils.raise_with_traceback(err, tb)
 
 
-def wheel_internal(universal, packager):
+def wheel_internal(universal, wheel_version, packager):
 
     try:
         log.echo('Packaging wheel...', break_line=False)
         package_path = packager.wheel(
-            universal=universal
+            universal=universal,
+            wheel_version=wheel_version
         )
         log.checkmark()
         return package_path
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
 
-def binary_internal(entrypoint, name, packager):
+def binary_internal(entrypoint, name, pyinstaller_version, packager):
 
     try:
         log.echo('Packaging binary...', break_line=False)
         package_path = packager.binary(
             entrypoint=entrypoint,
+            pyinstaller_version=pyinstaller_version,
             name=name)
         log.checkmark()
         return package_path
-    except:
+    except BaseException as _:
         log.xmark()
         raise

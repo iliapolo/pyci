@@ -67,14 +67,6 @@ def test_set_target_dir_doesnt_exist(pack):
         pack.api.target_dir = 'doesnt-exist'
 
 
-def test_not_python_project(pack):
-
-    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
-
-    with pytest.raises(exceptions.NotPythonProjectException):
-        Packager.create(path=pack.api.repo_dir)
-
-
 def test_repo_dir_sha():
 
     packager = Packager.create(repo='iliapolo/pyci', sha='release')
@@ -100,6 +92,14 @@ def test_wheel(pack):
     actual = pack.api.wheel()
 
     assert expected == actual
+
+
+def test_wheel_not_python_project(pack):
+
+    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
+
+    with pytest.raises(exceptions.NotPythonProjectException):
+        pack.api.wheel()
 
 
 def test_wheel_options(pack, temp_dir):
@@ -135,7 +135,7 @@ def test_binary(pack, runner):
     if platform.system() == 'Windows':
         expected = '{0}.exe'.format(expected)
 
-    actual = pack.api.binary()
+    actual = pack.api.binary(entrypoint='pyci.spec')
 
     assert expected == actual
 
@@ -185,7 +185,7 @@ def test_binary_file_exists(pack):
         stream.write('package')
 
     with pytest.raises(exceptions.FileExistException):
-        pack.api.binary()
+        pack.api.binary(entrypoint='pyci.spec')
 
 
 def test_binary_default_entrypoint_doesnt_exist(pack):

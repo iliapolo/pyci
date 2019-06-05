@@ -56,14 +56,13 @@ setup(
         'click==6.7',
         'semver==2.8.0',
         'PyGithub==1.40',
-        'pyinstaller==3.3.1',
         'requests==2.18.4',
         'jinja2==2.10',
         'boltons==18.0.0',
-        'wheel==0.31.1',
         'twine==1.11.0',
         'six==1.11.0',
-        'colorama==0.3.9'
+        'colorama==0.3.9',
+        'virtualenv==16.6.0'
     ],
     classifiers=[
         'Programming Language :: Python',

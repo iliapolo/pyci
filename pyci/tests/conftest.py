@@ -113,10 +113,10 @@ def _release(pyci, github):
 
 
 @pytest.fixture(name='github')
-def _github(pyci, repo):
+def _github(pyci, repo, token):
 
     repository = GitHubRepository.create(repo=REPO_UNDER_TEST,
-                                         access_token=secrets.github_access_token(True))
+                                         access_token=token)
     setattr(repository, 'repo', repo)
 
     # pylint: disable=too-few-public-methods
@@ -250,7 +250,7 @@ def _patched_release(mocker, pyci):
 
 
 @pytest.fixture(name='repo', scope='session')
-def _repo(connection_patcher):
+def _repo(connection_patcher, token):
 
     get_repo_data = os.path.join(os.path.dirname(tests.__file__),
                                  "replay_data",
@@ -259,7 +259,8 @@ def _repo(connection_patcher):
     try:
         connection_patcher.patch()
         connection_patcher.update(get_repo_data)
-        repo = Github(secrets.github_access_token(True), timeout=30).get_repo(
+
+        repo = Github(token, timeout=30).get_repo(
             REPO_UNDER_TEST, lazy=False)
         yield repo
     finally:
@@ -267,13 +268,42 @@ def _repo(connection_patcher):
 
 
 @pytest.fixture(name='connection_patcher', scope='session')
-def _github_connection_patcher():
+def _github_connection_patcher(token, mode):
 
     pytest.register_assert_rewrite('pyci.tests.framework')
 
     from pyci.tests import github_patcher
 
-    return github_patcher.GithubConnectionPatcher(record=False)
+    record = mode == 'RECORD'
+
+    return github_patcher.GithubConnectionPatcher(record=record, token=token)
+
+
+@pytest.fixture(name='token', scope='session')
+def _token(mode):
+
+    if mode == 'RECORD':
+        token = secrets.github_access_token(True)
+
+    # when replaying, the token is not needed.
+    token = 'token'
+
+    # set the environment variable so that the commands code will use it and not
+    # get stuck on prompt when running from IDE.
+    os.environ[secrets.GITHUB_ACCESS_TOKEN] = token
+
+    return token
+
+
+@pytest.fixture(name='mode', scope='session')
+def _mode():
+
+    record = os.environ.get('PYGITHUB_RECORD', False)
+
+    if record:
+        return 'RECORD'
+
+    return 'REPLAY'
 
 
 @pytest.fixture(name='runner', scope='session')

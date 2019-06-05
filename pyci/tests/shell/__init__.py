@@ -33,7 +33,7 @@ from pyci.api.runner import CommandExecutionResponse
 log = logger.get_logger(__name__)
 
 
-DEBUG = False
+DEBUG = True
 
 
 # pylint: disable=too-few-public-methods

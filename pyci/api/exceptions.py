@@ -273,15 +273,22 @@ class IssueNotFoundException(ApiException):
 
 class NotPythonProjectException(ApiException):
 
-    def __init__(self, repo, cause, sha):
+    def __init__(self, cause, repo=None, sha=None, path=None):
         self.sha = sha
         self.cause = cause
         self.repo = repo
+        self.path = path
         super(NotPythonProjectException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Commit {} in repository {} does not contain a valid ' \
-               'python project: {}.'.format(self.sha, self.repo, self.cause)
+
+        if self.repo:
+            repo_location = 'github.com/{}@{}'.format(self.repo, self.sha)
+        else:
+            repo_location = self.path
+
+        return 'Repository at location {} does not contain a valid ' \
+               'python project: {}.'.format(repo_location, self.cause)
 
 
 class RepositoryNotFoundException(ApiException):

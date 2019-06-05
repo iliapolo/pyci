@@ -268,19 +268,18 @@ def download_repo(repo_name, sha):
     repo_base_name = '/'.join(repo_name.split('/')[1:])
 
     url = 'https://github.com/{}/archive/{}.zip'.format(repo_name, sha)
-    archive = download(url, headers={
-        'Authorization': 'token {}'.format(os.environ['GITHUB_ACCESS_TOKEN'])
-    })
+
+    headers = {}
+
+    token = os.environ.get('GITHUB_ACCESS_TOKEN')
+    if token:
+        headers = {
+            'Authorization': 'token {}'.format(token)
+        }
+    archive = download(url, headers=headers)
     repo_dir = unzip(archive=archive)
 
     repo_dir = os.path.join(repo_dir, '{}-{}'.format(repo_base_name, sha))
-
-    setup_py_file = os.path.join(repo_dir, 'setup.py')
-
-    try:
-        validate_file_exists(setup_py_file)
-    except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
-        raise exceptions.NotPythonProjectException(repo=repo_name, cause=str(e), sha=sha)
 
     return repo_dir
 
