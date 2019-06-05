@@ -33,7 +33,7 @@ from pyci.api.runner import CommandExecutionResponse
 log = logger.get_logger(__name__)
 
 
-DEBUG = True
+DEBUG = False
 
 
 # pylint: disable=too-few-public-methods
@@ -87,7 +87,7 @@ class PyCI(object):
     @cachedproperty
     def _binary_path(self):
         log.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
-        package_path = self._packager.binary()
+        package_path = self._packager.binary(entrypoint='pyci.spec')
         log.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
         return package_path
 

@@ -26,7 +26,7 @@ from pyci.api import utils
 
 def test_binary(pack, runner):
 
-    result = pack.run('binary')
+    result = pack.run('binary --entrypoint pyci.spec')
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
         platform.machine(), platform.system()))
@@ -103,7 +103,7 @@ def test_binary_file_exists(pack):
     with open(expected_package_path, 'w') as stream:
         stream.write('package')
 
-    result = pack.run('binary', catch_exceptions=True)
+    result = pack.run('binary --entrypoint pyci.spec', catch_exceptions=True)
 
     expected_output = 'Binary already exists: {}'.format(expected_package_path)
     expected_possible_solution = 'Delete/Move the binary and try again'
@@ -190,3 +190,15 @@ def test_wheel_file_exists(pack, binary):
 
     assert expected_output in result.std_out
     assert expected_possible_solution in result.std_out
+
+
+@pytest.mark.parametrize("binary", [False, True])
+def test_wheel_not_python_project(pack, binary):
+
+    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
+
+    result = pack.run('wheel', binary=binary, catch_exceptions=True)
+
+    expected_output = 'does not contain a valid python project'
+
+    assert expected_output in result.std_out

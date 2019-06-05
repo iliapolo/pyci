@@ -406,8 +406,9 @@ def test_create_release_not_python_project(github):
 
     result = github.run('create-release --sha {}'.format(sha), catch_exceptions=True)
 
-    expected_error_message = 'ERROR: Commit {} in repository {} does not contain a ' \
-                             'valid python project'.format(sha, REPO_UNDER_TEST)
+    expected_error_message = 'Repository at location github.com/{}@{} ' \
+                             'does not contain a valid python project: setup.py file not found'\
+                             .format(REPO_UNDER_TEST, sha)
     expected_possible_solution = 'Please follow these instructions to create a standard ' \
                                  'python project --> https://packaging.python.org' \
                                  '/tutorials/distributing-packages/'

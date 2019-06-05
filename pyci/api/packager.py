@@ -296,12 +296,32 @@ class Packager(object):
     @contextlib.contextmanager
     def _create_virtualenv(self, name, pyinstaller_version=None, wheel_version=None):
 
+        def _make_relocatable(_virtualenv_path):
+
+            bin_directory = os.path.abspath(os.path.join(virtualenv_path, os.pardir))
+
+            for script in utils.lsf(bin_directory):
+
+                with open(script, 'r+') as f:
+
+                    lines = f.read().splitlines()
+
+                    if lines and lines[0].startswith('#!') and lines[0].endswith('python'):
+                        # this is the shebang we need to fix and make relative
+                        lines[0] = "#!./python"
+
+                    content = os.linesep.join(lines)
+                    f.write(content)
+
         temp_dir = tempfile.mkdtemp()
 
         virtualenv_path = os.path.join(temp_dir, name)
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
-        result = self._runner.run('{} {}'.format(utils.get_executable('virtualenv'), virtualenv_path),
+
+        virtualenv_bin = utils.get_executable('virtualenv')
+
+        result = self._runner.run('{} {}'.format(virtualenv_bin, virtualenv_path),
                                   cwd=self._repo_dir)
 
         self._debug(result.std_out)
@@ -331,6 +351,8 @@ class Packager(object):
             self._debug('Detected requirements.txt file: {}. Installing...'.format(requirements_file))
             result = self._runner.run('{} install -r {}'.format(pip_path, requirements_file), cwd=self._repo_dir)
             self._debug(result.std_out)
+
+        # _make_relocatable(virtualenv_path)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 

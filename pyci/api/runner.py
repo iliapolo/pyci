@@ -78,7 +78,9 @@ class LocalCommandRunner(object):
         else:
             popen_args = _shlex_split(command)
 
-        self._debug('Running command...', command=command)
+        cwd = cwd or os.getcwd()
+
+        self._debug('Running command...', command=command, cwd=cwd)
 
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
@@ -94,7 +96,7 @@ class LocalCommandRunner(object):
         if err:
             err = err.rstrip()
 
-        self._debug('Finished running command.', command=command, exit_code=p.returncode)
+        self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
 
         if p.returncode != 0:
             error = exceptions.CommandExecutionException(
