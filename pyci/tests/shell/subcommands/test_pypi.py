@@ -18,6 +18,8 @@
 import os
 import pytest
 
+from pyci.tests import conftest
+
 
 @pytest.mark.parametrize("binary", [False, True])
 def test_upload(pypi, pack, binary):
@@ -55,3 +57,34 @@ def test_upload_already_published(pypi, pack, binary):
                       .format(os.path.basename(wheel_path))
 
     assert expected_output in result.std_out
+
+
+@pytest.mark.skip()
+@pytest.mark.linux
+def test_binary_cross_platform_upload(platforms):
+
+    local_binary_path = platforms.ubuntu.binary()
+
+    try:
+        remote_binary_path = platforms.alpine.add(local_binary_path)
+
+        pack_command = '{0} --debug pack --repo {1} --sha {2} wheel'.format(remote_binary_path,
+                                                                            conftest.REPO_UNDER_TEST,
+                                                                            conftest.LAST_COMMIT)
+
+        upload_command = 'TWINE_USERNAME=stub TWINE_PASSWORD=stub {0} ' \
+                         '--debug pypi ' \
+                         '--test upload ' \
+                         '--wheel /pyci_guinea_pig-0.0.1-py3-none-any.whl'.format(remote_binary_path)
+
+        command = '{} && {}'.format(pack_command, upload_command)
+
+        result = platforms.alpine.run('chmod +x {0} && {1}'.format(remote_binary_path, command))
+
+        # This means everything worked fine with regards to packaging. We expect this
+        # error because we provide false credentials since we are not really interested in actually
+        # uploading the wheel.
+        assert 'Invalid or non-existent authentication' in result.std_out
+
+    finally:
+        os.remove(local_binary_path)

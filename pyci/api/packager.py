@@ -233,18 +233,16 @@ class Packager(object):
                                                            sha=self._sha,
                                                            path=self._path)
 
-            with self._create_virtualenv(self._default_name, wheel_version=wheel_version) as virtualenv:
+            command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}' \
+                .format(utils.get_executable('python'), setup_py_file, bdist_dir, dist_dir)
 
-                command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}' \
-                    .format(os.path.join(virtualenv, 'bin', 'python'), setup_py_file, bdist_dir, dist_dir)
+            if universal:
+                command = '{0} --universal'.format(command)
 
-                if universal:
-                    command = '{0} --universal'.format(command)
-
-                self._debug('Running bdist_wheel...', universal=universal)
-                result = self._runner.run(command, cwd=self._repo_dir)
-                self._debug('Finished running bdist_wheel.', universal=universal)
-                self._debug(result.std_out)
+            self._debug('Running bdist_wheel...', universal=universal)
+            result = self._runner.run(command, cwd=self._repo_dir)
+            self._debug('Finished running bdist_wheel.', universal=universal)
+            self._debug(result.std_out)
 
             actual_name = utils.lsf(dist_dir)[0]
 
@@ -296,23 +294,6 @@ class Packager(object):
     @contextlib.contextmanager
     def _create_virtualenv(self, name, pyinstaller_version=None, wheel_version=None):
 
-        def _make_relocatable(_virtualenv_path):
-
-            bin_directory = os.path.abspath(os.path.join(virtualenv_path, os.pardir))
-
-            for script in utils.lsf(bin_directory):
-
-                with open(script, 'r+') as f:
-
-                    lines = f.read().splitlines()
-
-                    if lines and lines[0].startswith('#!') and lines[0].endswith('python'):
-                        # this is the shebang we need to fix and make relative
-                        lines[0] = "#!./python"
-
-                    content = os.linesep.join(lines)
-                    f.write(content)
-
         temp_dir = tempfile.mkdtemp()
 
         virtualenv_path = os.path.join(temp_dir, name)
@@ -340,19 +321,10 @@ class Packager(object):
         self._debug(result.std_out)
 
         setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-        requirements_file = os.path.join(self._repo_dir, 'requirements.txt')
 
-        if os.path.exists(setup_py_file):
-            self._debug('Detected setup.py file: {}. Installing...'.format(setup_py_file))
-            result = self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
-            self._debug(result.std_out)
-
-        if os.path.exists(requirements_file):
-            self._debug('Detected requirements.txt file: {}. Installing...'.format(requirements_file))
-            result = self._runner.run('{} install -r {}'.format(pip_path, requirements_file), cwd=self._repo_dir)
-            self._debug(result.std_out)
-
-        # _make_relocatable(virtualenv_path)
+        self._debug('Installing {}...'.format(setup_py_file))
+        result = self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
+        self._debug(result.std_out)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 

@@ -104,7 +104,7 @@ def github(ctx, repo):
 
     ctx.github = GitHubRepository.create(
         repo=repo,
-        access_token=secrets.github_access_token(ctx.parent.ci_provider))
+        access_token=secrets.github_access_token())
 
 
 @click.group()
@@ -183,8 +183,8 @@ def pypi(ctx, test, repository_url):
 
     ctx.pypi = PyPI.create(repository_url=repository_url,
                            test=test,
-                           username=secrets.twine_username(ctx.parent.ci_provider),
-                           password=secrets.twine_password(ctx.parent.ci_provider))
+                           username=secrets.twine_username(),
+                           password=secrets.twine_password())
 
 
 github.add_command(github_group.release_branch)

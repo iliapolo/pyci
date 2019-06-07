@@ -51,8 +51,8 @@ def test_upload_already_exists(pypi, pack):
 
 def test_upload_twine_execution_failed(pack):
 
-    pypi = PyPI.create(username=secrets.twine_username(True),
-                       password=secrets.twine_password(True),
+    pypi = PyPI.create(username=secrets.twine_username(),
+                       password=secrets.twine_password(),
                        repository_url='htttp://repository-url',
                        test=False)
 

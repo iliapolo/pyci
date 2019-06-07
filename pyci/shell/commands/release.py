@@ -160,7 +160,7 @@ def release_internal(binary_entrypoint,
                      wheel_version,
                      pyinstaller_version):
 
-    gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token(ci))
+    gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
     github_release = github.release_branch_internal(
         branch_name=branch_name,
         master_branch_name=master_branch_name,
@@ -189,8 +189,7 @@ def release_internal(binary_entrypoint,
 
         if not no_wheel:
             log.echo('Wheel', add=True)
-            wheel_url = _upload_wheel(ci=ci,
-                                      packager=packager,
+            wheel_url = _upload_wheel(packager=packager,
                                       pypi_test=pypi_test,
                                       pypi_url=pypi_url,
                                       wheel_universal=wheel_universal,
@@ -209,10 +208,10 @@ def release_internal(binary_entrypoint,
     return github_release, wheel_url
 
 
-def _upload_wheel(ci, packager, pypi_test, pypi_url, wheel_universal, wheel_version):
+def _upload_wheel(packager, pypi_test, pypi_url, wheel_universal, wheel_version):
 
-    pypi_api = PyPI.create(username=secrets.twine_username(ci),
-                           password=secrets.twine_password(ci),
+    pypi_api = PyPI.create(username=secrets.twine_username(),
+                           password=secrets.twine_password(),
                            test=pypi_test,
                            repository_url=pypi_url)
 

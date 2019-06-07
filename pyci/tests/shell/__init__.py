@@ -78,14 +78,16 @@ class PyCI(object):
 
     def _run_binary(self, command):
 
-        command = '{} {}'.format(self._binary_path, command)
+        command = '{} {}'.format(self.binary_path, command)
 
         log.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
 
-        return self._local_runner.run(command, exit_on_failure=False, pipe=True)
+        return self._local_runner.run(command, exit_on_failure=False, pipe=True, execution_env={
+            'PYCI_INTERACTIVE': 'False'
+        })
 
     @cachedproperty
-    def _binary_path(self):
+    def binary_path(self):
         log.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
         package_path = self._packager.binary(entrypoint='pyci.spec')
         log.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))

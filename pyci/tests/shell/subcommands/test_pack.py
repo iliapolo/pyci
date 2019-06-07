@@ -22,6 +22,7 @@ import shutil
 import pytest
 
 from pyci.api import utils
+from pyci.tests import conftest
 
 
 def test_binary(pack, runner):
@@ -202,3 +203,20 @@ def test_wheel_not_python_project(pack, binary):
     expected_output = 'does not contain a valid python project'
 
     assert expected_output in result.std_out
+
+
+@pytest.mark.skip()
+@pytest.mark.linux
+@pytest.mark.parametrize("build_distro", [False, True])
+@pytest.mark.parametrize("run_distro", [False, True])
+def test_binary_cross_distribution_wheel(build_distro, run_distro):
+
+    local_binary_path = build_distro.binary()
+
+    try:
+        remote_binary_path = run_distro.add(local_binary_path)
+        result = run_distro.run('ls -l {0} && chmod +x {0} && {0} pack --repo {1} --sha {2} wheel'
+                                .format(remote_binary_path, conftest.REPO_UNDER_TEST, conftest.LAST_COMMIT))
+        assert 'pyci_guinea_pig-0.0.1-py3-none-any.whl' in result.std_out
+    finally:
+        os.remove(local_binary_path)

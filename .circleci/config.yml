@@ -44,6 +44,39 @@ jobs:
       - run:
           name: run tox
           command: tox -e py36
+  binary.build:
+    docker:
+      - image: circleci/python:2.7
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install dependencies
+          command: tox --notest -e py27
+      - save_cache:
+          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+  binary.test:
+    docker:
+      - image: circleci/python:2.7
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install dependencies
+          command: tox --notest -e py27
+      - save_cache:
+          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+
 
 workflows:
   version: 2
@@ -62,5 +95,3 @@ workflows:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-
-

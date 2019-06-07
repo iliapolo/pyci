@@ -40,6 +40,7 @@ from pyci.api.pypi import PyPI
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell import secrets
 from pyci.tests.shell import PyCI
+from pyci.tests import platforms
 from pyci import tests
 
 
@@ -85,10 +86,21 @@ def _cwd(temp_dir):
         os.chdir(cwd)
 
 
+@pytest.fixture(name='non_interactive', autouse=True)
+def  _non_interactive():
+    os.environ['PYCI_INTERACTIVE'] = 'False'
+
+
 @pytest.fixture(name='pyci', scope='session')
 def _pyci(repo_path):
 
     yield PyCI(repo_path)
+
+
+@pytest.fixture(name='binary_path', scope='session')
+def _binary_path(pyci):
+
+    return pyci.binary_path
 
 
 @pytest.fixture(name='release')
@@ -186,8 +198,8 @@ def _pypi(pyci):
     class PyPISubCommand(object):
 
         def __init__(self):
-            self.api = PyPI.create(username=secrets.twine_username(True),
-                                   password=secrets.twine_password(True),
+            self.api = PyPI.create(username=secrets.twine_username(),
+                                   password=secrets.twine_password(),
                                    test=True)
 
         @staticmethod
@@ -283,7 +295,7 @@ def _github_connection_patcher(token, mode):
 def _token(mode):
 
     if mode == 'RECORD':
-        token = secrets.github_access_token(True)
+        token = secrets.github_access_token()
 
     # when replaying, the token is not needed.
     token = 'token'
@@ -316,6 +328,11 @@ def _runner():
 def _repo_path():
     import pyci
     return os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+
+
+@pytest.fixture(name='platforms', scope='session')
+def _platforms(repo_path):
+    return platforms.Platforms(repo_path)
 
 
 @contextlib.contextmanager
@@ -401,15 +418,25 @@ def _patch_setup_py(local_repo_path):
 
 def _get_data_file(request):
 
+    def _is_test_platform_dependent():
+
+        record_markers = [mark for mark in request.node.own_markers if mark.name == 'record']
+
+        if not record_markers:
+            return False
+
+        if len(record_markers) > 1:
+            raise RuntimeError("Invalid markers for test '{}': Multiple record markers found".format(test_name))
+
+        record_mark = record_markers[0]
+
+        return record_mark.kwargs.get('platform', False)
+
     test_name = request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
 
     file_name = os.path.join(os.path.dirname(tests.__file__), "replay_data", test_name + ".txt")
 
-    try:
-        record = getattr(request.node.function, 'record')
-        if record.kwargs.get('platform', False):
-            file_name = '{}[{}]'.format(file_name, platform.system().lower())
-    except AttributeError:
-        pass
+    if _is_test_platform_dependent():
+        file_name = '{}[{}]'.format(file_name, platform.system().lower())
 
     return file_name
