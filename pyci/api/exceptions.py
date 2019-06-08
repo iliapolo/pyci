@@ -387,3 +387,17 @@ class RefAlreadyAtShaException(ApiException):
 
     def __str__(self):
         return 'Reference {} is already at {}'.format(self.ref, self.sha)
+
+
+class ScriptInvocationException(ApiException):
+
+    def __init__(self, script, args, error):
+        self.script = script
+        self.args = args
+        self.error = error
+        super(ScriptInvocationException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Invocation of script '{}' with arguments {} failed: {}".format(self.script,
+                                                                               self.args,
+                                                                               self.error)
