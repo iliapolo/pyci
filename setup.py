@@ -62,7 +62,8 @@ setup(
         'twine==1.11.0',
         'six==1.11.0',
         'colorama==0.3.9',
-        'virtualenv==16.6.0'
+        'virtualenv==16.6.0',
+        'wheel==0.31.1'
     ],
     classifiers=[
         'Programming Language :: Python',

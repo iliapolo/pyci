@@ -32,7 +32,6 @@ log = logger.get_logger(__name__)
 
 
 DEFAULT_PY_INSTALLER_VERSION = '3.3.1'
-DEFAULT_WHEEL_VERSION = '0.31.1'
 
 
 class Packager(object):
@@ -194,7 +193,7 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def wheel(self, universal=False, wheel_version=None):
+    def wheel(self, universal=False):
 
         """
         Create a wheel package.
@@ -205,7 +204,6 @@ class Packager(object):
 
         Args:
             universal (bool): True if the created will should be universal, False otherwise.
-            wheel_version (:str, optional): Which wheel version to use.
 
         Raises:
             FileExistsException: Raised if the destination file already exists.
@@ -292,7 +290,7 @@ class Packager(object):
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
     @contextlib.contextmanager
-    def _create_virtualenv(self, name, pyinstaller_version=None, wheel_version=None):
+    def _create_virtualenv(self, name, pyinstaller_version=None):
 
         temp_dir = tempfile.mkdtemp()
 
@@ -311,11 +309,6 @@ class Packager(object):
 
         result = self._runner.run('{} install pyinstaller=={}'
                                   .format(pip_path, pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
-                                  cwd=self._repo_dir)
-
-        self._debug(result.std_out)
-
-        result = self._runner.run('{} install wheel=={}'.format(pip_path, wheel_version or DEFAULT_WHEEL_VERSION),
                                   cwd=self._repo_dir)
 
         self._debug(result.std_out)

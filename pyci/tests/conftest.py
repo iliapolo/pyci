@@ -40,7 +40,6 @@ from pyci.api.pypi import PyPI
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell import secrets
 from pyci.tests.shell import PyCI
-from pyci.tests import platforms
 from pyci import tests
 
 
@@ -328,11 +327,6 @@ def _runner():
 def _repo_path():
     import pyci
     return os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
-
-
-@pytest.fixture(name='platforms', scope='session')
-def _platforms(repo_path):
-    return platforms.Platforms(repo_path)
 
 
 @contextlib.contextmanager
