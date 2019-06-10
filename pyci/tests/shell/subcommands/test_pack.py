@@ -176,18 +176,27 @@ def test_wheel_not_python_project(pack, binary):
     assert expected_output in result.std_out
 
 
-# @pytest.mark.skip()
 @pytest.mark.linux
-@pytest.mark.parametrize("build_distro", [distros.Stretch()])
-@pytest.mark.parametrize("run_distro", [distros.Ubuntu()])
-def test_binary_cross_distribution_wheel(build_distro, run_distro):
+@pytest.mark.parametrize("build_distro", [distros.Stretch('2.7.16')])
+@pytest.mark.parametrize("run_distro", [distros.Ubuntu('18.04'), distros.Stretch('2.7.16')])
+def test_binary_cross_distribution_wheel(repo_version, repo_path, build_distro, run_distro):
 
     local_binary_path = build_distro.binary()
 
     try:
         remote_binary_path = run_distro.add(local_binary_path)
-        result = run_distro.run('ls -l {0} && chmod +x {0} && {0} pack --repo {1} --sha {2} wheel'
-                                .format(remote_binary_path, conftest.REPO_UNDER_TEST, conftest.LAST_COMMIT))
-        assert 'pyci_guinea_pig-0.0.1-py3-none-any.whl' in result.std_out
+        remote_repo_path = run_distro.add(repo_path)
+        result = run_distro.run('chmod +x {0} && {0} pack --path {1} wheel'
+                                .format(remote_binary_path, remote_repo_path), exit_on_failure=False)
+
+        if run_distro.has_python:
+            expected_result = 'py_ci-{}-{}-none-any.whl'.format(
+                repo_version,
+                'py2' if run_distro.python_version.startswith('2') else 'py3')
+        else:
+            expected_result = 'Python installation not found in PATH'
+
+        assert expected_result in result.std_out
+
     finally:
         os.remove(local_binary_path)

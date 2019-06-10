@@ -150,20 +150,9 @@ def _github(pyci, repo, token):
 
 
 @pytest.fixture(name='pack')
-def _pack(log, pyci, repo_path):
+def _pack(log, pyci, repo_version, repo_path):
 
-    temp_dir = tempfile.mkdtemp()
-
-    ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git')
-
-    target_repo_path = os.path.join(temp_dir, 'repo')
-
-    log.info("Copying repository to temp directory...")
-    shutil.copytree(src=repo_path, dst=target_repo_path, ignore=ignore)
-
-    version = _patch_setup_py(target_repo_path)
-
-    packager = Packager.create(path=target_repo_path)
+    packager = Packager.create(path=repo_path)
 
     # pylint: disable=too-few-public-methods
     class PackSubCommand(object):
@@ -186,10 +175,7 @@ def _pack(log, pyci, repo_path):
                             binary=binary,
                             catch_exceptions=catch_exceptions)
 
-    try:
-        yield PackSubCommand()
-    finally:
-        utils.rmf(packager.repo_dir)
+    return PackSubCommand()
 
 
 @pytest.fixture(name='pypi')
@@ -325,10 +311,33 @@ def _runner():
     yield LocalCommandRunner()
 
 
-@pytest.fixture(name='repo_path', scope='session')
-def _repo_path():
+@pytest.fixture(name='repo_path')
+def _repo_path(log):
+
     import pyci
-    return os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+    source_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+
+    temp_dir = tempfile.mkdtemp()
+
+    ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git')
+
+    target_repo_path = os.path.join(temp_dir, 'repo')
+
+    log.info("Copying repository to temp directory...")
+    shutil.copytree(src=source_path, dst=target_repo_path, ignore=ignore)
+
+    try:
+        yield target_repo_path
+    finally:
+        utils.rmf(target_repo_path)
+
+
+@pytest.fixture(name='repo_version')
+def _repo_version(repo_path):
+
+    version = _patch_setup_py(repo_path)
+
+    return version
 
 
 @contextlib.contextmanager

@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import distutils
 import copy
 import os
 import platform
@@ -169,6 +170,16 @@ class Packager(object):
                                                              entrypoint=entrypoint)
 
             with self._create_virtualenv(name, pyinstaller_version=pyinstaller_version) as virtualenv:
+
+                self._runner.run('{} -c "import opcode; print(opcode.__file__)"'
+                                 .format(os.path.join(virtualenv, 'bin', 'python')))
+
+                self._runner.run('{} -c "import sys; print(sys.path)"'
+                                 .format(os.path.join(virtualenv, 'bin', 'python')))
+
+                self._runner.run('{} -c "import sys; print(sys.executable)"'
+                                 .format(os.path.join(virtualenv, 'bin', 'python')))
+
                 self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
                 self._runner.run(
                     '{} '
@@ -194,8 +205,7 @@ class Packager(object):
             self._debug('Packaged successfully.', package=destination)
             return os.path.abspath(destination)
         finally:
-            pass
-            # utils.rmf(temp_dir)
+            utils.rmf(temp_dir)
 
     def wheel(self, universal=False):
 
@@ -310,6 +320,12 @@ class Packager(object):
 
         temp_dir = tempfile.mkdtemp()
 
+        import opcode
+        import sys
+
+        self._logger.debug("opcode when creating virtualenv: {}".format(opcode.__file__))
+        self._logger.debug("sys.path when creating virtualenv: {}".format(sys.path))
+
         virtualenv_path = os.path.join(temp_dir, name)
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
@@ -338,11 +354,11 @@ class Packager(object):
 
             def _write_support_wheel(_wheel):
 
-                with open(os.path.join(support_directory, _wheel), 'wb') as f:
-                    f.write(get_binary_resource(os.path.join('virtualenv_support', _wheel)))
+                with open(os.path.join(support_directory, _wheel), 'wb') as _w:
+                    _w.write(get_binary_resource(os.path.join('virtualenv_support', _wheel)))
 
-            with open(_virtualenv_py, 'w') as f:
-                f.write(get_text_resource('virtualenv.py'))
+            with open(_virtualenv_py, 'w') as venv_py:
+                venv_py.write(get_text_resource('virtualenv.py'))
 
             _write_support_wheel('pip-19.1.1-py2.py3-none-any.whl')
             _write_support_wheel('setuptools-41.0.1-py2.py3-none-any.whl')
