@@ -15,15 +15,17 @@
 #
 #############################################################################
 
+import shlex
 import copy
 import os
 import tempfile
 
+from wheel.cli import unpack
+from twine.commands import upload
+
 from pyci.api import exceptions, utils
 from pyci.api import logger
 from pyci.api.runner import LocalCommandRunner
-
-log = logger.get_logger(__name__)
 
 
 # pylint: disable=too-few-public-methods
@@ -60,6 +62,7 @@ class PyPI(object):
         self.password = password
         self._runner = LocalCommandRunner()
         self._site = 'test.pypi.org' if self.test else 'pypi.org'
+        self._logger = logger.Logger(__name__)
         self._log_ctx = {
             'test': self.test,
             'repository_url': self.repository_url,
@@ -90,44 +93,43 @@ class PyPI(object):
         wheel_url = 'https://{}/manage/project/{}/release/{}/'.format(
             self._site, self._extract_project_name(wheel), wheel_version)
 
-        command = '{} upload'.format(utils.get_executable('twine'))
+        args = '--username {} --password {} {}'.format(self.username, self.password, wheel)
         if self.repository_url:
-            command = '{} --repository-url {}'.format(command, self.repository_url)
+            args = '{} --repository-url {}'.format(args, self.repository_url)
 
-        env = {
-            'TWINE_USERNAME': self.username,
-            'TWINE_PASSWORD': self.password
-        }
+        args = _shlex_split(args)
 
         try:
             self._debug('Uploading wheel to PyPI repository...', wheel=wheel)
-            result = self._runner.run('{0} {1}'.format(command, wheel), execution_env=env)
-
-            self._debug(result.std_out)
-
+            upload.main(args)
             self._debug('Successfully uploaded wheel', wheel_url=wheel_url)
             return wheel_url
-        except exceptions.CommandExecutionException as e:
+        except BaseException as e:
 
-            if 'File already exists' in e.error:
+            if 'File already exists' in str(e):
                 wheel_name = os.path.basename(wheel)
                 raise exceptions.WheelAlreadyPublishedException(wheel=wheel_name, url=wheel_url)
 
-            raise exceptions.FailedPublishingWheelException(wheel=wheel, error=e.error)
+            raise exceptions.FailedPublishingWheelException(wheel=wheel, error=str(e))
 
-    def _extract_project_name(self, wheel):
+    @staticmethod
+    def _extract_project_name(wheel):
 
         wheel = os.path.abspath(wheel)
 
         wheel_parts = os.path.basename(wheel).split('-')
 
         temp_dir = tempfile.mkdtemp()
+
         try:
 
             project_name = None
 
-            self._runner.run('{} unpack --dest {} {}'.format(
-                utils.get_executable('wheel'), temp_dir, wheel))
+            # self._runner.run('{} unpack --dest {} {}'.format(
+            #     utils.get_executable('wheel'), temp_dir, wheel))
+
+            unpack.unpack(path=wheel, dest=temp_dir)
+
             wheel_project = '{}-{}'.format(wheel_parts[0], wheel_parts[1])
             metadata_file_path = os.path.join(temp_dir,
                                               wheel_project,
@@ -145,4 +147,11 @@ class PyPI(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
+
+
+def _shlex_split(command):
+    lex = shlex.shlex(command, posix=True)
+    lex.whitespace_split = True
+    lex.escape = ''
+    return list(lex)

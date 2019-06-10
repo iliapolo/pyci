@@ -16,6 +16,7 @@
 #############################################################################
 
 import tempfile
+import sys
 
 import pytest
 
@@ -74,3 +75,79 @@ def test_validate_file_does_not_exist():
         utils.validate_file_does_not_exist(path=tempfile.mkdtemp())
 
     utils.validate_file_does_not_exist(path='doesnt-exist')
+
+
+def test_extract_name_from_setup_py_double_quotes():
+
+    expected = 'my-name'
+
+    actual = utils.extract_name_from_setup_py("""
+setup(
+    name="{}",
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_name_from_setup_py_single_quotes():
+
+    expected = 'my-name'
+
+    actual = utils.extract_name_from_setup_py("""
+setup(
+    name='{}',
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_version_from_setup_py_double_quotes():
+
+    expected = '0.1.0'
+
+    actual = utils.extract_version_from_setup_py("""
+setup(
+    version="{}",
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_version_from_setup_py_single_quotes():
+
+    expected = '0.1.0'
+
+    actual = utils.extract_version_from_setup_py("""
+setup(
+    version='{}',
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_get_python_executable():
+
+    expected = sys.executable
+
+    actual = utils.get_python_executable('python')
+
+    assert expected == actual
+
+
+def test_get_python_executable_from_pyinstaller():
+
+    try:
+        setattr(sys, '_MEIPASS', 'mock')
+        with pytest.raises(RuntimeError) as e:
+            utils.get_python_executable('python')
+        assert 'Executables are not supported' in str(e)
+    finally:
+        delattr(sys, '_MEIPASS')

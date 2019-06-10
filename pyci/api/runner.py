@@ -14,6 +14,8 @@
 #   * limitations under the License.
 #
 #############################################################################
+
+import time
 import copy
 import os
 import shlex
@@ -21,8 +23,6 @@ import subprocess
 
 from pyci.api import exceptions
 from pyci.api import logger
-
-log = logger.get_logger(__name__)
 
 
 # pylint: disable=too-many-arguments,too-few-public-methods
@@ -35,12 +35,14 @@ class LocalCommandRunner(object):
         host (str): The host string to be displayed in log messages.
     """
 
-    def __init__(self, host='localhost'):
+    def __init__(self, host='localhost', log=None):
+        self._logger = log or logger.Logger(__name__)
+        self._output_logger = logger.Logger(name='runner-output', fmt='%(message)s')
         self._log_ctx = {
             'host': host
         }
 
-    def run(self, command, exit_on_failure=True, cwd=None, execution_env=None, pipe=True):
+    def run(self, command, exit_on_failure=True, cwd=None, execution_env=None):
 
         """
         Runs the specified command.
@@ -58,7 +60,6 @@ class LocalCommandRunner(object):
             cwd (str): The directory to execute the command in.
             execution_env (dict): Additional environment for the execution. (on top of the
                 current one)
-            pipe (bool): True to pipe stdout and stderr, False to print in real time.
 
         Raises:
             exceptions.CommandExecutionException: Raised when the execution failed and the
@@ -85,16 +86,45 @@ class LocalCommandRunner(object):
         command_env = os.environ.copy()
         command_env.update(execution_env or {})
         p = subprocess.Popen(args=popen_args,
-                             stdout=subprocess.PIPE if pipe else None,
-                             stderr=subprocess.PIPE if pipe else None,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
                              cwd=cwd,
                              env=command_env,
                              universal_newlines=True)
-        out, err = p.communicate()
-        if out:
-            out = out.rstrip()
-        if err:
-            err = err.rstrip()
+
+        def _is_alive(_p):
+            return p.poll() is None
+
+        stdout = []
+        stderr = []
+
+        while True:
+            out = p.stdout.readline().strip(os.linesep)
+            err = p.stderr.readline().strip(os.linesep)
+            if not out and not err and not _is_alive(p):
+                break
+            if out:
+                stdout.append(out)
+                self._output_logger.debug(out)
+            if err:
+                stderr.append(err)
+                self._output_logger.debug(err)
+            time.sleep(0.1)
+
+        out_leftovers, err_leftovers = p.communicate()
+
+        def _log_stream(stream):
+            for line in stream.splitlines():
+                self._output_logger.debug(line)
+
+        _log_stream(out_leftovers)
+        _log_stream(err_leftovers)
+
+        stdout.extend(out_leftovers.splitlines())
+        stderr.extend(err_leftovers.splitlines())
+
+        out = os.linesep.join(stdout)
+        err = os.linesep.join(stderr)
 
         self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
 
@@ -116,7 +146,7 @@ class LocalCommandRunner(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
 
 
 def _shlex_split(command):

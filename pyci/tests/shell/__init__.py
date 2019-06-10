@@ -15,10 +15,12 @@
 #
 #############################################################################
 
+import pytest
 import os
 import platform
 import re
 import tempfile
+import logging
 
 import click
 from click.testing import CliRunner
@@ -30,23 +32,19 @@ from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app
 from pyci.api.runner import CommandExecutionResponse
 
-log = logger.get_logger(__name__)
-
-
-DEBUG = False
-
 
 # pylint: disable=too-few-public-methods
 class PyCI(object):
 
     def __init__(self, repo_path):
+        self._logger = logger.Logger(__name__)
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
         self._packager = Packager.create(path=repo_path, target_dir=tempfile.mkdtemp())
 
     def run(self, command, binary=False, catch_exceptions=False):
 
-        if DEBUG:
+        if self._logger.logger.isEnabledFor(logging.DEBUG):
             command = '--debug {}'.format(command)
 
         if binary:
@@ -54,10 +52,12 @@ class PyCI(object):
         else:
             response = self._run_source(command=command)
 
-        click.echo(response.std_out)
-
         if response.return_code != 0 and not catch_exceptions:
-            raise click.ClickException(response.std_err)
+            pytest.fail("Invocation of command '{0}' failed. {1}{1}{2}{1}{1}{3}".format(
+                command,
+                os.linesep,
+                response.std_out,
+                response.std_err))
 
         return response
 
@@ -65,7 +65,7 @@ class PyCI(object):
 
         args = split(command)
 
-        log.info('Invoking command: {} [cwd={}]'.format(command, os.getcwd()))
+        self._logger.info('Invoking command: {} [cwd={}]'.format(command, os.getcwd()))
 
         result = self._click_runner.invoke(app, args, catch_exceptions=True)
 
@@ -80,17 +80,17 @@ class PyCI(object):
 
         command = '{} {}'.format(self.binary_path, command)
 
-        log.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
+        self._logger.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
 
-        return self._local_runner.run(command, exit_on_failure=False, pipe=True, execution_env={
+        return self._local_runner.run(command, exit_on_failure=False, execution_env={
             'PYCI_INTERACTIVE': 'False'
         })
 
     @cachedproperty
     def binary_path(self):
-        log.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
+        self._logger.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
         package_path = self._packager.binary(entrypoint='pyci.spec')
-        log.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
+        self._logger.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
         return package_path
 
 

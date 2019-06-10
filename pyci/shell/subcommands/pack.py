@@ -23,7 +23,6 @@ from pyci.api import exceptions
 from pyci.api import utils
 from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
 from pyci.shell import handle_exceptions
-from pyci.api.utils import is_pyinstaller
 from pyci.shell import logger
 
 log = logger.get()
@@ -63,10 +62,6 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
 
     """
 
-    if is_pyinstaller():
-        raise click.ClickException('Creating a binary package is not supported when running from '
-                                   'within a binary')
-
     try:
         package_path = binary_internal(entrypoint=entrypoint,
                                        name=name,
@@ -75,6 +70,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
         log.echo('Binary package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
         err = click.ClickException('Binary already exists: {}'.format(e.path))
+        err.exit_code = 101
         err.cause = 'You probably forgot to move/delete the package you created last time'
         err.possible_solutions = [
             'Delete/Move the binary and try again'
@@ -83,6 +79,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
         utils.raise_with_traceback(err, tb)
     except exceptions.DefaultEntrypointNotFoundException as e:
         err = click.ClickException('Failed locating an entrypoint file')
+        err.exit_code = 102
         err.cause = "You probably created the entrypoint in a different location than " \
                     "PyCI knows about.\nFor more details see " \
                     "https://github.com/iliapolo/pyci#cli-detection"
@@ -96,6 +93,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
     except exceptions.EntrypointNotFoundException as e:
         err = click.ClickException('The entrypoint path you specified does not exist: {}'
                                    .format(e.entrypoint))
+        err.exit_code = 103
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
 
@@ -122,6 +120,7 @@ def wheel(ctx, universal):
         log.echo('Wheel package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
         err = click.ClickException('Wheel already exists: {}'.format(e.path))
+        err.exit_code = 104
         err.cause = 'You probably forgot to move/delete the package you created last time'
         err.possible_solutions = [
             'Delete/Move the package and try again'

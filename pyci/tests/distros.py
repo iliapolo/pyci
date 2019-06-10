@@ -1,48 +1,36 @@
 import os
 import uuid
 
+import pyci
 from pyci.api.runner import LocalCommandRunner
 from pyci.api import logger
 
-log = logger.get_logger(__name__)
 
+class Stretch(object):
 
-class Ubuntu(object):
+    _IMAGE = 'python:3.6.8-stretch'
 
-    def __init__(self, local_repo_path):
-        super(Ubuntu, self).__init__()
+    def __init__(self):
+        super(Stretch, self).__init__()
+        self._logger = logger.Logger(__name__)
         self._volumes = {}
-        self._local_repo_path = local_repo_path
-        self._local_runner = LocalCommandRunner()
+        self._local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+        self._local_runner = LocalCommandRunner(log=self._logger)
 
-    def binary(self, virtualenv=True):
+    def binary(self):
 
         base_repo_name = os.path.basename(self._local_repo_path)
 
         container_repo_path = '/tmp/{}/{}/.'.format(uuid.uuid4(), base_repo_name)
 
-        if virtualenv:
-
-            container_virtualenv_path = '/tmp/{}/env'.format(uuid.uuid4())
-
-            install_command = 'pip install virtualenv==16.6.0 && ' \
-                              'virtualenv {0} && ' \
-                              '{0}/bin/pip install {1}' \
-                              .format(container_virtualenv_path,
-                                      container_repo_path)
-            pack_command = '{0}/bin/pyci --debug pack --path {1} --target-dir {1} binary'.format(
-                container_virtualenv_path, container_repo_path
-            )
-
-        else:
-            install_command = 'pip install {0}'.format(container_repo_path)
-            pack_command = 'pyci --debug pack --path {0} --target-dir {0} binary'.format(container_repo_path)
+        install_command = 'pip install {}'.format(container_repo_path)
+        pack_command = 'pyci --debug pack --path {0} --target-dir {0} binary --entrypoint pyci.spec'.format(container_repo_path)
 
         command = '{} && {}'.format(install_command, pack_command)
 
-        docker_command = 'docker run -v {}:{} python:3.6.8-stretch /bin/bash -c "{}"'\
-            .format(self._local_repo_path, container_repo_path, command)
-        self._local_runner.run(docker_command, pipe=True)
+        docker_command = 'docker run -v {}:{} {} /bin/bash -c "{}"'\
+            .format(self._local_repo_path, container_repo_path, self._IMAGE, command)
+        self._local_runner.run(docker_command)
 
         binary_path = os.path.join(self._local_repo_path, 'py-ci-x86_64-Linux')
 
@@ -63,6 +51,40 @@ class Ubuntu(object):
         for key, value in self._volumes.iteritems():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
-        docker_command = 'docker run {} python:3.6.8-stretch /bin/bash -c "{}"'.format(volumes, command)
+        docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._IMAGE, command)
 
-        return self._local_runner.run(docker_command, pipe=True, exit_on_failure=False)
+        return self._local_runner.run(docker_command, exit_on_failure=False)
+
+
+class Ubuntu(object):
+
+    _IMAGE = 'ubuntu:18.04'
+
+    def __init__(self):
+        super(Ubuntu, self).__init__()
+        self._logger = logger.Logger(__name__)
+        self._volumes = {}
+        self._local_repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+        self._local_runner = LocalCommandRunner(log=self._logger)
+
+    def binary(self):
+        raise NotImplementedError('This image does not contain a python installation')
+
+    def add(self, resource_path):
+
+        remote_path = '/tmp/{}/{}'.format(uuid.uuid4(), os.path.basename(resource_path))
+
+        self._volumes[resource_path] = remote_path
+
+        return remote_path
+
+    def run(self, command):
+
+        volumes = ''
+
+        for key, value in self._volumes.iteritems():
+            volumes = '{} -v {}:{}'.format(volumes, key, value)
+
+        docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._IMAGE, command)
+
+        return self._local_runner.run(docker_command, exit_on_failure=False)

@@ -561,7 +561,7 @@ def test_bump_version(github, temp_dir, runner):
     with open(setup_py_path, 'wb') as stream:
         stream.write(setup_py)
 
-    actual_version = runner.run('{} {} --version'.format(utils.get_executable('python'),
+    actual_version = runner.run('{} {} --version'.format(utils.get_python_executable('python'),
                                                          setup_py_path)).std_out
 
     assert expected_output in result.std_out
@@ -589,7 +589,7 @@ def test_set_version(github, temp_dir, runner):
     with open(setup_py_path, 'wb') as stream:
         stream.write(setup_py)
 
-    actual_version = runner.run('{} {} --version'.format(utils.get_executable('python'),
+    actual_version = runner.run('{} {} --version'.format(utils.get_python_executable('python'),
                                                          setup_py_path)).std_out
 
     expected_output = 'Version is now {} (was 0.0.1)'.format(expected_version)

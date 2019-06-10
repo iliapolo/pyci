@@ -25,13 +25,8 @@ import types
 import six
 from github import Requester
 
-from pyci.api import logger
-
 python2 = sys.hexversion < 0x03000000
 at_least_python3 = sys.hexversion >= 0x03000000
-
-
-log = logger.get_logger(__name__)
 
 
 class FakeHttpResponse(object):

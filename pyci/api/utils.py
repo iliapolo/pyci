@@ -29,10 +29,6 @@ import six
 import requests
 
 from pyci.api import exceptions
-from pyci.api import logger
-
-
-log = logger.get_logger(__name__)
 
 
 def extract_link(commit_message):
@@ -211,7 +207,7 @@ def generate_setup_py(setup_py, version):
     raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)
 
 
-def get_executable(name):
+def get_python_executable(name):
 
     """
     Retrieve the path to an executable script. On linux platforms this wont actually do
@@ -222,6 +218,10 @@ def get_executable(name):
         name (str): The executable name.
 
     """
+
+    if is_pyinstaller():
+        raise RuntimeError('Executables are not supported when running inside a PyInstaller bootloader. '
+                           'Are you sure this is what you wanted to do?')
 
     def _for_linux():
 
@@ -322,3 +322,64 @@ def is_pyinstaller():
         return True
     except AttributeError:
         return False
+
+
+def extract_name_from_setup_py(setup_py_content):
+
+    """
+    Extract the value of the 'name' argument from the setup.py file. (Regex based)
+
+    Args:
+        setup_py_content (str): The setup.py file contents.
+
+    Returns:
+         The name defined in setup.py
+    """
+
+    regex = 'name=["\'](.*)["\']'
+
+    name = re.compile(regex)
+
+    match = name.search(setup_py_content)
+
+    if match:
+        return match.group(1)
+
+    raise exceptions.RegexMatchFailureException(regex=regex)
+
+
+def extract_version_from_setup_py(setup_py_content):
+
+    """
+    Extract the value of the 'version' argument from the setup.py file. (Regex based)
+
+    Args:
+        setup_py_content (str): The setup.py file contents.
+
+    Returns:
+         The version defined in setup.py
+    """
+
+    regex = 'version=["\'](.*)["\']'
+
+    name = re.compile(regex)
+
+    match = name.search(setup_py_content)
+
+    if match:
+        return match.group(1)
+
+    raise exceptions.RegexMatchFailureException(regex=regex)
+
+
+def which(program):
+
+    path = os.getenv('PATH')
+
+    for p in path.split(os.path.pathsep):
+        program_path = os.path.join(p, program)
+        if os.path.exists(program_path):
+            if os.access(program_path, os.X_OK):
+                return program_path
+
+    return None

@@ -42,8 +42,9 @@ from pyci.shell import secrets
 from pyci.tests.shell import PyCI
 from pyci import tests
 
-
-log = logger.get_logger(__name__)
+# Uncomment this to debug failed tests.
+# We cant use by default because it breaks log capturing which some tests rely on.
+logger.DEFAULT_LOG_LEVEL = 10
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = '1b8e0b8ef5929e6d2e6017242bba68425ff64b9a'
@@ -149,14 +150,15 @@ def _github(pyci, repo, token):
 
 
 @pytest.fixture(name='pack')
-def _pack(pyci, repo_path):
+def _pack(log, pyci, repo_path):
 
     temp_dir = tempfile.mkdtemp()
 
-    ignore = shutil.ignore_patterns('build', '.tox', 'pytest_cache')
+    ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git')
 
     target_repo_path = os.path.join(temp_dir, 'repo')
 
+    log.info("Copying repository to temp directory...")
     shutil.copytree(src=repo_path, dst=target_repo_path, ignore=ignore)
 
     version = _patch_setup_py(target_repo_path)
@@ -344,6 +346,14 @@ def _github_cleanup(request, repo):
     finally:
         if wet:
             _reset_repo(repo)
+
+
+@pytest.fixture(name='log')
+def _log(request):
+
+    test_name = request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
+
+    return logger.Logger(test_name)
 
 
 def _reset_repo(repo):

@@ -28,11 +28,3 @@ def test_no_name():
     with pytest.raises(exceptions.InvalidArgumentsException):
         logger.Logger(name='')
 
-
-def test_setup_logger(request):
-
-    log = logger.get_logger(request.node.name)
-
-    logger.setup_loggers(level=logging.DEBUG)
-
-    assert logging.DEBUG == log.logger.level

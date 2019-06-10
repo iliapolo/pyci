@@ -27,11 +27,12 @@ from boltons.cacheutils import cachedproperty
 from pyci.api import logger, exceptions
 from pyci.api import utils
 from pyci.api.runner import LocalCommandRunner
-
-log = logger.get_logger(__name__)
+from pyci.resources import get_text_resource
+from pyci.resources import get_binary_resource
 
 
 DEFAULT_PY_INSTALLER_VERSION = '3.3.1'
+DEFAULT_WHEEL_VERSION = '0.32.2'
 
 
 class Packager(object):
@@ -54,7 +55,7 @@ class Packager(object):
 
     """
 
-    def __init__(self, repo=None, sha=None, path=None, target_dir=None):
+    def __init__(self, repo=None, sha=None, path=None, target_dir=None, log=None):
 
         if sha and not repo:
             raise exceptions.InvalidArgumentsException('Must pass repo as well when passing sha')
@@ -78,7 +79,8 @@ class Packager(object):
         self._target_dir = target_dir
         self._sha = sha
         self._path = os.path.abspath(path) if path else None
-        self._runner = LocalCommandRunner()
+        self._logger = log or logger.Logger(__name__)
+        self._runner = LocalCommandRunner(log=self._logger)
         self._log_ctx = {
             'repo': self._repo,
             'sha': self._sha,
@@ -100,11 +102,12 @@ class Packager(object):
         return self._repo_dir
 
     @staticmethod
-    def create(repo=None, sha=None, path=None, target_dir=None):
+    def create(repo=None, sha=None, path=None, target_dir=None, log=None):
         return Packager(repo=repo,
                         sha=sha,
                         path=path,
-                        target_dir=target_dir)
+                        target_dir=target_dir,
+                        log=log)
 
     def binary(self, name=None, entrypoint=None, pyinstaller_version=None):
 
@@ -191,7 +194,8 @@ class Packager(object):
             self._debug('Packaged successfully.', package=destination)
             return os.path.abspath(destination)
         finally:
-            utils.rmf(temp_dir)
+            pass
+            # utils.rmf(temp_dir)
 
     def wheel(self, universal=False):
 
@@ -231,16 +235,22 @@ class Packager(object):
                                                            sha=self._sha,
                                                            path=self._path)
 
-            command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}' \
-                .format(utils.get_executable('python'), setup_py_file, bdist_dir, dist_dir)
+            with self._create_virtualenv(self._default_name) as virtualenv:
 
-            if universal:
-                command = '{0} --universal'.format(command)
+                command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}'.format(
+                    os.path.join(virtualenv, 'bin', 'python'),
+                    setup_py_file,
+                    bdist_dir,
+                    dist_dir)
 
-            self._debug('Running bdist_wheel...', universal=universal)
-            result = self._runner.run(command, cwd=self._repo_dir)
+                if universal:
+                    command = '{0} --universal'.format(command)
+
+                self._debug('Running bdist_wheel...', universal=universal)
+
+                self._runner.run(command, cwd=self._repo_dir)
+
             self._debug('Finished running bdist_wheel.', universal=universal)
-            self._debug(result.std_out)
 
             actual_name = utils.lsf(dist_dir)[0]
 
@@ -268,8 +278,14 @@ class Packager(object):
     @cachedproperty
     def _default_name(self):
         setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-        return self._runner.run('{} {} --name'.format(utils.get_executable('python'),
-                                                      setup_py_file)).std_out
+        with open(setup_py_file) as f:
+            try:
+                return utils.extract_name_from_setup_py(f.read())
+            except exceptions.RegexMatchFailureException as e:
+                raise exceptions.FailedExtractingNameFromSetupPyException(repo=self._repo,
+                                                                          sha=self._sha,
+                                                                          path=self._path,
+                                                                          cause=str(e))
 
     def _default_entrypoint(self, name):
 
@@ -290,7 +306,7 @@ class Packager(object):
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
     @contextlib.contextmanager
-    def _create_virtualenv(self, name, pyinstaller_version=None):
+    def _create_virtualenv(self, name, python=None, pyinstaller_version=None, wheel_version=None):
 
         temp_dir = tempfile.mkdtemp()
 
@@ -298,26 +314,62 @@ class Packager(object):
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
 
-        virtualenv_bin = utils.get_executable('virtualenv')
+        interpreter = python
 
-        result = self._runner.run('{} {}'.format(virtualenv_bin, virtualenv_path),
-                                  cwd=self._repo_dir)
+        if not interpreter:
 
-        self._debug(result.std_out)
+            if utils.is_pyinstaller():
+                interpreter = utils.which('python')
+                if not interpreter:
+                    raise exceptions.PythonNotFoundException()
+
+            else:
+                interpreter = utils.get_python_executable('python')
+
+        def _create_virtualenv_dist():
+
+            dist_directory = os.path.join(temp_dir, 'virtualenv-dist')
+            support_directory = os.path.join(dist_directory, 'virtualenv_support')
+
+            os.makedirs(dist_directory)
+            os.makedirs(support_directory)
+
+            _virtualenv_py = os.path.join(dist_directory, 'virtualenv.py')
+
+            def _write_support_wheel(_wheel):
+
+                with open(os.path.join(support_directory, _wheel), 'wb') as f:
+                    f.write(get_binary_resource(os.path.join('virtualenv_support', _wheel)))
+
+            with open(_virtualenv_py, 'w') as f:
+                f.write(get_text_resource('virtualenv.py'))
+
+            _write_support_wheel('pip-19.1.1-py2.py3-none-any.whl')
+            _write_support_wheel('setuptools-41.0.1-py2.py3-none-any.whl')
+            _write_support_wheel('wheel-0.33.4-py2.py3-none-any.whl')
+
+            return _virtualenv_py
+
+        virtualenv_py = _create_virtualenv_dist()
+
+        create_virtualenv_command = '{} {} {}'.format(interpreter, virtualenv_py, virtualenv_path)
+
+        self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
 
         pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
 
-        result = self._runner.run('{} install pyinstaller=={}'
-                                  .format(pip_path, pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
-                                  cwd=self._repo_dir)
+        self._runner.run('{} install pyinstaller=={}'
+                         .format(pip_path, pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
+                         cwd=self._repo_dir)
 
-        self._debug(result.std_out)
+        self._runner.run('{} install wheel=={}'
+                         .format(pip_path, wheel_version or DEFAULT_WHEEL_VERSION),
+                         cwd=self._repo_dir)
 
         setup_py_file = os.path.join(self._repo_dir, 'setup.py')
 
         self._debug('Installing {}...'.format(setup_py_file))
-        result = self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
-        self._debug(result.std_out)
+        self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 
@@ -329,4 +381,4 @@ class Packager(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)

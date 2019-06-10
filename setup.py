@@ -27,13 +27,14 @@ PROGRAM_NAME = 'pyci'
 PROJECT_NAME = 'py-ci'
 
 setup(
-    name=PROJECT_NAME,
+    name='py-ci',
     version='0.5.0',
     author='Eli Polonsky',
     author_email='eli.polonsky@gmail.com',
     packages=[
         BASE_PACKAGE_NAME,
         '{0}.resources'.format(BASE_PACKAGE_NAME),
+        '{0}.resources.virtualenv_support'.format(BASE_PACKAGE_NAME),
         '{0}.api'.format(BASE_PACKAGE_NAME),
         '{0}.shell'.format(BASE_PACKAGE_NAME),
         '{0}.shell.commands'.format(BASE_PACKAGE_NAME),
@@ -42,7 +43,11 @@ setup(
     package_data={
         BASE_PACKAGE_NAME: [
             'resources/changelog.jinja',
-            'resources/pyci.ascii'
+            'resources/pyci.ascii',
+            'resources/virtualenv.py',
+            'resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl',
+            'resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl',
+            'resources/virtualenv_support/wheel-0.33.4-py2.py3-none-any.whl'
         ],
     },
     license='LICENSE',
@@ -62,8 +67,8 @@ setup(
         'twine==1.11.0',
         'six==1.11.0',
         'colorama==0.3.9',
-        'virtualenv==16.6.0',
-        'wheel==0.31.1'
+        'wheel==0.33.4',
+        'packaging==19.0'
     ],
     classifiers=[
         'Programming Language :: Python',

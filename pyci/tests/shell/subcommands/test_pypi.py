@@ -22,8 +22,9 @@ from pyci.tests import conftest
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_upload(pypi, pack, binary):
+def test_upload(log, pypi, pack, binary):
 
+    log.info("Creating wheel...")
     wheel_path = pack.api.wheel()
 
     expected_url = 'https://test.pypi.org/manage/project/py-ci/release/{}/'.format(

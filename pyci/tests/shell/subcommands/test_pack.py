@@ -17,17 +17,18 @@
 
 import os
 import platform
-import shutil
 
 import pytest
 
 from pyci.api import utils
 from pyci.tests import conftest
+from pyci.tests import distros
 
 
-def test_binary(pack, runner):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary(pack, runner, binary):
 
-    result = pack.run('binary --entrypoint pyci.spec')
+    pack.run('binary --entrypoint pyci.spec', binary=binary)
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
         platform.machine(), platform.system()))
@@ -35,16 +36,14 @@ def test_binary(pack, runner):
     if platform.system() == 'Windows':
         expected_package_path = '{0}.exe'.format(expected_package_path)
 
-    expected_output = '* Binary package created: {}'.format(expected_package_path)
-
-    assert expected_output in result.std_out
     assert os.path.exists(expected_package_path)
 
     # lets make sure the binary actually works
     runner.run('{0} --help'.format(expected_package_path))
 
 
-def test_binary_options(pack, temp_dir, request, runner):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_options(pack, temp_dir, request, runner, binary):
 
     pack.api.target_dir = temp_dir
 
@@ -57,9 +56,9 @@ if __name__ == '__main__':
     six.print_('It works!')        
 ''')
 
-    name = request.node.name
+    name = request.node.name.replace('[', '-').replace(']', '')
 
-    result = pack.run('binary --name {} --entrypoint {}'.format(name, custom_main))
+    pack.run('binary --name {} --entrypoint {}'.format(name, custom_main), binary=binary)
 
     expected_package_path = os.path.join(temp_dir, '{}-{}-{}'
                                          .format(name, platform.machine(), platform.system()))
@@ -67,33 +66,14 @@ if __name__ == '__main__':
     if platform.system() == 'Windows':
         expected_package_path = '{0}.exe'.format(expected_package_path)
 
-    expected_output = '* Binary package created: {}'.format(expected_package_path)
-
-    assert expected_output in result.std_out
     assert os.path.exists(expected_package_path)
 
     # lets make sure the binary actually works
     assert runner.run(expected_package_path).std_out == 'It works!'
 
 
-def test_binary_from_binary(pack):
-
-    result = pack.run('binary', binary=True, catch_exceptions=True)
-
-    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-        platform.machine(), platform.system()))
-
-    if platform.system() == 'Windows':
-        expected_package_path = '{0}.exe'.format(expected_package_path)
-
-    expected_output = 'Creating a binary package is not supported when ' \
-                      'running from within a binary'
-
-    assert expected_output in result.std_out
-    assert not os.path.exists(expected_package_path)
-
-
-def test_binary_file_exists(pack):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_file_exists(pack, binary):
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
         platform.machine(), platform.system()))
@@ -104,7 +84,7 @@ def test_binary_file_exists(pack):
     with open(expected_package_path, 'w') as stream:
         stream.write('package')
 
-    result = pack.run('binary --entrypoint pyci.spec', catch_exceptions=True)
+    result = pack.run('binary --entrypoint pyci.spec', catch_exceptions=True, binary=binary)
 
     expected_output = 'Binary already exists: {}'.format(expected_package_path)
     expected_possible_solution = 'Delete/Move the binary and try again'
@@ -113,17 +93,10 @@ def test_binary_file_exists(pack):
     assert expected_possible_solution in result.std_out
 
 
-def test_binary_default_entrypoint_doesnt_exist(pack):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_default_entrypoint_doesnt_exist(pack, binary):
 
-    repo_dir = pack.api.repo_dir
-
-    shutil.move(src=os.path.join(repo_dir, 'pyci', 'shell', 'main.py'),
-                dst=os.path.join(repo_dir, 'pyci', 'shell', 'main2.py'))
-
-    shutil.move(src=os.path.join(repo_dir, 'pyci.spec'),
-                dst=os.path.join(repo_dir, 'pyci2.spec'))
-
-    result = pack.run('binary', catch_exceptions=True)
+    result = pack.run('binary', catch_exceptions=True, binary=binary)
 
     expected_output = 'Failed locating an entrypoint file'
     expected_possible_solutions = [
@@ -136,9 +109,10 @@ def test_binary_default_entrypoint_doesnt_exist(pack):
         assert expected_possible_solution in result.std_out
 
 
-def test_binary_entrypoint_doesnt_exist(pack):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_entrypoint_doesnt_exist(pack, binary):
 
-    result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True)
+    result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True, binary=binary)
 
     expected_output = 'The entrypoint path you specified does not exist: doesnt-exist'
 
@@ -148,15 +122,12 @@ def test_binary_entrypoint_doesnt_exist(pack):
 @pytest.mark.parametrize("binary", [False, True])
 def test_wheel(pack, binary):
 
-    result = pack.run('wheel', binary=binary)
+    pack.run('wheel', binary=binary)
 
     py = 'py3' if utils.is_python_3() else 'py2'
 
     expected_path = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'.format(pack.version, py))
 
-    expected_output = '* Wheel package created: {}'.format(expected_path)
-
-    assert expected_output in result.std_out
     assert os.path.exists(expected_path)
 
 
@@ -205,10 +176,10 @@ def test_wheel_not_python_project(pack, binary):
     assert expected_output in result.std_out
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 @pytest.mark.linux
-@pytest.mark.parametrize("build_distro", [False, True])
-@pytest.mark.parametrize("run_distro", [False, True])
+@pytest.mark.parametrize("build_distro", [distros.Stretch()])
+@pytest.mark.parametrize("run_distro", [distros.Ubuntu()])
 def test_binary_cross_distribution_wheel(build_distro, run_distro):
 
     local_binary_path = build_distro.binary()

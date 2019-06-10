@@ -21,12 +21,9 @@ import semver
 from boltons.cacheutils import cachedproperty
 from jinja2 import Template
 
-from pyci.api import exceptions
 from pyci.api import logger
-from pyci.resources import get_resource
-
-
-log = logger.get_logger(__name__)
+from pyci.api import exceptions
+from pyci.resources import get_text_resource
 
 
 # pylint: disable=too-few-public-methods
@@ -135,6 +132,7 @@ class Changelog(object):
 
         self._current_version = current_version
         self._sha = sha
+        self._logger = logger.Logger(__name__)
         self._log_ctx = {
             'sha': self.sha,
             'current_version': self._current_version
@@ -259,7 +257,7 @@ class Changelog(object):
         }
 
         self._debug('Rendering changelog markdown file')
-        markdown = Template(get_resource('changelog.jinja')).render(**kw)
+        markdown = Template(get_text_resource('changelog.jinja')).render(**kw)
         self._debug('Rendered markdown')
         return markdown
 
@@ -270,7 +268,7 @@ class Changelog(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
 
 
 class _Change(object):

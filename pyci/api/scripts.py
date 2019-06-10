@@ -50,10 +50,43 @@ class Virtualenv(object):
         except SystemExit as e:
             if e.code != 0:
                 raise exceptions.ScriptInvocationException(script='virtualenv',
-                                                           args=shlexed,
+                                                           arguments=shlexed,
                                                            error=str(e))
         finally:
             sys.argv = original_argv
 
 
+class Python(object):
+
+    @staticmethod
+    def run(args):
+
+        original_argv = list(sys.argv)
+
+        # This doesn't really matter since it being
+        # cut in the 'main' function anyway.
+        new_args = ['python']
+
+        shlexed = _shlex_split(args)
+
+        new_args.extend(shlexed)
+
+        try:
+            script = shlexed[0]
+            with  open(script) as f:
+                content = f.read()
+            sys.argv = new_args
+            exec content
+        except SystemExit as e:
+            if e.code != 0:
+                raise exceptions.ScriptInvocationException(script='python',
+                                                           arguments=shlexed,
+                                                           error=e.message)
+        finally:
+            sys.argv = original_argv
+
+
 virtualenv = Virtualenv()
+python = Python()
+
+# python.run('/Users/elipolonsky/dev/src/github.com/iliapolo/pyci/setup.py --help')
