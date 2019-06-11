@@ -22,7 +22,12 @@ jobs:
       - run:
           name: run tox
           command: tox -e py27
-  python36:
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
+
+    python36:
     docker:
       - image: circleci/python:3.6
     working_directory: ~/repo
