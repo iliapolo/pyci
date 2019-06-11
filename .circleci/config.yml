@@ -27,7 +27,7 @@ jobs:
       - store_artifacts:
           path: test-reports
 
-    python36:
+  python36:
     docker:
       - image: circleci/python:3.6
     working_directory: ~/repo
