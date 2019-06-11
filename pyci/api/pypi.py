@@ -15,7 +15,6 @@
 #
 #############################################################################
 
-import shlex
 import copy
 import os
 import tempfile
@@ -26,6 +25,7 @@ from twine.commands import upload
 from pyci.api import exceptions, utils
 from pyci.api import logger
 from pyci.api.runner import LocalCommandRunner
+from pyci.api.runner import shlex_split
 
 
 # pylint: disable=too-few-public-methods
@@ -97,7 +97,7 @@ class PyPI(object):
         if self.repository_url:
             args = '{} --repository-url {}'.format(args, self.repository_url)
 
-        args = _shlex_split(args)
+        args = shlex_split(args)
 
         try:
             self._debug('Uploading wheel to PyPI repository...', wheel=wheel)
@@ -125,9 +125,6 @@ class PyPI(object):
 
             project_name = None
 
-            # self._runner.run('{} unpack --dest {} {}'.format(
-            #     utils.get_executable('wheel'), temp_dir, wheel))
-
             unpack.unpack(path=wheel, dest=temp_dir)
 
             wheel_project = '{}-{}'.format(wheel_parts[0], wheel_parts[1])
@@ -148,10 +145,3 @@ class PyPI(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         self._logger.debug(message, **kwargs)
-
-
-def _shlex_split(command):
-    lex = shlex.shlex(command, posix=True)
-    lex.whitespace_split = True
-    lex.escape = ''
-    return list(lex)

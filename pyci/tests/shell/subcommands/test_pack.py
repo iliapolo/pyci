@@ -21,14 +21,14 @@ import platform
 import pytest
 
 from pyci.api import utils
-from pyci.tests import conftest
 from pyci.tests import distros
+from pyci.tests import conftest
 
 
 @pytest.mark.parametrize("binary", [False, True])
 def test_binary(pack, runner, binary):
 
-    pack.run('binary --entrypoint pyci.spec', binary=binary)
+    pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), binary=binary)
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
         platform.machine(), platform.system()))
@@ -84,7 +84,7 @@ def test_binary_file_exists(pack, binary):
     with open(expected_package_path, 'w') as stream:
         stream.write('package')
 
-    result = pack.run('binary --entrypoint pyci.spec', catch_exceptions=True, binary=binary)
+    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), catch_exceptions=True, binary=binary)
 
     expected_output = 'Binary already exists: {}'.format(expected_package_path)
     expected_possible_solution = 'Delete/Move the binary and try again'
@@ -176,25 +176,49 @@ def test_wheel_not_python_project(pack, binary):
     assert expected_output in result.std_out
 
 
-@pytest.mark.linux
-@pytest.mark.parametrize("build_distro", [distros.Stretch('2.7.16')])
-@pytest.mark.parametrize("run_distro", [distros.Ubuntu('18.04'), distros.Stretch('2.7.16')])
-def test_binary_cross_distribution_wheel(repo_version, repo_path, build_distro, run_distro):
+@pytest.mark.docker
+@pytest.mark.parametrize("build_distro_id", [
+    'build:PythonStretch:2.7.16',
+    'build:PythonStretch:3.6.8'
+])
+@pytest.mark.parametrize("run_distro_id", [
+    'run:PythonStretch:2.7.16',
+    'run:PythonStretch:3.6.8',
+    'run:Ubuntu:18.04',
+    'run:Ubuntu:16.04',
+    'run:Ubuntu:14.04'
+])
+def test_binary_cross_distribution_wheel(repo_version, repo_path, build_distro_id, run_distro_id):
 
-    local_binary_path = build_distro.binary()
+    build_distro = distros.from_string(build_distro_id)
+    run_distro = distros.from_string(run_distro_id)
+
+    # cant build packages on a distro with no python installed
+    assert build_distro.has_python
+
+    if run_distro.has_python:
+        # wheels can only be built on distros with python installed
+        expected_result = 'py_ci-{}-{}-none-any.whl'.format(
+            repo_version,
+            'py2' if run_distro.python_version.startswith('2') else 'py3')
+    else:
+        expected_result = 'Python installation not found in PATH'
+
+    local_binary_path = build_distro.binary(repo_path)
 
     try:
         remote_binary_path = run_distro.add(local_binary_path)
         remote_repo_path = run_distro.add(repo_path)
-        result = run_distro.run('chmod +x {0} && {0} pack --path {1} wheel'
-                                .format(remote_binary_path, remote_repo_path), exit_on_failure=False)
 
-        if run_distro.has_python:
-            expected_result = 'py_ci-{}-{}-none-any.whl'.format(
-                repo_version,
-                'py2' if run_distro.python_version.startswith('2') else 'py3')
-        else:
-            expected_result = 'Python installation not found in PATH'
+        locale_setup = ''
+        if build_distro.python_version.startswith('3'):
+            # pyci was packed with python 3.
+            # need to configure locale before invoking.
+            # http://click.palletsprojects.com/en/6.x/python3/
+            locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
+
+        result = run_distro.run('chmod +x {0} && {2} {0} pack --path {1} wheel'
+                                .format(remote_binary_path, remote_repo_path, locale_setup), exit_on_failure=False)
 
         assert expected_result in result.std_out
 

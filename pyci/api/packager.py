@@ -15,7 +15,6 @@
 #
 #############################################################################
 
-import distutils
 import copy
 import os
 import platform
@@ -319,12 +318,6 @@ class Packager(object):
     def _create_virtualenv(self, name, python=None, pyinstaller_version=None, wheel_version=None):
 
         temp_dir = tempfile.mkdtemp()
-
-        import opcode
-        import sys
-
-        self._logger.debug("opcode when creating virtualenv: {}".format(opcode.__file__))
-        self._logger.debug("sys.path when creating virtualenv: {}".format(sys.path))
 
         virtualenv_path = os.path.join(temp_dir, name)
 

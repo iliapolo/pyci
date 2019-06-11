@@ -44,10 +44,11 @@ from pyci import tests
 
 # Uncomment this to debug failed tests.
 # We cant use by default because it breaks log capturing which some tests rely on.
-logger.DEFAULT_LOG_LEVEL = 10
+# logger.DEFAULT_LOG_LEVEL = 10
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = '1b8e0b8ef5929e6d2e6017242bba68425ff64b9a'
+SPEC_FILE = 'pyci.spec'
 
 
 @pytest.fixture(name='skip', autouse=True)
@@ -57,14 +58,18 @@ def _skip(request):
         pytest.skip('[{}] {}'.format(request.node.location, reason))
 
     system = platform.system().lower()
+    docker = utils.which('docker')
 
     if hasattr(request.node.function, 'linux') and system == 'windows':
         __skip('This test should not run on windows')
 
+    if hasattr(request.node.function, 'docker') and docker is None:
+        __skip('This test can only run when docker is installed')
+
 
 @pytest.fixture(name='cleanup', autouse=True)
-def _cleanup(request, repo):
-    with _github_cleanup(request, repo):
+def _cleanup(log, request, repo):
+    with _github_cleanup(log, request, repo):
         yield
 
 
@@ -92,9 +97,9 @@ def  _non_interactive():
 
 
 @pytest.fixture(name='pyci', scope='session')
-def _pyci(repo_path):
+def _pyci():
 
-    yield PyCI(repo_path)
+    return PyCI()
 
 
 @pytest.fixture(name='binary_path', scope='session')
@@ -150,7 +155,7 @@ def _github(pyci, repo, token):
 
 
 @pytest.fixture(name='pack')
-def _pack(log, pyci, repo_version, repo_path):
+def _pack(pyci, repo_version, repo_path):
 
     packager = Packager.create(path=repo_path)
 
@@ -159,7 +164,7 @@ def _pack(log, pyci, repo_version, repo_path):
 
         def __init__(self):
             self.api = packager
-            self.version = version
+            self.version = repo_version
 
         def run(self, command, binary=False, catch_exceptions=False):
 
@@ -206,7 +211,7 @@ def _temp_dir(request):
 
     name = request.node.originalname or request.node.name
 
-    dir_path = tempfile.mkdtemp(suffix=name)
+    dir_path = tempfile.mkdtemp(suffix=name, dir='/tmp')
 
     try:
         yield dir_path
@@ -283,9 +288,9 @@ def _token(mode):
 
     if mode == 'RECORD':
         token = secrets.github_access_token()
-
-    # when replaying, the token is not needed.
-    token = 'token'
+    else:
+        # when replaying, the token is not needed.
+        token = 'token'
 
     # set the environment variable so that the commands code will use it and not
     # get stuck on prompt when running from IDE.
@@ -312,24 +317,19 @@ def _runner():
 
 
 @pytest.fixture(name='repo_path')
-def _repo_path(log):
+def _repo_path(log, temp_dir):
 
     import pyci
     source_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
 
-    temp_dir = tempfile.mkdtemp()
+    target_repo_path = os.path.join(temp_dir, 'pyci')
 
     ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git')
 
-    target_repo_path = os.path.join(temp_dir, 'repo')
-
-    log.info("Copying repository to temp directory...")
+    log.info('Copying source directory to {}...'.format(target_repo_path))
     shutil.copytree(src=source_path, dst=target_repo_path, ignore=ignore)
 
-    try:
-        yield target_repo_path
-    finally:
-        utils.rmf(target_repo_path)
+    return target_repo_path
 
 
 @pytest.fixture(name='repo_version')
@@ -341,7 +341,7 @@ def _repo_version(repo_path):
 
 
 @contextlib.contextmanager
-def _github_cleanup(request, repo):
+def _github_cleanup(log, request, repo):
 
     wet = None
 
@@ -354,7 +354,7 @@ def _github_cleanup(request, repo):
         yield
     finally:
         if wet:
-            _reset_repo(repo)
+            _reset_repo(log, repo)
 
 
 @pytest.fixture(name='log')
@@ -365,16 +365,16 @@ def _log(request):
     return logger.Logger(test_name)
 
 
-def _reset_repo(repo):
+def _reset_repo(log, repo):
 
-    _reset_commits(repo)
-    _reset_releases(repo)
-    _reset_tags(repo)
-    _reset_branches(repo)
-    _reset_issues(repo)
+    _reset_commits(log, repo)
+    _reset_releases(log, repo)
+    _reset_tags(log, repo)
+    _reset_branches(log, repo)
+    _reset_issues(log, repo)
 
 
-def _reset_commits(repo):
+def _reset_commits(log, repo):
 
     log.info('Resetting release branch to original state...')
     ref = repo.get_git_ref('heads/release')
@@ -385,7 +385,7 @@ def _reset_commits(repo):
     ref.edit(sha=LAST_COMMIT, force=True)
 
 
-def _reset_issues(repo):
+def _reset_issues(log, repo):
     log.info('Re-opening and cleaning all issues...')
     for issue in repo.get_issues(state='all'):
         if not issue.pull_request:
@@ -394,20 +394,20 @@ def _reset_issues(repo):
                 comment.delete()
 
 
-def _reset_releases(repo):
+def _reset_releases(log, repo):
     log.info('Deleting any releases...')
     for release in repo.get_releases():
         release.delete_release()
 
 
-def _reset_tags(repo):
+def _reset_tags(log, repo):
     log.info('Deleting any tags...')
     for tag in repo.get_tags():
         ref = repo.get_git_ref('tags/{}'.format(tag.name))
         ref.delete()
 
 
-def _reset_branches(repo):
+def _reset_branches(log, repo):
     log.info('Deleting any additional branches...')
     for branch in repo.get_branches():
         if branch.name not in ['master', 'release']:

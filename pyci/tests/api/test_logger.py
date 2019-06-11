@@ -15,8 +15,6 @@
 #
 #############################################################################
 
-import logging
-
 import pytest
 
 from pyci.api import exceptions
@@ -27,4 +25,3 @@ def test_no_name():
 
     with pytest.raises(exceptions.InvalidArgumentsException):
         logger.Logger(name='')
-

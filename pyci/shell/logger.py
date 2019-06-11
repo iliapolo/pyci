@@ -174,5 +174,3 @@ class NoLineBreakStreamHandler(logging.StreamHandler):
 
 
 log = _Logger()
-
-

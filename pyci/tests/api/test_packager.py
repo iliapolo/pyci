@@ -22,6 +22,7 @@ import pytest
 from pyci.api import exceptions
 from pyci.api.packager import Packager
 from pyci.api import utils
+from pyci.tests import conftest
 
 
 def test_sha_and_not_repo():
@@ -135,7 +136,7 @@ def test_binary(pack, runner):
     if platform.system() == 'Windows':
         expected = '{0}.exe'.format(expected)
 
-    actual = pack.api.binary(entrypoint='pyci.spec')
+    actual = pack.api.binary(entrypoint=conftest.SPEC_FILE)
 
     assert expected == actual
 
@@ -185,12 +186,12 @@ def test_binary_file_exists(pack):
         stream.write('package')
 
     with pytest.raises(exceptions.FileExistException):
-        pack.api.binary(entrypoint='pyci.spec')
+        pack.api.binary(entrypoint=conftest.SPEC_FILE)
 
 
 def test_binary_default_entrypoint_doesnt_exist(pack):
 
-    os.remove(os.path.join(pack.api.repo_dir, 'pyci.spec'))
+    os.remove(os.path.join(pack.api.repo_dir, conftest.SPEC_FILE))
     os.remove(os.path.join(pack.api.repo_dir, 'pyci', 'shell', 'main.py'))
 
     with pytest.raises(exceptions.DefaultEntrypointNotFoundException):

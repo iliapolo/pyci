@@ -15,17 +15,17 @@
 #
 #############################################################################
 
-import pytest
 import os
 import platform
 import re
 import tempfile
 import logging
 
-import click
+import pytest
 from click.testing import CliRunner
 from boltons.cacheutils import cachedproperty
 
+import pyci
 from pyci.api import logger
 from pyci.api.packager import Packager
 from pyci.api.runner import LocalCommandRunner
@@ -36,7 +36,10 @@ from pyci.api.runner import CommandExecutionResponse
 # pylint: disable=too-few-public-methods
 class PyCI(object):
 
-    def __init__(self, repo_path):
+    def __init__(self):
+
+        repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+
         self._logger = logger.Logger(__name__)
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
@@ -88,8 +91,12 @@ class PyCI(object):
 
     @cachedproperty
     def binary_path(self):
+
+        # pylint: disable=cyclic-import
+        from pyci.tests import conftest
+
         self._logger.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
-        package_path = self._packager.binary(entrypoint='pyci.spec')
+        package_path = self._packager.binary(entrypoint=conftest.SPEC_FILE)
         self._logger.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
         return package_path
 

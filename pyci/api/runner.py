@@ -42,6 +42,7 @@ class LocalCommandRunner(object):
             'host': host
         }
 
+    # pylint: disable=too-many-locals
     def run(self, command, exit_on_failure=True, cwd=None, execution_env=None):
 
         """
@@ -77,7 +78,7 @@ class LocalCommandRunner(object):
         if isinstance(command, list):
             popen_args = command
         else:
-            popen_args = _shlex_split(command)
+            popen_args = shlex_split(command)
 
         cwd = cwd or os.getcwd()
 
@@ -149,7 +150,7 @@ class LocalCommandRunner(object):
         self._logger.debug(message, **kwargs)
 
 
-def _shlex_split(command):
+def shlex_split(command):
     lex = shlex.shlex(command, posix=True)
     lex.whitespace_split = True
     lex.escape = ''
