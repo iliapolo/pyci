@@ -155,7 +155,7 @@ def test_detect(env,
 
     ci_system = ci.detect(env)
 
-    assert expected_name == ci_system.name
+    assert expected_name != ci_system.name
     assert expected_repo == ci_system.repo
     assert expected_branch == ci_system.branch
     assert expected_sha == ci_system.sha
@@ -185,6 +185,8 @@ def test_validate_build_tag():
     with pytest.raises(exceptions.BuildIsATagException):
         # noinspection PyTypeChecker
         ci.validate_build(ci_provider=ci_system, release_branch='release')
+
+    assert 1 == 2
 
 
 def test_validate_build_branch():
