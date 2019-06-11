@@ -73,7 +73,7 @@ class PythonStretch(object):
 
         volumes = ''
 
-        for key, value in self._volumes.iteritems():
+        for key, value in self._volumes.items():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
         docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._image, command)
@@ -130,7 +130,7 @@ class CentOS(object):
 
         volumes = ''
 
-        for key, value in self._volumes.iteritems():
+        for key, value in self._volumes.items():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
         docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._image, command)
@@ -170,7 +170,7 @@ class Ubuntu(object):
 
         volumes = ''
 
-        for key, value in self._volumes.iteritems():
+        for key, value in self._volumes.items():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
         docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._image, command)
