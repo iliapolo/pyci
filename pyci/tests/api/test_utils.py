@@ -133,13 +133,11 @@ setup(
     assert actual == expected
 
 
-def test_get_python_executable():
+def test_get_python_executable(runner):
 
-    expected = sys.executable
+    python_path = utils.get_python_executable('python')
 
-    actual = utils.get_python_executable('python')
-
-    assert expected == actual
+    assert sys.exec_prefix in python_path
 
 
 def test_get_python_executable_from_pyinstaller():
