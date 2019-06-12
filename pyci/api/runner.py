@@ -124,8 +124,8 @@ class LocalCommandRunner(object):
         stdout.extend(out_leftovers.splitlines())
         stderr.extend(err_leftovers.splitlines())
 
-        out = os.linesep.join(stdout)
-        err = os.linesep.join(stderr)
+        out = os.linesep.join(stdout).encode('utf-8')
+        err = os.linesep.join(stderr).encode('utf-8')
 
         self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
 
