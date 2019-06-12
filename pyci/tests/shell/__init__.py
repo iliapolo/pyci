@@ -56,6 +56,7 @@ class PyCI(object):
             response = self._run_source(command=command)
 
         if response.return_code != 0 and not catch_exceptions:
+
             pytest.fail("Invocation of command '{0}' failed. {1}{1}{2}{1}{1}{3}".format(
                 command,
                 os.linesep,
@@ -75,7 +76,7 @@ class PyCI(object):
         exception = result.exception
 
         return CommandExecutionResponse(command=command,
-                                        std_out=result.output,
+                                        std_out=result.output.encode('utf-8'),
                                         std_err=str(exception) if exception else None,
                                         return_code=result.exit_code)
 
