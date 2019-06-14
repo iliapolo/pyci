@@ -25,6 +25,7 @@ from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
+from pyci.api.packager import DEFAULT_WHEEL_VERSION
 from pyci.shell import BRANCH_HELP, detect_repo
 from pyci.api.utils import is_pyinstaller
 from pyci.shell import MASTER_BRANCH_HELP
@@ -72,6 +73,9 @@ log = get_logger()
 @click.option('--pyinstaller-version', required=False,
               help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
                    'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
+@click.option('--wheel-version', required=False,
+              help='Which version of wheel to use. Note that PyCI is tested only against version {}, this is '
+                   'an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION))
 def release(ctx,
             repo,
             branch_name,
@@ -84,6 +88,7 @@ def release(ctx,
             no_binary,
             no_wheel,
             pyinstaller_version,
+            wheel_version,
             force):
 
     """
@@ -129,7 +134,8 @@ def release(ctx,
             release_branch_name=release_branch_name,
             repo=repo,
             wheel_universal=wheel_universal,
-            pyinstaller_version=pyinstaller_version)
+            pyinstaller_version=pyinstaller_version,
+            wheel_version=wheel_version)
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
@@ -151,7 +157,8 @@ def release_internal(binary_entrypoint,
                      release_branch_name,
                      repo,
                      wheel_universal,
-                     pyinstaller_version):
+                     pyinstaller_version,
+                     wheel_version):
 
     gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
     github_release = github.release_branch_internal(
@@ -185,7 +192,8 @@ def release_internal(binary_entrypoint,
             wheel_url = _upload_wheel(packager=packager,
                                       pypi_test=pypi_test,
                                       pypi_url=pypi_url,
-                                      wheel_universal=wheel_universal)
+                                      wheel_universal=wheel_universal,
+                                      wheel_version=wheel_version)
             log.sub()
 
         log.sub()
@@ -200,7 +208,7 @@ def release_internal(binary_entrypoint,
     return github_release, wheel_url
 
 
-def _upload_wheel(packager, pypi_test, pypi_url, wheel_universal):
+def _upload_wheel(packager, pypi_test, pypi_url, wheel_universal, wheel_version):
 
     pypi_api = PyPI.create(username=secrets.twine_username(),
                            password=secrets.twine_password(),
@@ -208,7 +216,8 @@ def _upload_wheel(packager, pypi_test, pypi_url, wheel_universal):
                            repository_url=pypi_url)
 
     wheel_path = pack.wheel_internal(universal=wheel_universal,
-                                     packager=packager)
+                                     packager=packager,
+                                     wheel_version=wheel_version)
     try:
         wheel_url = pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
     except exceptions.WheelAlreadyPublishedException as e:

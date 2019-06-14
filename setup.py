@@ -46,8 +46,7 @@ setup(
             'resources/pyci.ascii',
             'resources/virtualenv.py',
             'resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl',
-            'resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl',
-            'resources/virtualenv_support/wheel-0.33.4-py2.py3-none-any.whl'
+            'resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl'
         ],
     },
     license='LICENSE',

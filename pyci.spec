@@ -6,12 +6,13 @@ import platform
 
 block_cipher = None
 
-datas = [('pyci/resources/changelog.jinja', 'pyci/resources'),
-         ('pyci/resources/pyci.ascii', 'pyci/resources'),
-         ('pyci/resources/virtualenv.py', 'pyci/resources'),
-         ('pyci/resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
-         ('pyci/resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
-         ('pyci/resources/virtualenv_support/wheel-0.33.4-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support')]
+datas = [
+    ('pyci/resources/changelog.jinja', 'pyci/resources'),
+    ('pyci/resources/pyci.ascii', 'pyci/resources'),
+    ('pyci/resources/virtualenv.py', 'pyci/resources'),
+    ('pyci/resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
+    ('pyci/resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support')
+]
 
 # This ugly hack is courtesy of the following issue:
 # https://github.com/pyinstaller/pyinstaller/issues/4064#issuecomment-496097756
