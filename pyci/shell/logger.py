@@ -32,10 +32,12 @@ except NameError:
     _unicode = False
 
 
+# UTF-8 encoded
 RIGHT_ARROW = '\xe2\x86\x92'
-ASTRIX = '*'
 CHECK_MARK = '\xe2\x9c\x93'
 X_MARK = '\xe2\x9c\x97'
+
+ASTRIX = '*'
 
 
 def get():
