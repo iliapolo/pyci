@@ -87,7 +87,7 @@ class _Logger(object):
 
     def echo(self, message, fg=None, break_line=True, add=False, prefix=True):
         if self._is_debug():
-            self.info(message)
+            self.debug(message)
         else:
 
             prefix_char = None
@@ -135,13 +135,12 @@ class _Logger(object):
 
     def _unicode(self, char, fg=None, break_line=True):
         if self._is_debug():
-            if break_line:
-                self.info('')
+                pass
         else:
             try:
                 click.secho(char, nl=break_line, fg=fg)
             except BaseException as e:
-                self.debug('Cant print the Unicode character: {}'.format(str(e)))
+                self.debug('Cant print a Unicode character: {}'.format(str(e)))
                 click.echo('', nl=break_line)
 
 

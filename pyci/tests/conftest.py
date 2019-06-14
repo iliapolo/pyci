@@ -14,12 +14,16 @@
 #
 #############################################################################
 
+import logging
+import sys
 import contextlib
 import os
 import platform
 import shutil
 import tempfile
 import time
+
+import click
 
 import pytest
 from github import Github
@@ -42,9 +46,8 @@ from pyci.shell import secrets
 from pyci.tests.shell import PyCI
 from pyci import tests
 
-# Uncomment this to debug failed tests.
-# We cant use by default because it breaks log capturing which some tests rely on.
-# logger.DEFAULT_LOG_LEVEL = 10
+# Run tests in debug by default
+logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
@@ -96,10 +99,24 @@ def _non_interactive():
     os.environ['PYCI_INTERACTIVE'] = 'False'
 
 
-@pytest.fixture(name='pyci', scope='session')
-def _pyci():
+@pytest.fixture(name='_log', autouse=True)
+def _mock_log(mocker, log):
 
-    return PyCI()
+    def _log(level, message, **kwargs):
+
+        # This enables click log capturing even in debug mode
+        click.echo(message)
+
+        # This prints the messages in real time while the test is running
+        log.log(level, '{}{}'.format(message.strip(), logger.Logger.format_key_values(**kwargs)))
+
+    mocker.patch(target='pyci.api.logger.Logger._log', side_effect=_log)
+
+
+@pytest.fixture(name='pyci', scope='session')
+def _pyci(log):
+
+    return PyCI(log)
 
 
 @pytest.fixture(name='binary_path', scope='session')
@@ -328,7 +345,7 @@ def _repo_path(log, temp_dir):
 
     log.info('Copying source directory to {}...'.format(target_repo_path))
     shutil.copytree(src=source_path, dst=target_repo_path, ignore=ignore)
-    log.info('Done')
+    log.info('Finished copying source directory to: {}'.format(target_repo_path))
 
     return target_repo_path
 
@@ -353,9 +370,20 @@ def _github_cleanup(log, test_name, request, repo):
             _reset_repo(log, repo)
 
 
-@pytest.fixture(name='log')
-def _log(test_name):
-    return logger.Logger(test_name)
+@pytest.fixture(name='log', scope='session')
+def _log():
+
+    lo = logging.getLogger('pyci.tests')
+    lo.setLevel(logging.DEBUG)
+    lo.propagate = False
+    ch = logging.StreamHandler(stream=sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(logger.DEFAULT_LOG_FORMAT)
+    ch.setFormatter(formatter)
+
+    lo.addHandler(ch)
+
+    return lo
 
 
 @pytest.fixture(name='test_name')

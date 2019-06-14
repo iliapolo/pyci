@@ -36,18 +36,18 @@ from pyci.api.runner import CommandExecutionResponse
 # pylint: disable=too-few-public-methods
 class PyCI(object):
 
-    def __init__(self):
+    def __init__(self, log=None):
 
         repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
 
-        self._logger = logger.Logger(__name__)
+        self._logger = log or logger.Logger(__name__)
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
         self._packager = Packager.create(path=repo_path, target_dir=tempfile.mkdtemp())
 
     def run(self, command, binary=False, catch_exceptions=False):
 
-        if self._logger.logger.isEnabledFor(logging.DEBUG):
+        if self._logger.isEnabledFor(logging.DEBUG):
             command = '--debug {}'.format(command)
 
         if binary:

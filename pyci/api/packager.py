@@ -170,15 +170,6 @@ class Packager(object):
 
             with self._create_virtualenv(name, pyinstaller_version=pyinstaller_version) as virtualenv:
 
-                self._runner.run('{} -c "import opcode; print(opcode.__file__)"'
-                                 .format(os.path.join(virtualenv, 'bin', 'python')))
-
-                self._runner.run('{} -c "import sys; print(sys.path)"'
-                                 .format(os.path.join(virtualenv, 'bin', 'python')))
-
-                self._runner.run('{} -c "import sys; print(sys.executable)"'
-                                 .format(os.path.join(virtualenv, 'bin', 'python')))
-
                 self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
                 self._runner.run(
                     '{} '
