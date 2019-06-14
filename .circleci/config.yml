@@ -6,6 +6,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - checkout
+      - setup_remote_docker
       - restore_cache:
           keys:
             - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
