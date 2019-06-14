@@ -33,6 +33,9 @@ from pyci.shell.main import app
 from pyci.api.runner import CommandExecutionResponse
 
 
+CLICK_ISOLATION = '__CLICK_ISOLATION'
+
+
 # pylint: disable=too-few-public-methods
 class PyCI(object):
 
@@ -53,7 +56,11 @@ class PyCI(object):
         if binary:
             response = self._run_binary(command=command)
         else:
-            response = self._run_source(command=command)
+            try:
+                os.environ[CLICK_ISOLATION] = 'True'
+                response = self._run_source(command=command)
+            finally:
+                del os.environ[CLICK_ISOLATION]
 
         if response.return_code != 0 and not catch_exceptions:
 

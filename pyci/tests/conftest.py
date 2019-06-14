@@ -44,6 +44,7 @@ from pyci.api.pypi import PyPI
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell import secrets
 from pyci.tests.shell import PyCI
+from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
 
 # Run tests in debug by default
@@ -104,14 +105,17 @@ def _mock_log(mocker, log, test_name):
 
     def _log(level, message, **kwargs):
 
-        # This enables click log capturing even in debug mode
-        click.echo(message)
+        if os.environ.get(CLICK_ISOLATION):
+            # This means we are running inside an isolated click
+            # environment, So we add this to buffer regular log messages as well
+            # in order to capture the entire execution output.
+            # TODO this feels super hacky - rethink.
+            click.echo(message)
 
         # This prints the messages in real time while the test is running
         log.log(level, '{}{}'.format(message.strip(), logger.Logger.format_key_values(**kwargs)))
 
-    if 'shell' in test_name:
-        mocker.patch(target='pyci.api.logger.Logger._log', side_effect=_log)
+    mocker.patch(target='pyci.api.logger.Logger._log', side_effect=_log)
 
 
 @pytest.fixture(name='pyci', scope='session')
