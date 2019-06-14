@@ -194,7 +194,7 @@ def docker():
     path = utils.which('docker')
     if not path:
         raise RuntimeError('docker command not found')
-    return path
+    return 'export DOCKER_HOST={} && docker'.format(os.environ.get('DOCKER_HOST'))
 
 
 os_mapping = {
