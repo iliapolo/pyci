@@ -47,12 +47,12 @@ from pyci import tests
 # logger.DEFAULT_LOG_LEVEL = 10
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
-LAST_COMMIT = '1b8e0b8ef5929e6d2e6017242bba68425ff64b9a'
+LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
 SPEC_FILE = 'pyci.spec'
 
 
 @pytest.fixture(name='skip', autouse=True)
-def _skip(request):
+def _skip(request, test_name):
 
     def __skip(reason):
         pytest.skip('[{}] {}'.format(request.node.location, reason))
@@ -60,22 +60,22 @@ def _skip(request):
     system = platform.system().lower()
     docker = utils.which('docker')
 
-    if hasattr(request.node.function, 'linux') and system == 'windows':
+    if _get_marker(request, test_name, 'linux') is not None and system == 'windows':
         __skip('This test should not run on windows')
 
-    if hasattr(request.node.function, 'docker') and docker is None:
+    if _get_marker(request, test_name, 'docker') is not None and docker is None:
         __skip('This test can only run when docker is installed')
 
 
 @pytest.fixture(name='cleanup', autouse=True)
-def _cleanup(log, request, repo):
-    with _github_cleanup(log, request, repo):
+def _cleanup(log, request, repo, test_name):
+    with _github_cleanup(log, test_name, request, repo):
         yield
 
 
 @pytest.fixture(name='patch', autouse=True)
-def _patch_github_connection(request, connection_patcher):
-    connection_patcher.update(_get_data_file(request))
+def _patch_github_connection(request, test_name, connection_patcher):
+    connection_patcher.update(_get_data_file(request, test_name))
     yield
 
 
@@ -92,7 +92,7 @@ def _cwd(temp_dir):
 
 
 @pytest.fixture(name='non_interactive', autouse=True)
-def  _non_interactive():
+def _non_interactive():
     os.environ['PYCI_INTERACTIVE'] = 'False'
 
 
@@ -341,14 +341,9 @@ def _repo_version(repo_path):
 
 
 @contextlib.contextmanager
-def _github_cleanup(log, request, repo):
+def _github_cleanup(log, test_name, request, repo):
 
-    wet = None
-
-    try:
-        wet = getattr(request.node.function, 'wet')
-    except AttributeError:
-        pass
+    wet = _get_marker(request, test_name, 'wet') is not None
 
     try:
         yield
@@ -358,11 +353,13 @@ def _github_cleanup(log, request, repo):
 
 
 @pytest.fixture(name='log')
-def _log(request):
-
-    test_name = request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
-
+def _log(test_name):
     return logger.Logger(test_name)
+
+
+@pytest.fixture(name='test_name')
+def _test_name(request):
+    return request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
 
 
 def _reset_repo(log, repo):
@@ -429,23 +426,26 @@ def _patch_setup_py(local_repo_path):
     return version
 
 
-def _get_data_file(request):
+def _get_marker(request, test_name, marker_name):
+
+    markers = [mark for mark in request.node.own_markers if mark.name == marker_name]
+
+    if len(markers) > 1:
+        raise RuntimeError("Invalid markers for test '{}': Multiple '{}' markers found".format(marker_name, test_name))
+
+    return markers[0] if markers else None
+
+
+def _get_data_file(request, test_name):
 
     def _is_test_platform_dependent():
 
-        record_markers = [mark for mark in request.node.own_markers if mark.name == 'record']
+        record_mark = _get_marker(request, test_name, 'record')
 
-        if not record_markers:
+        if not record_mark:
             return False
 
-        if len(record_markers) > 1:
-            raise RuntimeError("Invalid markers for test '{}': Multiple record markers found".format(test_name))
-
-        record_mark = record_markers[0]
-
         return record_mark.kwargs.get('platform', False)
-
-    test_name = request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
 
     file_name = os.path.join(os.path.dirname(tests.__file__), "replay_data", test_name + ".txt")
 
