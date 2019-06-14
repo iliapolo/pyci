@@ -140,7 +140,7 @@ def test_wheel_options(pack, temp_dir, binary):
 
     expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(pack.version))
 
-    expected_output = '* Wheel package created: {}'.format(expected_path)
+    expected_output = 'Wheel package created: {}'.format(expected_path)
 
     assert expected_output in result.std_out
     assert os.path.exists(expected_path)

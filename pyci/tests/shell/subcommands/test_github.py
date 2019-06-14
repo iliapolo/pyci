@@ -202,7 +202,7 @@ def test_validate_build_failed(pyci, mocker):
 
     result = pyci.run('github validate-build --release-branch-name release', catch_exceptions=True)
 
-    expected_output = 'ERROR: Build running on TAG number 0.0.1'
+    expected_output = 'Build running on TAG number 0.0.1'
 
     assert expected_output in result.std_out
 
@@ -317,7 +317,7 @@ def test_upload_changelog_failed(github):
     result = github.run('upload-changelog --changelog doesnt-exist --release release',
                         catch_exceptions=True)
 
-    expected_output = 'ERROR: File does not exist: doesnt-exist'
+    expected_output = 'File does not exist: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -394,7 +394,7 @@ def test_create_release_already_exists(github):
 
     result = github.run('create-release --sha={}'.format(sha), catch_exceptions=True)
 
-    expected_output = 'ERROR: Release 0.0.1 already exists'
+    expected_output = 'Release 0.0.1 already exists'
 
     assert expected_output in result.std_out
 
@@ -450,7 +450,7 @@ def test_upload_asset_failed(github):
 
     result = github.run('upload-asset --asset asset --release release', catch_exceptions=True)
 
-    expected_output = 'ERROR: File does not exist'
+    expected_output = 'File does not exist'
 
     assert expected_output in result.std_out
 
@@ -495,7 +495,7 @@ def test_detect_issue_failed(github):
 
     result = github.run('detect-issue --sha sha', catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: sha'
+    expected_output = 'Commit not found: sha'
 
     assert expected_output in result.std_out
 
@@ -519,7 +519,7 @@ def test_delete_release_failed(github):
 
     result = github.run('delete-release --name 0.0.1', catch_exceptions=True)
 
-    expected_output = 'ERROR: Release not found: 0.0.1'
+    expected_output = 'Release not found: 0.0.1'
 
     assert expected_output in result.std_out
 
@@ -543,7 +543,7 @@ def test_delete_tag_failed(github):
 
     result = github.run('delete-tag --name 0.0.1', catch_exceptions=True)
 
-    expected_output = 'ERROR: Tag not found: 0.0.1'
+    expected_output = 'Tag not found: 0.0.1'
 
     assert expected_output in result.std_out
 
@@ -573,7 +573,7 @@ def test_bump_version_failed(github):
     result = github.run('bump-version --branch doesnt-exist --semantic patch',
                         catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: doesnt-exist'
+    expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -602,7 +602,7 @@ def test_set_version_failed(github):
 
     result = github.run('set-version --branch doesnt-exist --value 0.0.1', catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: doesnt-exist'
+    expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -631,7 +631,7 @@ def test_reset_branch_already_at_sha(github):
     result = github.run('reset-branch --name release --sha={}'.format(LAST_COMMIT),
                         catch_exceptions=True)
 
-    expected_output = 'ERROR: Reference refs/heads/release is already at {}'.format(LAST_COMMIT)
+    expected_output = 'Reference refs/heads/release is already at {}'.format(LAST_COMMIT)
 
     assert expected_output in result.std_out
 
@@ -661,7 +661,7 @@ def test_reset_branch_not_fast_forward(github):
 
     result = github.run('reset-branch --name release --sha {}'.format(sha), catch_exceptions=True)
 
-    expected_output = 'ERROR: Update of ref refs/heads/release to {} is not a ' \
+    expected_output = 'Update of ref refs/heads/release to {} is not a ' \
                       'fast-forward'.format(sha)
 
     branch = github.api.repo.get_branch(branch='release')
@@ -689,7 +689,7 @@ def test_reset_branch_failed(github):
 
     result = github.run('reset-branch --name doesnt-exist --sha sha', catch_exceptions=True)
 
-    expected_output = 'ERROR: Branch doesnt-exist doesnt exist in {}'.format(REPO_UNDER_TEST)
+    expected_output = 'Branch doesnt-exist doesnt exist in {}'.format(REPO_UNDER_TEST)
 
     assert expected_output in result.std_out
 
@@ -732,7 +732,7 @@ def test_reset_tag_failed(github):
 
     result = github.run('reset-tag --name doesnt-exist --sha sha', catch_exceptions=True)
 
-    expected_output = 'ERROR: Tag not found: doesnt-exist'
+    expected_output = 'Tag not found: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -760,7 +760,7 @@ def test_create_branch_failed(github):
                         '--name release '
                         '--sha e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1', catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1'
+    expected_output = 'Commit not found: e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1'
 
     assert expected_output in result.std_out
 
@@ -786,7 +786,7 @@ def test_delete_branch_failed(github):
 
     result = github.run('delete-branch --name branch', catch_exceptions=True)
 
-    expected_output = 'ERROR: Branch branch doesnt exist in iliapolo/pyci-guinea-pig'
+    expected_output = 'Branch branch doesnt exist in iliapolo/pyci-guinea-pig'
 
     assert expected_output in result.std_out
 
@@ -822,7 +822,7 @@ def test_commit_file_failed(github):
                         '--branch branch',
                         catch_exceptions=True)
 
-    expected_output = 'ERROR: Branch branch doesnt exist in {}'.format(REPO_UNDER_TEST)
+    expected_output = 'Branch branch doesnt exist in {}'.format(REPO_UNDER_TEST)
 
     assert expected_output in result.std_out
 
@@ -850,7 +850,7 @@ def test_create_commit_failed(github):
                         '--branch branch',
                         catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: branch'
+    expected_output = 'Commit not found: branch'
 
     assert expected_output in result.std_out
 
@@ -860,7 +860,7 @@ def test_close_issue_issue_doesnt_exist(github, request):
 
     release = test_utils.create_release(github, request, LAST_COMMIT)
 
-    expected_output = 'ERROR: Issue 100 not found'
+    expected_output = 'Issue 100 not found'
 
     result = github.run('close-issue --number=100 --release={}'.format(release.title),
                         catch_exceptions=True)
@@ -870,7 +870,7 @@ def test_close_issue_issue_doesnt_exist(github, request):
 
 def test_close_issue_release_doesnt_exist(github):
 
-    expected_output = 'ERROR: Release not found: doesnt-exist'
+    expected_output = 'Release not found: doesnt-exist'
 
     result = github.run('close-issue --number=7 --release=doesnt-exist',
                         catch_exceptions=True)

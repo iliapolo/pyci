@@ -30,7 +30,7 @@ def test_upload(log, pypi, pack, binary):
 
     result = pypi.run('upload --wheel {}'.format(wheel_path), binary=binary)
 
-    expected_output = '* Wheel uploaded: {}'.format(expected_url)
+    expected_output = 'Wheel uploaded: {}'.format(expected_url)
 
     assert expected_output in result.std_out
 

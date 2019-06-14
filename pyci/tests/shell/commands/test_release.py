@@ -99,6 +99,6 @@ def test_release_failed(release):
 
     result = release.run('--branch-name doesnt-exist', catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: doesnt-exist'
+    expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out
