@@ -328,6 +328,7 @@ def _repo_path(log, temp_dir):
 
     log.info('Copying source directory to {}...'.format(target_repo_path))
     shutil.copytree(src=source_path, dst=target_repo_path, ignore=ignore)
+    log.info('Done')
 
     return target_repo_path
 
