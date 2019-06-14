@@ -101,7 +101,7 @@ def _non_interactive():
 
 
 @pytest.fixture(name='_log', autouse=True)
-def _mock_log(mocker, log, test_name):
+def _mock_log(mocker, log):
 
     def _log(level, message, **kwargs):
 

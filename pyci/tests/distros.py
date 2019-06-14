@@ -19,7 +19,7 @@ import os
 import uuid
 
 from pyci.api.runner import LocalCommandRunner
-from pyci.api import logger
+from pyci.api import logger, utils
 from pyci.tests import conftest
 
 
@@ -53,8 +53,8 @@ class PythonStretch(object):
 
         command = '{} && {}'.format(install_command, pack_command)
 
-        docker_command = 'docker run -v {}:{} {} /bin/bash -c "{}"'\
-            .format(local_repo_path, container_repo_path, self._image, command)
+        docker_command = '{} run -v {}:{} {} /bin/bash -c "{}"'\
+            .format(docker(), local_repo_path, container_repo_path, self._image, command)
         self._local_runner.run(docker_command)
 
         binary_path = os.path.join(local_repo_path, 'py-ci-x86_64-Linux')
@@ -76,7 +76,7 @@ class PythonStretch(object):
         for key, value in self._volumes.items():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
-        docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._image, command)
+        docker_command = '{} run {} {} /bin/bash -c "{}"'.format(docker(), volumes, self._image, command)
 
         return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
 
@@ -110,8 +110,8 @@ class CentOS(object):
 
         command = '{} && {}'.format(install_command, pack_command)
 
-        docker_command = 'docker run -v {}:{} {} /bin/bash -c "{}"' \
-            .format(local_repo_path, container_repo_path, self._image, command)
+        docker_command = '{} run -v {}:{} {} /bin/bash -c "{}"' \
+            .format(docker(), local_repo_path, container_repo_path, self._image, command)
         self._local_runner.run(docker_command)
 
         binary_path = os.path.join(local_repo_path, 'py-ci-x86_64-Linux')
@@ -133,7 +133,7 @@ class CentOS(object):
         for key, value in self._volumes.items():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
-        docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._image, command)
+        docker_command = '{} run {} {} /bin/bash -c "{}"'.format(docker(), volumes, self._image, command)
 
         return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
 
@@ -173,7 +173,7 @@ class Ubuntu(object):
         for key, value in self._volumes.items():
             volumes = '{} -v {}:{}'.format(volumes, key, value)
 
-        docker_command = 'docker run {} {} /bin/bash -c "{}"'.format(volumes, self._image, command)
+        docker_command = '{} run {} {} /bin/bash -c "{}"'.format(docker(), volumes, self._image, command)
 
         return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
 
@@ -188,6 +188,13 @@ def from_string(distro):
     os_cls = os_mapping[os_part]
 
     return os_cls(arg_part)
+
+
+def docker():
+    path = utils.which('docker')
+    if not path:
+        raise RuntimeError('docker command not found')
+    return path
 
 
 os_mapping = {
