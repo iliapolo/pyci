@@ -61,10 +61,11 @@ def test_release_twice(release):
     assert expected_number_of_releases == len(list(release.github.api.repo.get_releases()))
 
 
+@pytest.mark.skip('Need to create a specific commit to fit this use case')
 @pytest.mark.wet
 def test_release_default_entrypoint_not_found(release):
 
-    sha = 'b22803b93eaca693db78f9d551ec295946765135'
+    sha = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
     release.github.api.reset_branch(name='release', sha=sha, hard=True)
     release.github.api.reset_branch(name='master', sha=sha, hard=True)
 
