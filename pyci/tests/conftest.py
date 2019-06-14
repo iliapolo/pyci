@@ -44,7 +44,7 @@ from pyci import tests
 
 # Uncomment this to debug failed tests.
 # We cant use by default because it breaks log capturing which some tests rely on.
-# logger.DEFAULT_LOG_LEVEL = 10
+logger.DEFAULT_LOG_LEVEL = 10
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
