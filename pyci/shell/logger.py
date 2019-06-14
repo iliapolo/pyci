@@ -135,7 +135,7 @@ class _Logger(object):
 
     def _unicode(self, char, fg=None, break_line=True):
         if self._is_debug():
-                pass
+            pass
         else:
             try:
                 click.secho(char, nl=break_line, fg=fg)
