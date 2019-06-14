@@ -100,7 +100,7 @@ def _non_interactive():
 
 
 @pytest.fixture(name='_log', autouse=True)
-def _mock_log(mocker, log):
+def _mock_log(mocker, log, test_name):
 
     def _log(level, message, **kwargs):
 
@@ -110,7 +110,8 @@ def _mock_log(mocker, log):
         # This prints the messages in real time while the test is running
         log.log(level, '{}{}'.format(message.strip(), logger.Logger.format_key_values(**kwargs)))
 
-    mocker.patch(target='pyci.api.logger.Logger._log', side_effect=_log)
+    if 'shell' in test_name:
+        mocker.patch(target='pyci.api.logger.Logger._log', side_effect=_log)
 
 
 @pytest.fixture(name='pyci', scope='session')
