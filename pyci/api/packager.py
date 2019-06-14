@@ -168,7 +168,14 @@ class Packager(object):
                 raise exceptions.EntrypointNotFoundException(repo=self._repo,
                                                              entrypoint=entrypoint)
 
-            with self._create_virtualenv(name, pyinstaller_version=pyinstaller_version) as virtualenv:
+            with self._create_virtualenv(name) as virtualenv:
+
+                self._logger.debug('Installing pyinstaller...')
+
+                self._runner.run('{} install pyinstaller=={}'
+                                 .format(os.path.join(virtualenv, 'bin', 'pip'),
+                                         pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
+                                 cwd=self._repo_dir)
 
                 self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
                 self._runner.run(
@@ -197,7 +204,7 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def wheel(self, universal=False):
+    def wheel(self, universal=False, wheel_version=None):
 
         """
         Create a wheel package.
@@ -208,6 +215,7 @@ class Packager(object):
 
         Args:
             universal (bool): True if the created will should be universal, False otherwise.
+            wheel_version (:str, optional): Which wheel version to use.
 
         Raises:
             FileExistsException: Raised if the destination file already exists.
@@ -236,6 +244,13 @@ class Packager(object):
                                                            path=self._path)
 
             with self._create_virtualenv(self._default_name) as virtualenv:
+
+                self._logger.debug('Installing wheel...')
+
+                self._runner.run('{} install wheel=={}'
+                                 .format(os.path.join(virtualenv, 'bin', 'pip'),
+                                         wheel_version or DEFAULT_WHEEL_VERSION),
+                                 cwd=self._repo_dir)
 
                 command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}'.format(
                     os.path.join(virtualenv, 'bin', 'python'),
@@ -306,7 +321,7 @@ class Packager(object):
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
     @contextlib.contextmanager
-    def _create_virtualenv(self, name, python=None, pyinstaller_version=None, wheel_version=None):
+    def _create_virtualenv(self, name, python=None):
 
         temp_dir = tempfile.mkdtemp()
 
@@ -346,29 +361,18 @@ class Packager(object):
 
             _write_support_wheel('pip-19.1.1-py2.py3-none-any.whl')
             _write_support_wheel('setuptools-41.0.1-py2.py3-none-any.whl')
-            _write_support_wheel('wheel-0.33.4-py2.py3-none-any.whl')
 
             return _virtualenv_py
 
         virtualenv_py = _create_virtualenv_dist()
 
-        create_virtualenv_command = '{} {} {}'.format(interpreter, virtualenv_py, virtualenv_path)
+        create_virtualenv_command = '{} {} --no-wheel {}'.format(interpreter, virtualenv_py, virtualenv_path)
 
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
 
         pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
 
-        self._runner.run('{} install pyinstaller=={}'
-                         .format(pip_path, pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
-                         cwd=self._repo_dir)
-
-        self._runner.run('{} install wheel=={}'
-                         .format(pip_path, wheel_version or DEFAULT_WHEEL_VERSION),
-                         cwd=self._repo_dir)
-
-        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-
-        self._debug('Installing {}...'.format(setup_py_file))
+        self._debug('Installing {}...'.format(name))
         self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
