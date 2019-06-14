@@ -133,7 +133,7 @@ setup(
     assert actual == expected
 
 
-def test_get_python_executable(runner):
+def test_get_python_executable():
 
     python_path = utils.get_python_executable('python')
 
