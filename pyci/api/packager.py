@@ -32,7 +32,7 @@ from pyci.resources import get_binary_resource
 
 
 DEFAULT_PY_INSTALLER_VERSION = '3.3.1'
-DEFAULT_WHEEL_VERSION = '0.32.2'
+DEFAULT_WHEEL_VERSION = '0.33.4'
 
 
 class Packager(object):
