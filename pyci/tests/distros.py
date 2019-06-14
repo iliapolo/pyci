@@ -45,9 +45,9 @@ class PythonStretch(object):
 
         base_repo_name = os.path.basename(local_repo_path)
 
-        container_repo_path = '/tmp/{}/{}/.'.format(uuid.uuid4(), base_repo_name)
+        container_repo_path = '/tmp/{}/{}'.format(uuid.uuid4(), base_repo_name)
 
-        install_command = 'pip install {}'.format(container_repo_path)
+        install_command = 'ls -l {0} && pip install {0}/.'.format(container_repo_path)
         pack_command = 'pyci --debug pack --path {0} --target-dir {0} binary --entrypoint {1}'.format(
             container_repo_path, conftest.SPEC_FILE)
 
@@ -104,7 +104,7 @@ class CentOS(object):
 
         container_repo_path = '/tmp/{}/{}/.'.format(uuid.uuid4(), base_repo_name)
 
-        install_command = 'pip install {}'.format(container_repo_path)
+        install_command = 'ls -l {0} && pip install {0}'.format(container_repo_path)
         pack_command = 'pyci --debug pack --path {0} --target-dir {0} binary --entrypoint {1}'.format(
             container_repo_path, conftest.SPEC_FILE)
 
