@@ -11,6 +11,9 @@ jobs:
           keys:
             - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
+          name: show env
+          command: env
+      - run:
           name: install tox
           command: sudo pip install tox==3.0.0
       - run:
