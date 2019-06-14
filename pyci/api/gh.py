@@ -23,8 +23,8 @@ import semver
 from boltons.cacheutils import cachedproperty
 from github import Github
 from github import InputGitTreeElement
-from github.GithubException import GithubException
 from github.GithubException import UnknownObjectException
+from github.GithubException import GithubException
 
 from pyci.api import exceptions
 from pyci.api import logger
@@ -287,8 +287,9 @@ class GitHubRepository(object):
             self._debug('Fetching commit message...', sha=sha)
             try:
                 commit_message = self.repo.get_commit(sha=sha).commit.message
-            except UnknownObjectException:
-                raise exceptions.CommitNotFoundException(sha=sha)
+            except GithubException as e:
+                if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
+                    raise exceptions.CommitNotFoundException(sha=sha)
 
             self._debug('Fetched commit message...', sha=sha, commit_message=commit_message)
 
@@ -773,7 +774,7 @@ class _GitHubBranch(object):
         try:
             last_commit = self.github.repo.get_commit(sha=self.branch_name)
         except GithubException as e:
-            if e.data['message'] == 'Not Found':
+            if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
                 raise exceptions.BranchNotFoundException(branch=self.branch_name,
                                                          repo=self.github.repo.full_name)
             raise  # pragma: no cover
@@ -836,8 +837,10 @@ class _GitHubCommit(object):
             commit = self._branch.github.repo.get_commit(sha=self._sha)
             self._debug('Fetched commit.', commit=commit.html_url)
             return commit
-        except UnknownObjectException:
-            raise exceptions.CommitNotFoundException(sha=self._sha)
+        except GithubException as e:
+            if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
+                raise exceptions.CommitNotFoundException(sha=self._sha)
+            raise
 
     @cachedproperty
     def issue(self):
