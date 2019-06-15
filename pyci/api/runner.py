@@ -16,7 +16,6 @@
 #############################################################################
 
 import time
-import copy
 import os
 import shlex
 import subprocess
@@ -35,12 +34,10 @@ class LocalCommandRunner(object):
         host (str): The host string to be displayed in log messages.
     """
 
-    def __init__(self, host='localhost', log=None):
+    def __init__(self, host=None, log=None):
         self._logger = log or logger.Logger(__name__)
+        self._host = host
         self._output_logger = logger.Logger(name='runner-output', fmt='%(message)s')
-        self._log_ctx = {
-            'host': host
-        }
 
     # pylint: disable=too-many-locals
     def run(self, command, exit_on_failure=True, cwd=None, execution_env=None):
@@ -96,12 +93,15 @@ class LocalCommandRunner(object):
         def _is_alive(_p):
             return p.poll() is None
 
+        def _format_line(line):
+            return '[{}] {}'.format(self._host, line) if self._host and line else line
+
         stdout = []
         stderr = []
 
         while True:
-            out = p.stdout.readline().strip(os.linesep)
-            err = p.stderr.readline().strip(os.linesep)
+            out = _format_line(p.stdout.readline().strip(os.linesep))
+            err = _format_line(p.stderr.readline().strip(os.linesep))
             if not out and not err and not _is_alive(p):
                 break
             if out:
@@ -114,21 +114,19 @@ class LocalCommandRunner(object):
 
         out_leftovers, err_leftovers = p.communicate()
 
-        def _log_stream(stream):
+        def _log_stream(stream, buf):
             for line in stream.splitlines():
+
+                line = _format_line(line)
+
+                buf.append(line)
                 self._output_logger.debug(line)
 
-        _log_stream(out_leftovers)
-        _log_stream(err_leftovers)
+        _log_stream(out_leftovers, stdout)
+        _log_stream(err_leftovers, stderr)
 
-        stdout.extend(out_leftovers.splitlines())
-        stderr.extend(err_leftovers.splitlines())
-
-        joined_out = os.linesep.join(stdout)
-        joined_err = os.linesep.join(stderr)
-
-        out = joined_out
-        err = joined_err
+        out = os.linesep.join(stdout)
+        err = os.linesep.join(stderr)
 
         self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
 
@@ -148,8 +146,6 @@ class LocalCommandRunner(object):
             return_code=p.returncode)
 
     def _debug(self, message, **kwargs):
-        kwargs = copy.deepcopy(kwargs)
-        kwargs.update(self._log_ctx)
         self._logger.debug(message, **kwargs)
 
 
