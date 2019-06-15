@@ -393,7 +393,14 @@ def _log():
 
 @pytest.fixture(name='test_name')
 def _test_name(request):
-    return request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
+    sanitized = request.node.nodeid\
+        .replace(os.sep, '.')\
+        .replace('/', '.')\
+        .replace('::', '.')\
+        .replace(':', '.')\
+        .replace('[', '-')\
+        .replace(']', '')
+    return sanitized
 
 
 def _reset_repo(log, repo):
