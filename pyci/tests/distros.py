@@ -70,7 +70,12 @@ class _Distro(object):
 
         container_repo_path = self.add(local_repo_path)
 
-        pack_command = 'pip install {0}/. && pyci --debug pack --path {0} --target-dir {0} binary --entrypoint {1}' \
+        pack_command = 'pip install -vvv {0}/. && pyci ' \
+                       '--debug pack ' \
+                       '--path {0} ' \
+                       '--target-dir {0} ' \
+                       'binary ' \
+                       '--entrypoint {1}' \
             .format(container_repo_path, conftest.SPEC_FILE)
 
         self.run(pack_command)

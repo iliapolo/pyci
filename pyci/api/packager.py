@@ -16,6 +16,7 @@
 #############################################################################
 
 import copy
+import logging
 import os
 import platform
 import shutil
@@ -172,19 +173,21 @@ class Packager(object):
 
                 self._logger.debug('Installing pyinstaller...')
 
-                self._runner.run('{} install pyinstaller=={}'
-                                 .format(os.path.join(virtualenv, 'bin', 'pip'),
+                pip_path = os.path.join(virtualenv, 'bin', 'pip')
+                self._runner.run('{} pyinstaller=={}'
+                                 .format(self._pip_install(pip_path),
                                          pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
                                  cwd=self._repo_dir)
 
                 self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
+                pyinstaller_path = os.path.join(virtualenv, 'bin', 'pyinstaller')
                 self._runner.run(
                     '{} '
                     '--onefile '
                     '--distpath {} '
                     '--workpath {} '
                     '--specpath {} {}'
-                    .format(os.path.join(virtualenv, 'bin', 'pyinstaller'),
+                    .format(self._pyinstaller(pyinstaller_path),
                             dist_dir,
                             build_dir,
                             temp_dir,
@@ -247,8 +250,9 @@ class Packager(object):
 
                 self._logger.debug('Installing wheel...')
 
-                self._runner.run('{} install wheel=={}'
-                                 .format(os.path.join(virtualenv, 'bin', 'pip'),
+                pip_path = os.path.join(virtualenv, 'bin', 'pip')
+                self._runner.run('{} wheel=={}'
+                                 .format(self._pip_install(pip_path),
                                          wheel_version or DEFAULT_WHEEL_VERSION),
                                  cwd=self._repo_dir)
 
@@ -373,7 +377,7 @@ class Packager(object):
         pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
 
         self._debug('Installing {}...'.format(name))
-        self._runner.run('{} install .'.format(pip_path), cwd=self._repo_dir)
+        self._runner.run('{} .'.format(self._pip_install(pip_path)), cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 
@@ -386,3 +390,15 @@ class Packager(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         self._logger.debug(message, **kwargs)
+
+    def _pip_install(self, pip_path):
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            return '{} install -vvv'.format(pip_path)
+        return '{} install'.format(pip_path)
+
+    def _pyinstaller(self, pyinstaller_path):
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            return '{} --log-level TRACE'.format(pyinstaller_path)
+        return pyinstaller_path
