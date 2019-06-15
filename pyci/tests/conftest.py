@@ -379,10 +379,10 @@ def _github_cleanup(log, test_name, request, repo):
 def _log():
 
     lo = logging.getLogger('pyci.tests')
-    lo.setLevel(logging.DEBUG)
+    lo.setLevel(logger.DEFAULT_LOG_LEVEL)
     lo.propagate = False
     ch = logging.StreamHandler(stream=sys.stdout)
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logger.DEFAULT_LOG_LEVEL)
     formatter = logging.Formatter(logger.DEFAULT_LOG_FORMAT)
     ch.setFormatter(formatter)
 

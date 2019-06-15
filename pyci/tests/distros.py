@@ -46,8 +46,9 @@ class _Distro(object):
 
         remote_path = '/data/{}'.format(os.path.basename(resource_path))
 
-        self._logger.info('Copying {} to distro {}...'.format(resource_path, self._image))
+        self._logger.info('Copying {} to distro {}:/{}...'.format(resource_path, self._image, remote_path))
         self._local_runner.run('docker cp {} {}:{}'.format(resource_path, self._data_container_name, remote_path))
+        self._logger.info('Finished copying {} to distro {}:/{}...'.format(resource_path, self._image, remote_path))
 
         return remote_path
 
@@ -56,7 +57,10 @@ class _Distro(object):
         docker_command = 'docker run --volumes-from {} {} /bin/bash -c "{}"'.format(self._data_container_name,
                                                                                     self._image,
                                                                                     command)
-        return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
+        self._logger.info("Running command '{}' on {}...".format(command, self._image))
+        run = self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
+        self._logger.info("Finished running command '{}' on {}...".format(command, self._image))
+        return run
 
     def shutdown(self):
 
