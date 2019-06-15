@@ -39,7 +39,7 @@ class _Distro(object):
 
     def boot(self):
 
-        self._logger.info('Booting up...'.format(self._image))
+        self._logger.info('Booting up {}...'.format(self._image))
         self._create_data_container()
 
     def add(self, resource_path):
@@ -56,13 +56,11 @@ class _Distro(object):
         docker_command = 'docker run --volumes-from {} {} /bin/bash -c "{}"'.format(self._data_container_name,
                                                                                     self._image,
                                                                                     command)
-
-        self._logger.info('Running command {}'.format(self._image, command))
         return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
 
     def shutdown(self):
 
-        self._logger.info('Shutting down...'.format(self._image))
+        self._logger.info('Shutting down {}...'.format(self._image))
         self._local_runner.run('docker rm -vf {}'.format(self._data_container_name), exit_on_failure=False)
         self._local_runner.run('docker rm -vf {}'.format(self._container_name), exit_on_failure=False)
 
