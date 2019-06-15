@@ -16,185 +16,123 @@
 #############################################################################
 
 import os
-import uuid
+import abc
 
 from pyci.api.runner import LocalCommandRunner
-from pyci.api import logger, utils
+from pyci.api import logger
 from pyci.tests import conftest
 
 
-class PythonStretch(object):
+class _Distro(object):
 
-    def __init__(self, python_version):
-        super(PythonStretch, self).__init__()
+    def __init__(self, name, image, log=None):
+        super(_Distro, self).__init__()
+        self._image = image
+        self._logger = log or logger.Logger(__name__)
+        self._local_runner = LocalCommandRunner(log=self._logger, host=self._image)
+        self._container_name = name
+        self._data_container_name = '{}-data'.format(self._container_name)
+
+    @abc.abstractproperty
+    def python_version(self):
+        pass
+
+    def boot(self):
+
+        self._logger.info('Booting up...'.format(self._image))
+        self._create_data_container()
+
+    def add(self, resource_path):
+
+        remote_path = '/data/{}'.format(os.path.basename(resource_path))
+
+        self._logger.info('Copying {} to distro {}...'.format(resource_path, self._image))
+        self._local_runner.run('docker cp {} {}:{}'.format(resource_path, self._data_container_name, remote_path))
+
+        return remote_path
+
+    def run(self, command, exit_on_failure=True):
+
+        docker_command = 'docker run --volumes-from {} {} /bin/bash -c "{}"'.format(self._data_container_name,
+                                                                                    self._image,
+                                                                                    command)
+
+        self._logger.info('Running command {}'.format(self._image, command))
+        return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
+
+    def shutdown(self):
+
+        self._logger.info('Shutting down...'.format(self._image))
+        self._local_runner.run('docker rm -vf {}'.format(self._data_container_name), exit_on_failure=False)
+        self._local_runner.run('docker rm -vf {}'.format(self._container_name), exit_on_failure=False)
+
+    def binary(self, local_repo_path):
+
+        assert self.python_version is not None
+
+        container_repo_path = self.add(local_repo_path)
+
+        pack_command = 'pip install {0}/. && pyci --debug pack --path {0} --target-dir {0} binary --entrypoint {1}' \
+            .format(container_repo_path, conftest.SPEC_FILE)
+
+        self.run(pack_command)
+
+        expected_binary_name = 'py-ci-x86_64-Linux'
+
+        container_binary_path = os.path.join(container_repo_path, expected_binary_name)
+
+        self._local_runner.run('docker cp {}:{} {}'.format(self._data_container_name,
+                                                           container_binary_path,
+                                                           local_repo_path))
+
+        return os.path.join(local_repo_path, expected_binary_name)
+
+    def _create_data_container(self):
+        self._local_runner.run('docker create -v /data --name {} {}'.format(self._data_container_name, self._image))
+
+
+class PythonStretch(_Distro):
+
+    def __init__(self, name, python_version):
+        super(PythonStretch, self).__init__(name, 'python:{}-stretch'.format(python_version))
         self._python_version = python_version
-        self._image = 'python:{}-stretch'.format(python_version)
-        self._logger = logger.Logger(__name__)
-        self._volumes = {}
-        self._local_runner = LocalCommandRunner(log=self._logger)
 
     @property
     def python_version(self):
         return self._python_version
 
-    @property
-    def has_python(self):
-        return True
 
-    def binary(self, local_repo_path):
+class CentOS(_Distro):
 
-        base_repo_name = os.path.basename(local_repo_path)
-
-        container_repo_path = '/tmp/{}/{}'.format(uuid.uuid4(), base_repo_name)
-
-        install_command = 'ls -l {0} && pip install {0}/.'.format(container_repo_path)
-        pack_command = 'pyci --debug pack --path {0} --target-dir {0} binary --entrypoint {1}'.format(
-            container_repo_path, conftest.SPEC_FILE)
-
-        command = '{} && {}'.format(install_command, pack_command)
-
-        docker_command = '{} run -v {}:{} {} /bin/bash -c "{}"'\
-            .format(docker(), local_repo_path, container_repo_path, self._image, command)
-        self._local_runner.run(docker_command)
-
-        binary_path = os.path.join(local_repo_path, 'py-ci-x86_64-Linux')
-
-        return binary_path
-
-    def add(self, resource_path):
-
-        remote_path = '/tmp/{}/{}'.format(uuid.uuid4(), os.path.basename(resource_path))
-
-        self._volumes[resource_path] = remote_path
-
-        return remote_path
-
-    def run(self, command, exit_on_failure=True):
-
-        volumes = ''
-
-        for key, value in self._volumes.items():
-            volumes = '{} -v {}:{}'.format(volumes, key, value)
-
-        docker_command = '{} run {} {} /bin/bash -c "{}"'.format(docker(), volumes, self._image, command)
-
-        return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
-
-
-class CentOS(object):
-
-    def __init__(self):
-        super(CentOS, self).__init__()
-        self._image = 'centos:centos7.6.1810'
-        self._logger = logger.Logger(__name__)
-        self._volumes = {}
-        self._local_runner = LocalCommandRunner(log=self._logger)
+    def __init__(self, name):
+        super(CentOS, self).__init__(name, 'centos:centos7.6.1810')
 
     @property
     def python_version(self):
         return '2.7.5'
 
-    @property
-    def has_python(self):
-        return True
 
-    def binary(self, local_repo_path):
+class Ubuntu(_Distro):
 
-        base_repo_name = os.path.basename(local_repo_path)
-
-        container_repo_path = '/tmp/{}/{}/.'.format(uuid.uuid4(), base_repo_name)
-
-        install_command = 'ls -l {0} && pip install {0}'.format(container_repo_path)
-        pack_command = 'pyci --debug pack --path {0} --target-dir {0} binary --entrypoint {1}'.format(
-            container_repo_path, conftest.SPEC_FILE)
-
-        command = '{} && {}'.format(install_command, pack_command)
-
-        docker_command = '{} run -v {}:{} {} /bin/bash -c "{}"' \
-            .format(docker(), local_repo_path, container_repo_path, self._image, command)
-        self._local_runner.run(docker_command)
-
-        binary_path = os.path.join(local_repo_path, 'py-ci-x86_64-Linux')
-
-        return binary_path
-
-    def add(self, resource_path):
-
-        remote_path = '/tmp/{}/{}'.format(uuid.uuid4(), os.path.basename(resource_path))
-
-        self._volumes[resource_path] = remote_path
-
-        return remote_path
-
-    def run(self, command, exit_on_failure=True):
-
-        volumes = ''
-
-        for key, value in self._volumes.items():
-            volumes = '{} -v {}:{}'.format(volumes, key, value)
-
-        docker_command = '{} run {} {} /bin/bash -c "{}"'.format(docker(), volumes, self._image, command)
-
-        return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
-
-
-class Ubuntu(object):
-
-    def __init__(self, version):
-        super(Ubuntu, self).__init__()
-        self._image = 'ubuntu:{}'.format(version)
-        self._logger = logger.Logger(__name__)
-        self._volumes = {}
-        self._local_runner = LocalCommandRunner(log=self._logger)
+    def __init__(self, name, version):
+        super(Ubuntu, self).__init__(name, 'ubuntu:{}'.format(version))
 
     @property
     def python_version(self):
         return None
 
-    @property
-    def has_python(self):
-        return False
 
-    def binary(self):
-        raise NotImplementedError('This image does not contain a python installation')
-
-    def add(self, resource_path):
-
-        remote_path = '/tmp/{}/{}'.format(uuid.uuid4(), os.path.basename(resource_path))
-
-        self._volumes[resource_path] = remote_path
-
-        return remote_path
-
-    def run(self, command, exit_on_failure=True):
-
-        volumes = ''
-
-        for key, value in self._volumes.items():
-            volumes = '{} -v {}:{}'.format(volumes, key, value)
-
-        docker_command = '{} run {} {} /bin/bash -c "{}"'.format(docker(), volumes, self._image, command)
-
-        return self._local_runner.run(docker_command, exit_on_failure=exit_on_failure)
-
-
-def from_string(distro):
+def from_string(name, distro):
 
     parts = distro.split(':')
 
+    env = parts[0]
     os_part = parts[1]
     arg_part = parts[2]
 
     os_cls = os_mapping[os_part]
 
-    return os_cls(arg_part)
-
-
-def docker():
-    path = utils.which('docker')
-    if not path:
-        raise RuntimeError('docker command not found')
-    return path
+    return os_cls('{}-{}'.format(env, name), arg_part)
 
 
 os_mapping = {
