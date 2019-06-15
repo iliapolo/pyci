@@ -232,4 +232,3 @@ def test_binary_cross_distribution_wheel(repo_version, repo_path, test_name, bui
             os.remove(local_binary_path)
         build_distro.shutdown()
         run_distro.shutdown()
-
