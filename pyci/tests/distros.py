@@ -14,7 +14,7 @@
 #   * limitations under the License.
 #
 #############################################################################
-
+import logging
 import os
 import abc
 
@@ -70,13 +70,15 @@ class _Distro(object):
 
         container_repo_path = self.add(local_repo_path)
 
-        pack_command = 'pip install -vvv {0}/. && pyci ' \
-                       '--debug pack ' \
-                       '--path {0} ' \
-                       '--target-dir {0} ' \
+        pack_command = '{pip_install} {repo_path}/. && {pyci} pack ' \
+                       '--path {repo_path} ' \
+                       '--target-dir {repo_path} ' \
                        'binary ' \
-                       '--entrypoint {1}' \
-            .format(container_repo_path, conftest.SPEC_FILE)
+                       '--entrypoint {spec}' \
+            .format(pip_install=self._pip_install(),
+                    repo_path=container_repo_path,
+                    pyci=self._pyci(),
+                    spec=conftest.SPEC_FILE)
 
         self.run(pack_command)
 
@@ -89,6 +91,12 @@ class _Distro(object):
                                                            local_repo_path))
 
         return os.path.join(local_repo_path, expected_binary_name)
+
+    def _pyci(self):
+        return 'pyci --debug' if self._logger.isEnabledFor(logging.DEBUG) else 'pyci'
+
+    def _pip_install(self):
+        return 'pip install -vvv' if self._logger.isEnabledFor(logging.DEBUG) else 'pip install'
 
     def _create_data_container(self):
         self._local_runner.run('docker create -v /data --name {} {}'.format(self._data_container_name, self._image))
