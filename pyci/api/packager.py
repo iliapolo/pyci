@@ -32,7 +32,7 @@ from pyci.resources import get_text_resource
 from pyci.resources import get_binary_resource
 
 
-DEFAULT_PY_INSTALLER_VERSION = '3.3.1'
+DEFAULT_PY_INSTALLER_VERSION = '3.4'
 DEFAULT_WHEEL_VERSION = '0.33.4'
 
 
@@ -374,10 +374,24 @@ class Packager(object):
 
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
 
-        pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
+        egg_base = os.path.join(temp_dir, 'egg-base')
 
-        self._debug('Installing {}...'.format(name))
-        self._runner.run('{} .'.format(self._pip_install(pip_path)), cwd=self._repo_dir)
+        self._debug('Dumping requirements file for {}'.format(name))
+        os.mkdir(egg_base)
+        self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter,
+                                                               os.path.join(self._repo_dir, 'setup.py'),
+                                                               egg_base),
+                         cwd=self._repo_dir)
+
+        requires = None
+        for dirpath, _, filenames in os.walk(egg_base):
+            if 'requires.txt' in filenames:
+                requires = os.path.join(dirpath, 'requires.txt')
+
+        self._debug('Installing {} requirements...'.format(name))
+        pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
+        command = '{} -r {}'.format(self._pip_install(pip_path), requires)
+        self._runner.run(command, cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 
@@ -393,9 +407,9 @@ class Packager(object):
 
     def _pip_install(self, pip_path):
 
-        command = '{} install --no-cache-dir'.format(pip_path)
+        command = '{} install'.format(pip_path)
         if self._logger.isEnabledFor(logging.DEBUG):
-            command = '{} -v'.format(command)
+            command = '{}'.format(command)
         return command
 
     def _pyinstaller(self, pyinstaller_path):

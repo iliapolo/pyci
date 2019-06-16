@@ -47,7 +47,6 @@ from pyci.tests.shell import PyCI
 from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
 
-# Run tests in debug by default
 logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
@@ -346,7 +345,7 @@ def _repo_path(log, temp_dir):
 
     target_repo_path = os.path.join(temp_dir, 'pyci')
 
-    ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git')
+    ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git', '__pycache__')
 
     log.info('Copying source directory to {}...'.format(target_repo_path))
     shutil.copytree(src=source_path, dst=target_repo_path, ignore=ignore)
