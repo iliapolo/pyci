@@ -491,6 +491,6 @@ def _get_data_file(request, test_name):
     file_name = os.path.join(os.path.dirname(tests.__file__), "replay_data", test_name + ".txt")
 
     if _is_test_platform_dependent():
-        file_name = '{}[{}]'.format(file_name, platform.system().lower())
+        file_name = '{}-{}'.format(file_name, platform.system().lower())
 
     return file_name
