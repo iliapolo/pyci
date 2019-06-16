@@ -83,7 +83,7 @@ class PyCI(object):
         exception = result.exception
 
         return CommandExecutionResponse(command=command,
-                                        std_out=result.output.encode('utf-8'),
+                                        std_out=result.output,
                                         std_err=str(exception) if exception else None,
                                         return_code=result.exit_code)
 

@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import six
 import time
 import os
 import shlex
@@ -125,8 +126,8 @@ class LocalCommandRunner(object):
         _log_stream(out_leftovers, stdout)
         _log_stream(err_leftovers, stderr)
 
-        out = os.linesep.join(stdout)
-        err = os.linesep.join(stderr)
+        out = six.u(os.linesep.join(stdout))
+        err = six.u(os.linesep.join(stderr))
 
         self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
 

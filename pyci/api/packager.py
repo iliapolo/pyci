@@ -393,12 +393,14 @@ class Packager(object):
 
     def _pip_install(self, pip_path):
 
+        command = '{} install --no-cache-dir'.format(pip_path)
         if self._logger.isEnabledFor(logging.DEBUG):
-            return '{} install -vvv'.format(pip_path)
-        return '{} install'.format(pip_path)
+            command = '{} -v'.format(command)
+        return command
 
     def _pyinstaller(self, pyinstaller_path):
 
+        command = pyinstaller_path
         if self._logger.isEnabledFor(logging.DEBUG):
-            return '{} --log-level TRACE'.format(pyinstaller_path)
-        return pyinstaller_path
+            command = '{} --log-level DEBUG'.format(command)
+        return command

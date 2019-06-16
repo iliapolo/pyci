@@ -48,7 +48,7 @@ from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
 
 # Run tests in debug by default
-# logger.DEFAULT_LOG_LEVEL = logging.DEBUG
+logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'

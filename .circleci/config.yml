@@ -50,6 +50,10 @@ jobs:
       - run:
           name: run tox
           command: tox -e py36
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
 
 workflows:
   version: 2
