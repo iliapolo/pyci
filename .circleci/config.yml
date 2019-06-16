@@ -11,12 +11,6 @@ jobs:
           keys:
             - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
-          name: show env
-          command: env
-      - run:
-          name: test docker
-          command: docker ps -a
-      - run:
           name: install tox
           command: sudo pip install tox==3.0.0
       - run:
@@ -33,13 +27,13 @@ jobs:
           path: test-reports
       - store_artifacts:
           path: test-reports
-
   python36:
     docker:
       - image: circleci/python:3.6
     working_directory: ~/repo
     steps:
       - checkout
+      - setup_remote_docker
       - restore_cache:
           keys:
             - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
@@ -94,13 +88,12 @@ workflows:
   version: 2
   python:
     jobs:
-      - python27:
-          filters:
-            branches:
-              ignore:
-                - master
-                - /\d*\.\d*\.\d*/
-
+#      - python27:
+#          filters:
+#            branches:
+#              ignore:
+#                - master
+#                - /\d*\.\d*\.\d*/
       - python36:
           filters:
             branches:
