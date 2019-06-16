@@ -59,12 +59,12 @@ workflows:
   version: 2
   python:
     jobs:
-#      - python27:
-#          filters:
-#            branches:
-#              ignore:
-#                - master
-#                - /\d*\.\d*\.\d*/
+      - python27:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
       - python36:
           filters:
             branches:

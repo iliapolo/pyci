@@ -74,7 +74,7 @@ class _Distro(object):
 
         container_repo_path = self.add(local_repo_path)
 
-        pack_command = '{pip_install} {repo_path}/. && {pyci} pack ' \
+        pack_command = 'echo "Installing pyci..." && {pip_install} {repo_path} && {pyci} pack ' \
                        '--path {repo_path} ' \
                        '--target-dir {repo_path} ' \
                        'binary ' \
@@ -100,7 +100,7 @@ class _Distro(object):
         return 'pyci --debug' if self._logger.isEnabledFor(logging.DEBUG) else 'pyci'
 
     def _pip_install(self):
-        return 'pip install ' if self._logger.isEnabledFor(logging.DEBUG) else 'pip install'
+        return 'pip install -e' if self._logger.isEnabledFor(logging.DEBUG) else 'pip install'
 
     def _create_data_container(self):
         self._local_runner.run('docker create -v /data --name {} {}'.format(self._data_container_name, self._image))
