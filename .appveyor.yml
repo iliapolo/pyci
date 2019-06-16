@@ -18,7 +18,6 @@ build: off
 
 install:
   - cmd: "%PYTHON%\\Scripts\\pip.exe install tox==3.0.0"
-  - cmd: "%PYTHON%\\Scripts\\pip.exe install wheel==0.31.0"
   - cmd: "%PYTHON%\\Scripts\\tox.exe --notest -e %TOX_ENV%"
 
 test_script:

@@ -12,7 +12,7 @@ jobs:
             - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: install tox
-          command: sudo pip install tox==3.0.0
+          command: sudo pip install tox==3.0.0 && pip list
       - run:
           name: install dependencies
           command: tox --notest -e py27
@@ -39,7 +39,7 @@ jobs:
             - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: install tox
-          command: sudo pip install tox==3.0.0
+          command: sudo pip install tox==3.0.0 && pip list
       - run:
           name: install dependencies
           command: tox --notest -e py36
