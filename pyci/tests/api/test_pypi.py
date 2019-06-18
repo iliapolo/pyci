@@ -15,25 +15,39 @@
 #
 #############################################################################
 
-import os
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # python3
+    # noinspection PyUnresolvedReferences,PyCompatibility
+    from unittest.mock import MagicMock
+
 
 import pytest
+from twine.commands import upload
 
-from pyci.api import exceptions
-from pyci.api import utils
-from pyci.api.pypi import PyPI
 from pyci.shell import secrets
+from pyci.api import exceptions
+from pyci.api.pypi import PyPI
 
 
-def test_upload(pypi, wheel_path):
+def test_upload(pypi, wheel_path, mocker):
 
-    wheel_url = pypi.api.upload(wheel=wheel_path)
-    utils.download(url=wheel_url)
+    mocker.patch(target='twine.commands.upload.main', new=MagicMock())
+
+    pypi.api.upload(wheel=wheel_path)
+
+    expected_args = ['--username', secrets.twine_username(),
+                     '--password', secrets.twine_password(),
+                     '--repository-url', 'https://test.pypi.org/legacy/',
+                     wheel_path]
+
+    # noinspection PyUnresolvedReferences
+    upload.main.assert_called_once_with(expected_args)
 
 
-def test_upload_already_exists(pypi, pack, mocker):
-
-    wheel_path = pack.api.wheel()
+def test_upload_already_exists(pypi, wheel_path, mocker):
 
     # Mocking the response from PyPI in this case
     def _upload(*_, **__):
@@ -45,7 +59,7 @@ def test_upload_already_exists(pypi, pack, mocker):
         pypi.api.upload(wheel=wheel_path)
 
 
-def test_upload_twine_execution_failed(pack, mocker):
+def test_upload_twine_execution_failed(wheel_path, mocker):
 
     pypi = PyPI.create(username='username',
                        password='password',
@@ -58,7 +72,6 @@ def test_upload_twine_execution_failed(pack, mocker):
 
     mocker.patch(target='twine.commands.upload.main', side_effect=_upload)
 
-    wheel_path = pack.api.wheel()
     with pytest.raises(exceptions.FailedPublishingWheelException):
         pypi.upload(wheel=wheel_path)
 

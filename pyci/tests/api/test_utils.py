@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import os
 import tempfile
 import sys
 
@@ -137,7 +138,7 @@ def test_get_python_executable():
 
     python_path = utils.get_python_executable('python')
 
-    assert sys.exec_prefix in python_path
+    assert os.path.abspath(sys.exec_prefix) in python_path
 
 
 def test_get_python_executable_from_pyinstaller():

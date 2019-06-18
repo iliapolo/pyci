@@ -93,11 +93,11 @@ class PyPI(object):
         wheel_url = 'https://{}/manage/project/{}/release/{}/'.format(
             self._site, self._extract_project_name(wheel), wheel_version)
 
-        args = '--username {} --password {} {}'.format(self.username, self.password, wheel)
+        args = '--username {} --password {}'.format(self.username, self.password)
         if self.repository_url:
             args = '{} --repository-url {}'.format(args, self.repository_url)
 
-        args = shlex_split(args)
+        args = shlex_split('{} {}'.format(args, wheel))
 
         try:
             self._debug('Uploading wheel to PyPI repository...', wheel=wheel)

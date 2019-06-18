@@ -103,7 +103,7 @@ class PyCI(object):
         # pylint: disable=cyclic-import
         from pyci.tests import conftest
 
-        package_path = os.environ.get('PYCI_BINARY_PATH', '/tmp/pyci')
+        package_path = os.environ.get('PYCI_BINARY_PATH', None)
 
         if not package_path:
             self._logger.info('Creating binary package... [cwd={}]'.format(os.getcwd()))

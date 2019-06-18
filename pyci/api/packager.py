@@ -77,7 +77,7 @@ class Packager(object):
             utils.validate_directory_exists(path)
 
         self._repo = repo
-        self._target_dir = target_dir
+        self._target_dir = target_dir or os.getcwd()
         self._sha = sha
         self._path = os.path.abspath(path) if path else None
         self._logger = log or logger.Logger(__name__)
@@ -147,12 +147,10 @@ class Packager(object):
         temp_dir = tempfile.mkdtemp()
         try:
 
-            target_dir = self.target_dir or os.getcwd()
-
             name = name or self._default_name
             entrypoint = entrypoint or self._default_entrypoint(name)
 
-            destination = os.path.join(target_dir, '{0}-{1}-{2}'
+            destination = os.path.join(self.target_dir, '{0}-{1}-{2}'
                                        .format(name, platform.machine(), platform.system()))
 
             if platform.system().lower() == 'windows':
@@ -179,7 +177,9 @@ class Packager(object):
                                          pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
                                  cwd=self._repo_dir)
 
-                self._debug('Running pyinstaller...', entrypoint=entrypoint, destination=destination)
+                self._debug('Running pyinstaller...',
+                            entrypoint=entrypoint,
+                            destination=destination)
                 pyinstaller_path = os.path.join(virtualenv, 'bin', 'pyinstaller')
                 self._runner.run(
                     '{} '
@@ -231,8 +231,6 @@ class Packager(object):
         temp_dir = tempfile.mkdtemp()
         try:
 
-            target_dir = self.target_dir or os.getcwd()
-
             dist_dir = os.path.join(temp_dir, 'dist')
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
@@ -273,7 +271,7 @@ class Packager(object):
 
             actual_name = utils.lsf(dist_dir)[0]
 
-            destination = os.path.join(target_dir, actual_name)
+            destination = os.path.join(self.target_dir, actual_name)
 
             utils.validate_file_does_not_exist(path=destination)
 
@@ -370,7 +368,9 @@ class Packager(object):
 
         virtualenv_py = _create_virtualenv_dist()
 
-        create_virtualenv_command = '{} {} --no-wheel {}'.format(interpreter, virtualenv_py, virtualenv_path)
+        create_virtualenv_command = '{} {} --no-wheel {}'.format(interpreter,
+                                                                 virtualenv_py,
+                                                                 virtualenv_path)
 
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
 
@@ -379,7 +379,8 @@ class Packager(object):
         self._debug('Dumping requirements file for {}'.format(name))
         os.mkdir(egg_base)
         self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter,
-                                                               os.path.join(self._repo_dir, 'setup.py'),
+                                                               os.path.join(self._repo_dir,
+                                                                            'setup.py'),
                                                                egg_base),
                          cwd=self._repo_dir)
 

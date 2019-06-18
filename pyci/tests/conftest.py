@@ -260,39 +260,6 @@ def _temp_dir(request):
         utils.rmf(dir_path)
 
 
-@pytest.fixture(name='patched_release')
-def _patched_release(mocker, pyci):
-
-    gh = MagicMock()
-    packager = MagicMock()
-    pypi = MagicMock()
-
-    mocker.patch(target='pyci.api.gh.GitHubRepository.create', new=MagicMock(return_value=gh))
-    mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock(return_value=packager))
-    mocker.patch(target='pyci.api.pypi.PyPI.create', new=MagicMock(return_value=pypi))
-
-    # pylint: disable=too-few-public-methods
-    class ReleaseCommand(object):
-
-        def __init__(self):
-            self.gh = gh
-            self.packager = packager
-            self.pypi = pypi
-
-        @staticmethod
-        def run(command, binary=False, catch_exceptions=False):
-
-            command = '--no-ci release --pypi-test --repo {} {}'.format(
-                REPO_UNDER_TEST,
-                command)
-
-            return pyci.run(command=command,
-                            binary=binary,
-                            catch_exceptions=catch_exceptions)
-
-    yield ReleaseCommand()
-
-
 @pytest.fixture(name='repo', scope='session')
 def _repo(connection_patcher, token):
 
@@ -374,9 +341,12 @@ def _repo_path(log, temp_dir):
 
 
 @pytest.fixture(name='repo_version')
-def _repo_version(repo_path):
+def _repo_version(repo_path, runner):
 
-    version = _patch_setup_py(repo_path)
+    setup_py = os.path.join(repo_path, 'setup.py')
+
+    version = runner.run('{} {} --version'.format(utils.get_python_executable('python'),
+                                                  setup_py)).std_out
 
     return version
 
