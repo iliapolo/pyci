@@ -237,7 +237,6 @@ def _temp_dir(request):
     try:
         yield dir_path
     finally:
-        # cleanup
         utils.rmf(dir_path)
 
 

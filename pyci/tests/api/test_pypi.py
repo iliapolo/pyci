@@ -32,29 +32,32 @@ def test_upload(pypi, pack):
     utils.download(url=wheel_url)
 
 
-def test_upload_already_exists(pypi, pack):
+def test_upload_already_exists(pypi, pack, mocker):
 
     wheel_path = pack.api.wheel()
 
-    pypi.api.upload(wheel=wheel_path)
+    # Mocking the response from PyPI in this case
+    def _upload(*_, **__):
+        raise BaseException('File already exists')
 
-    main = os.path.join(pack.api.repo_dir, 'pyci', 'shell', 'main.py')
-    with open(main, 'w') as stream:
-        stream.write('import os')
-
-    os.remove(wheel_path)
-    wheel_path = pack.api.wheel()
+    mocker.patch(target='twine.commands.upload.main', side_effect=_upload)
 
     with pytest.raises(exceptions.WheelAlreadyPublishedException):
         pypi.api.upload(wheel=wheel_path)
 
 
-def test_upload_twine_execution_failed(pack):
+def test_upload_twine_execution_failed(pack, mocker):
 
-    pypi = PyPI.create(username=secrets.twine_username(),
-                       password=secrets.twine_password(),
+    pypi = PyPI.create(username='username',
+                       password='password',
                        repository_url='htttp://repository-url',
                        test=False)
+
+    # Mocking the response from PyPI in this case
+    def _upload(*_, **__):
+        raise BaseException('Server failure')
+
+    mocker.patch(target='twine.commands.upload.main', side_effect=_upload)
 
     wheel_path = pack.api.wheel()
     with pytest.raises(exceptions.FailedPublishingWheelException):
