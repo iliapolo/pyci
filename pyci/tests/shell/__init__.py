@@ -103,9 +103,21 @@ class PyCI(object):
         # pylint: disable=cyclic-import
         from pyci.tests import conftest
 
-        self._logger.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
-        package_path = self._packager.binary(entrypoint=conftest.SPEC_FILE)
-        self._logger.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
+        package_path = os.environ.get('PYCI_BINARY_PATH', '/tmp/pyci')
+
+        if not package_path:
+            self._logger.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
+            package_path = self._packager.binary(entrypoint=conftest.SPEC_FILE)
+            self._logger.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
+
+        return package_path
+
+    @cachedproperty
+    def wheel_path(self):
+
+        self._logger.info('Creating wheel package... [cwd={}]'.format(os.getcwd()))
+        package_path = self._packager.wheel()
+        self._logger.info('Created wheel package: {} [cwd={}]'.format(package_path, os.getcwd()))
         return package_path
 
 

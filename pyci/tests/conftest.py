@@ -129,6 +129,12 @@ def _binary_path(pyci):
     return pyci.binary_path
 
 
+@pytest.fixture(name='wheel_path', scope='session')
+def _wheel_path(pyci):
+
+    return pyci.wheel_path
+
+
 @pytest.fixture(name='release')
 def _release(pyci, github):
 
@@ -225,6 +231,20 @@ def _pypi(pyci):
                             catch_exceptions=catch_exceptions)
 
     yield PyPISubCommand()
+
+
+@pytest.fixture(name='temp_dir')
+def _temp_dir(request):
+
+    name = request.node.originalname or request.node.name
+
+    dir_path = tempfile.mkdtemp(suffix=name, dir='/tmp')
+
+    try:
+        yield dir_path
+    finally:
+        # cleanup
+        utils.rmf(dir_path)
 
 
 @pytest.fixture(name='temp_dir')
