@@ -25,9 +25,8 @@ from pyci.api.pypi import PyPI
 from pyci.shell import secrets
 
 
-def test_upload(pypi, pack):
+def test_upload(pypi, wheel_path):
 
-    wheel_path = pack.api.wheel()
     wheel_url = pypi.api.upload(wheel=wheel_path)
     utils.download(url=wheel_url)
 

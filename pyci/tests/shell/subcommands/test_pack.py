@@ -18,58 +18,85 @@
 import os
 import platform
 
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # python3
+    # noinspection PyUnresolvedReferences,PyCompatibility
+    from unittest.mock import MagicMock
+
 import pytest
 
+from pyci.api.packager import Packager
 from pyci.api import utils
 from pyci.tests import distros
 from pyci.tests import conftest
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_binary(pack, runner, binary):
+def test_binary(pack, runner, binary, mocker):
+
+    mocker.patch(target='pyci.api.packager.Packager.binary', new=MagicMock())
 
     pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), binary=binary)
 
-    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-        platform.machine(), platform.system()))
+    if binary:
 
-    if platform.system() == 'Windows':
-        expected_package_path = '{0}.exe'.format(expected_package_path)
+        expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
+            platform.machine(), platform.system()))
 
-    assert os.path.exists(expected_package_path)
+        if platform.system() == 'Windows':
+            expected_package_path = '{0}.exe'.format(expected_package_path)
 
-    # lets make sure the binary actually works
-    runner.run('{0} --help'.format(expected_package_path))
+        assert os.path.exists(expected_package_path)
+
+        # lets make sure the binary actually works
+        runner.run('{0} --help'.format(expected_package_path))
+
+    else:
+
+        # noinspection PyUnresolvedReferences
+        Packager.binary.assert_called_once_with(name=None, entrypoint=conftest.SPEC_FILE, pyinstaller_version=None)
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_binary_options(pack, temp_dir, request, runner, binary):
+def test_binary_options(pack, temp_dir, request, runner, binary, mocker):
 
     pack.api.target_dir = temp_dir
 
-    custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
-    with open(os.path.join(pack.api.repo_dir, custom_main), 'w') as stream:
-        stream.write('''
-import six
-
-if __name__ == '__main__':
-    six.print_('It works!')        
-''')
+    mocker.patch(target='pyci.api.packager.Packager.binary', new=MagicMock())
 
     name = request.node.name.replace('[', '-').replace(']', '')
+    custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
+
+    with open(os.path.join(pack.api.repo_dir, custom_main), 'w') as stream:
+        stream.write('''
+    import six
+    
+    if __name__ == '__main__':
+        six.print_('It works!')        
+    ''')
 
     pack.run('binary --name {} --entrypoint {}'.format(name, custom_main), binary=binary)
 
-    expected_package_path = os.path.join(temp_dir, '{}-{}-{}'
-                                         .format(name, platform.machine(), platform.system()))
+    if binary:
 
-    if platform.system() == 'Windows':
-        expected_package_path = '{0}.exe'.format(expected_package_path)
+        expected_package_path = os.path.join(temp_dir, '{}-{}-{}'
+                                             .format(name, platform.machine(), platform.system()))
 
-    assert os.path.exists(expected_package_path)
+        if platform.system() == 'Windows':
+            expected_package_path = '{0}.exe'.format(expected_package_path)
 
-    # lets make sure the binary actually works
-    assert runner.run(expected_package_path).std_out == 'It works!'
+        assert os.path.exists(expected_package_path)
+
+        # lets make sure the binary actually works
+        assert runner.run(expected_package_path).std_out == 'It works!'
+
+    else:
+
+        # noinspection PyUnresolvedReferences
+        Packager.binary.assert_called_once_with(name=name, entrypoint=custom_main, pyinstaller_version=None)
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -120,30 +147,48 @@ def test_binary_entrypoint_doesnt_exist(pack, binary):
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_wheel(pack, binary):
+def test_wheel(pack, binary, mocker):
+
+    mocker.patch(target='pyci.api.packager.Packager.wheel', new=MagicMock())
 
     pack.run('wheel', binary=binary)
 
-    py = 'py3' if utils.is_python_3() else 'py2'
+    if binary:
 
-    expected_path = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'.format(pack.version, py))
+        py = 'py3' if utils.is_python_3() else 'py2'
 
-    assert os.path.exists(expected_path)
+        expected_path = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'.format(pack.version, py))
+
+        assert os.path.exists(expected_path)
+
+    else:
+
+        # noinspection PyUnresolvedReferences
+        Packager.wheel.assert_called_once_with(universal=False, wheel_version=None)
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_wheel_options(pack, temp_dir, binary):
+def test_wheel_options(pack, temp_dir, binary, mocker):
 
     pack.api.target_dir = temp_dir
 
+    mocker.patch(target='pyci.api.packager.Packager.wheel', new=MagicMock())
+
     result = pack.run('wheel --universal', binary=binary)
 
-    expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(pack.version))
+    if binary:
 
-    expected_output = 'Wheel package created: {}'.format(expected_path)
+        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(pack.version))
 
-    assert expected_output in result.std_out
-    assert os.path.exists(expected_path)
+        expected_output = 'Wheel package created: {}'.format(expected_path)
+
+        assert expected_output in result.std_out
+        assert os.path.exists(expected_path)
+
+    else:
+
+        # noinspection PyUnresolvedReferences
+        Packager.wheel.assert_called_once_with(universal=True, wheel_version=None)
 
 
 @pytest.mark.parametrize("binary", [False, True])
