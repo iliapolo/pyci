@@ -29,7 +29,7 @@ class _Distro(object):
         super(_Distro, self).__init__()
         self._image = image
         self._logger = log or logger.Logger(__name__)
-        self._local_runner = LocalCommandRunner(log=self._logger, host=self._image)
+        self._local_runner = LocalCommandRunner(log=self._logger)
         self._container_name = name
         self._data_container_name = '{}-data'.format(self._container_name)
 

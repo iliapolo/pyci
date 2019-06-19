@@ -19,22 +19,13 @@ import sys
 import contextlib
 import os
 import platform
-import shutil
 import tempfile
-import time
 
 import click
 
 import pytest
 from github import Github
 
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
 
 from pyci.api import logger
 from pyci.api import utils
@@ -46,6 +37,7 @@ from pyci.shell import secrets
 from pyci.tests.shell import PyCI
 from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
+from pyci.tests import utils as test_utils
 
 logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
@@ -118,21 +110,9 @@ def _mock_log(mocker, log):
 
 
 @pytest.fixture(name='pyci', scope='session')
-def _pyci(log):
+def _pyci(log, global_repo_path):
 
-    return PyCI(log)
-
-
-@pytest.fixture(name='binary_path', scope='session')
-def _binary_path(pyci):
-
-    return pyci.binary_path
-
-
-@pytest.fixture(name='wheel_path', scope='session')
-def _wheel_path(pyci):
-
-    return pyci.wheel_path
+    return PyCI(global_repo_path, log)
 
 
 @pytest.fixture(name='release')
@@ -182,7 +162,7 @@ def _github(pyci, repo, token):
 
 
 @pytest.fixture(name='pack')
-def _pack(pyci, repo_version, repo_path):
+def _pack(pyci, repo_path):
 
     packager = Packager.create(path=repo_path)
 
@@ -191,7 +171,6 @@ def _pack(pyci, repo_version, repo_path):
 
         def __init__(self):
             self.api = packager
-            self.version = repo_version
 
         def run(self, command, binary=False, catch_exceptions=False):
 
@@ -243,20 +222,6 @@ def _temp_dir(request):
     try:
         yield dir_path
     finally:
-        utils.rmf(dir_path)
-
-
-@pytest.fixture(name='temp_dir')
-def _temp_dir(request):
-
-    name = request.node.originalname or request.node.name
-
-    dir_path = tempfile.mkdtemp(suffix=name, dir='/tmp')
-
-    try:
-        yield dir_path
-    finally:
-        # cleanup
         utils.rmf(dir_path)
 
 
@@ -326,29 +291,36 @@ def _runner():
 @pytest.fixture(name='repo_path')
 def _repo_path(log, temp_dir):
 
-    import pyci
-    source_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
-
     target_repo_path = os.path.join(temp_dir, 'pyci')
 
-    ignore = shutil.ignore_patterns('build', '.tox', '.pytest_cache', '.git', '__pycache__')
-
     log.info('Copying source directory to {}...'.format(target_repo_path))
-    shutil.copytree(src=source_path, dst=target_repo_path, ignore=ignore)
+    test_utils.copy_repo(target_repo_path)
     log.info('Finished copying source directory to: {}'.format(target_repo_path))
 
     return target_repo_path
 
 
-@pytest.fixture(name='repo_version')
-def _repo_version(repo_path, runner):
+@pytest.fixture(name='repo_version', autouse=True)
+def _repo_version(repo_path):
 
-    setup_py = os.path.join(repo_path, 'setup.py')
-
-    version = runner.run('{} {} --version'.format(utils.get_python_executable('python'),
-                                                  setup_py)).std_out
-
+    version = test_utils.patch_setup_py(repo_path)
     return version
+
+
+@pytest.fixture(name='global_repo_path', scope='session')
+def _global_repo_path(log):
+
+    temp_dir = tempfile.mkdtemp(dir='/tmp')
+    target_repo_path = os.path.join(temp_dir, 'pyci')
+
+    log.info('Copying source directory to {}...'.format(target_repo_path))
+    test_utils.copy_repo(target_repo_path)
+    log.info('Finished copying source directory to: {}'.format(target_repo_path))
+
+    try:
+        yield target_repo_path
+    finally:
+        utils.rmf(target_repo_path)
 
 
 @contextlib.contextmanager
@@ -439,20 +411,6 @@ def _reset_branches(log, repo):
         if branch.name not in ['master', 'release']:
             ref = repo.get_git_ref('heads/{}'.format(branch.name))
             ref.delete()
-
-
-def _patch_setup_py(local_repo_path):
-
-    with open(os.path.join(local_repo_path, 'setup.py'), 'r') as stream:
-        setup_py = stream.read()
-
-    version = int(round(time.time() * 1000))
-    setup_py = utils.generate_setup_py(setup_py, '{}'.format(version))
-
-    with open(os.path.join(local_repo_path, 'setup.py'), 'w') as stream:
-        stream.write(setup_py)
-
-    return version
 
 
 def _get_marker(request, test_name, marker_name):

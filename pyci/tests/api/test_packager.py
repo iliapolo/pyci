@@ -90,13 +90,13 @@ def test_sha_doesnt_exist():
         Packager.create(repo='iliapolo/pyci', sha='doesnt-exist')
 
 
-def test_wheel(pack, wheel_path):
+def test_wheel(pyci):
 
     py_version = 'py3' if utils.is_python_3() else 'py2'
 
-    expected = 'py_ci-{}-{}-none-any.whl'.format(pack.version, py_version)
+    expected = 'py_ci-{}-{}-none-any.whl'.format(pyci.version, py_version)
 
-    assert expected in wheel_path
+    assert expected in pyci.wheel_path
 
 
 def test_wheel_not_python_project(pack):
@@ -107,23 +107,23 @@ def test_wheel_not_python_project(pack):
         pack.api.wheel()
 
 
-def test_wheel_options(pack, temp_dir):
+def test_wheel_options(pack, repo_version, temp_dir):
 
     pack.api.target_dir = temp_dir
 
-    expected = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(pack.version))
+    expected = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(repo_version))
 
     actual = pack.api.wheel(universal=True)
 
     assert expected == actual
 
 
-def test_wheel_file_exists(pack):
+def test_wheel_file_exists(pack, repo_version):
 
     py_version = 'py3' if utils.is_python_3() else 'py2'
 
     expected = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'
-                            .format(pack.version, py_version))
+                            .format(repo_version, py_version))
 
     with open(expected, 'w') as stream:
         stream.write('package')
@@ -132,17 +132,17 @@ def test_wheel_file_exists(pack):
         pack.api.wheel()
 
 
-def test_binary(runner, binary_path):
+def test_binary(runner, pyci):
 
     expected = 'py-ci-{0}-{1}'.format(platform.machine(), platform.system())
 
     if platform.system() == 'Windows':
         expected = '{0}.exe'.format(expected)
 
-    assert expected in binary_path
+    assert expected in pyci.binary_path
 
     # lets make sure the binary actually works
-    runner.run('{0} --help'.format(binary_path))
+    runner.run('{0} --help'.format(pyci.binary_path))
 
 
 def test_binary_options(pack, request, runner, temp_dir):

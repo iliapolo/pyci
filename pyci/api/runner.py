@@ -15,7 +15,7 @@
 #
 #############################################################################
 
-import time
+import tempfile
 import os
 import shlex
 import subprocess
@@ -31,12 +31,11 @@ class LocalCommandRunner(object):
     Provides local command line execution abilities.
 
     Args:
-        host (str): The host string to be displayed in log messages.
+        log (Logger): A logger instance to use for debug logging.
     """
 
-    def __init__(self, host=None, log=None):
+    def __init__(self, log=None):
         self._logger = log or logger.Logger(__name__)
-        self._host = host
         self._output_logger = logger.Logger(name='runner-output', fmt='%(message)s')
 
     # pylint: disable=too-many-locals
@@ -81,54 +80,38 @@ class LocalCommandRunner(object):
 
         self._debug('Running command...', command=command, cwd=cwd)
 
-        command_env = os.environ.copy()
-        command_env.update(execution_env or {})
-        p = subprocess.Popen(args=popen_args,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             cwd=cwd,
-                             env=command_env,
-                             universal_newlines=True)
+        opipe = tempfile.NamedTemporaryFile()
+        epipe = tempfile.NamedTemporaryFile()
 
-        def _is_alive(_p):
-            return p.poll() is None
+        try:
+            command_env = os.environ.copy()
+            command_env.update(execution_env or {})
+            self._debug('Creating subprocess: {}'.format(popen_args))
+            p = subprocess.Popen(args=popen_args,
+                                 stdout=opipe,
+                                 stderr=epipe,
+                                 cwd=cwd,
+                                 env=command_env,
+                                 universal_newlines=True)
 
-        def _format_line(line):
-            return '[{}] {}'.format(self._host, line) if self._host and line else line
+            self._debug('Process {} started: {}. Waiting for it to finish...'.format(popen_args, p.pid))
+            p.wait()
 
-        stdout = []
-        stderr = []
+            with open(opipe.name) as stream:
+                out = stream.read().strip()
 
-        while True:
-            out = _format_line(p.stdout.readline().strip(os.linesep))
-            err = _format_line(p.stderr.readline().strip(os.linesep))
-            if not out and not err and not _is_alive(p):
-                break
+            with open(epipe.name) as stream:
+                err = stream.read().strip()
+
             if out:
-                stdout.append(out)
                 self._output_logger.debug(out)
             if err:
-                stderr.append(err)
                 self._output_logger.debug(err)
-            time.sleep(0.1)
 
-        out_leftovers, err_leftovers = p.communicate()
-
-        def _log_stream(stream, buf):
-            for line in stream.splitlines():
-
-                line = _format_line(line)
-
-                buf.append(line)
-                self._output_logger.debug(line)
-
-        _log_stream(out_leftovers, stdout)
-        _log_stream(err_leftovers, stderr)
-
-        out = os.linesep.join(stdout)
-        err = os.linesep.join(stderr)
-
-        self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
+            self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
+        finally:
+            opipe.close()
+            epipe.close()
 
         if p.returncode != 0:
             error = exceptions.CommandExecutionException(

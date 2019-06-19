@@ -15,23 +15,21 @@
 #
 #############################################################################
 
+import logging
 import os
 import platform
 import re
-import tempfile
-import logging
 
-import pytest
-from click.testing import CliRunner
 from boltons.cacheutils import cachedproperty
+from click.testing import CliRunner
 
-import pyci
+from pyci.tests import utils as test_utils
+from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api.packager import Packager
+from pyci.api.runner import CommandExecutionResponse
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app
-from pyci.api.runner import CommandExecutionResponse
-
 
 CLICK_ISOLATION = '__CLICK_ISOLATION'
 
@@ -39,14 +37,15 @@ CLICK_ISOLATION = '__CLICK_ISOLATION'
 # pylint: disable=too-few-public-methods
 class PyCI(object):
 
-    def __init__(self, log=None):
+    def __init__(self, repo_path, log=None):
 
-        repo_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+        self.repo_path = repo_path
+        self.version = test_utils.patch_setup_py(self.repo_path)
 
         self._logger = log or logger.Logger(__name__)
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
-        self._packager = Packager.create(path=repo_path, target_dir=tempfile.mkdtemp())
+        self._packager = Packager.create(path=repo_path, target_dir=repo_path)
 
     def run(self, command, binary=False, catch_exceptions=False):
 
@@ -63,12 +62,10 @@ class PyCI(object):
                 del os.environ[CLICK_ISOLATION]
 
         if response.return_code != 0 and not catch_exceptions:
-
-            pytest.fail("Invocation of command '{0}' failed. {1}{1}{2}{1}{1}{3}".format(
-                command,
-                os.linesep,
-                response.std_out,
-                response.std_err))
+            raise exceptions.CommandExecutionException(command=command,
+                                                       error=response.std_err,
+                                                       output=response.std_out,
+                                                       code=response.return_code)
 
         return response
 
