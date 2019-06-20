@@ -1,11 +1,8 @@
-version: 2
+version: 2.1
 
 commands:
-  run_tox:
+  run-tox:
     description: Run a specific tox environment
-    parameters:
-      env:
-        type: string
     steps:
       - checkout
       - restore_cache:
@@ -28,23 +25,23 @@ jobs:
     docker:
       - image: circleci/python:2.7
     steps:
-      - run_tox
+      - run-tox
   test-py36:
     docker:
       - image: circleci/python:3.6
     steps:
-      - run_tox
+      - run-tox
   test-cross-distro:
     docker:
       - image: circleci/python:3.6
     steps:
       - setup_remote_docker
-      - run_tox
+      - run-tox
   release:
     docker:
       - image: circleci/python:3.6
     steps:
-      - run_tox
+      - run-tox
 
 
 workflows:
