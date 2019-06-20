@@ -76,3 +76,4 @@ workflows:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
+
