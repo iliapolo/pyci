@@ -22,7 +22,7 @@ jobs:
             - .tox
       - run:
           name: run tox
-          command: tox -e py27
+          command: tox -e test-py27
       - store_test_results:
           path: test-reports
       - store_artifacts:
