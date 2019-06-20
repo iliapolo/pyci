@@ -217,7 +217,7 @@ def _temp_dir(request):
 
     name = request.node.originalname or request.node.name
 
-    dir_path = tempfile.mkdtemp(suffix=name, dir='/tmp')
+    dir_path = tempfile.mkdtemp(suffix=name)
 
     try:
         yield dir_path
@@ -310,7 +310,7 @@ def _repo_version(repo_path):
 @pytest.fixture(name='global_repo_path', scope='session')
 def _global_repo_path(log):
 
-    temp_dir = tempfile.mkdtemp(dir='/tmp')
+    temp_dir = tempfile.mkdtemp()
     target_repo_path = os.path.join(temp_dir, 'pyci')
 
     log.info('Copying source directory to {}...'.format(target_repo_path))
