@@ -223,7 +223,7 @@ def get_python_executable(name, exec_home=None):
 
     """
 
-    if is_pyinstaller():
+    if not exec_home and is_pyinstaller():
         raise RuntimeError('Executables are not supported when running inside a PyInstaller bootloader. '
                            'Are you sure this is what you wanted to do?')
 
@@ -239,7 +239,7 @@ def get_python_executable(name, exec_home=None):
             scripts_directory = os.path.join(exec_home, 'scripts')
             executable_p = os.path.join(scripts_directory, exe)
         if os.path.exists(executable_p):
-            return executable
+            return executable_p
 
         raise RuntimeError('Executable not found: {}'.format(exe))
 
