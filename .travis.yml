@@ -1,25 +1,53 @@
+sudo: false
+
+stages:
+  - test
+  - release
+
+jobs:
+  include:
+    - stage: test
+      name: test-py27
+      os: osx
+      language: generic
+      osx_image: xcode7.3
+      env:
+        - PYTHON=2.7.14
+        - PYENV_VERSION=2.7.14
+      script: tox -e test-py27
+    - stage: test
+      name: test-py36
+      os: osx
+      language: generic
+      osx_image: xcode7.3
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
+      script: tox -e test-py36
+    - stage: test
+      name: test-cross-distro
+      os: osx
+      language: generic
+      osx_image: xcode7.3
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
+      script: tox -e test-cross-distro
+    - stage: release
+      os: osx
+      language: generic
+      osx_image: xcode7.3
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
+      name: release
+      script: tox -e release
+
+
 branches:
   except:
     - master
     - /\d*\.\d*\.\d*/
-
-sudo: false
-matrix:
-  include:
-    - os: osx
-      language: generic
-      osx_image: xcode7.3
-      env:
-        - TOX_ENV=py27
-        - PYTHON=2.7.14
-        - PYENV_VERSION=2.7.14
-    - os: osx
-      language: generic
-      osx_image: xcode8.3
-      env:
-        - TOX_ENV=py36
-        - PYTHON=3.6.4
-        - PYENV_VERSION=3.6.4
 
 cache:
   directories:
@@ -30,10 +58,3 @@ cache:
 before_install: |
 
   source setup-pyenv.sh
-
-install:
-  - pip install tox==3.0.0
-  - tox --notest -e ${TOX_ENV}
-
-script:
-  - tox -e ${TOX_ENV}
