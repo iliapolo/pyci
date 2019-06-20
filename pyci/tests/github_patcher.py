@@ -131,8 +131,13 @@ class ReplayingConnection(object):
         expected_input = self._replay()
         if isinstance(inp, six.string_types):
             if inp.startswith("{"):
-                assert json.loads(inp.replace('\n', '').replace('\r', '')) == \
-                       json.loads(expected_input)
+                actual = json.loads(inp.replace('\n', '').replace('\r', ''))
+                expected = json.loads(expected_input)
+                try:
+                    assert actual == expected
+                except AssertionError:
+                    six.print_("actual: {}".format(actual))
+                    six.print_("expected: {}".format(expected))
             elif python2:
                 # pylint: disable=fixme
                 # TODO Test in all cases, including Python 3.4+
