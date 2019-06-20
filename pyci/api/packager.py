@@ -171,7 +171,7 @@ class Packager(object):
 
                 self._logger.debug('Installing pyinstaller...')
 
-                pip_path = os.path.join(virtualenv, 'bin', 'pip')
+                pip_path = utils.get_python_executable('pip', exec_home=virtualenv)
                 self._runner.run('{} pyinstaller=={}'
                                  .format(self._pip_install(pip_path),
                                          pyinstaller_version or DEFAULT_PY_INSTALLER_VERSION),
@@ -180,7 +180,7 @@ class Packager(object):
                 self._debug('Running pyinstaller...',
                             entrypoint=entrypoint,
                             destination=destination)
-                pyinstaller_path = os.path.join(virtualenv, 'bin', 'pyinstaller')
+                pyinstaller_path = utils.get_python_executable('pyinstaller', exec_home=virtualenv)
                 self._runner.run(
                     '{} '
                     '--onefile '
@@ -248,14 +248,14 @@ class Packager(object):
 
                 self._logger.debug('Installing wheel...')
 
-                pip_path = os.path.join(virtualenv, 'bin', 'pip')
+                pip_path = utils.get_python_executable('pip', exec_home=virtualenv)
                 self._runner.run('{} wheel=={}'
                                  .format(self._pip_install(pip_path),
                                          wheel_version or DEFAULT_WHEEL_VERSION),
                                  cwd=self._repo_dir)
 
                 command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}'.format(
-                    os.path.join(virtualenv, 'bin', 'python'),
+                    utils.get_python_executable('python', exec_home=virtualenv),
                     setup_py_file,
                     bdist_dir,
                     dist_dir)
@@ -390,7 +390,7 @@ class Packager(object):
                 requires = os.path.join(dirpath, 'requires.txt')
 
         self._debug('Installing {} requirements...'.format(name))
-        pip_path = os.path.join(virtualenv_path, 'bin', 'pip')
+        pip_path = utils.get_python_executable('pip', exec_home=virtualenv_path)
         command = '{} -r {}'.format(self._pip_install(pip_path), requires)
         self._runner.run(command, cwd=self._repo_dir)
 

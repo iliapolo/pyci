@@ -9,10 +9,10 @@ environment:
   matrix:
 
     - PYTHON: "C:\\Python27"
-      TOX_ENV: test-py27,release
+      TOX_ENV: test-py27
 
     - PYTHON: "C:\\Python36"
-      TOX_ENV: test-py36,release
+      TOX_ENV: test-py36
 
 build: off
 
@@ -21,3 +21,4 @@ install:
 
 test_script:
   - cmd: "%PYTHON%\\Scripts\\tox.exe -e %TOX_ENV%"
+  - cmd: "%PYTHON%\\Scripts\\tox.exe -e release"
