@@ -1,7 +1,7 @@
 version: 2
 
 commands:
-  run-tox:
+  run_tox:
     description: Run a specific tox environment
     parameters:
       env:
@@ -28,23 +28,23 @@ jobs:
     docker:
       - image: circleci/python:2.7
     steps:
-      - run-tox
+      - run_tox
   test-py36:
     docker:
       - image: circleci/python:3.6
     steps:
-      - run-tox
+      - run_tox
   test-cross-distro:
     docker:
       - image: circleci/python:3.6
     steps:
       - setup_remote_docker
-      - run-tox
+      - run_tox
   release:
     docker:
       - image: circleci/python:3.6
     steps:
-      - run-tox
+      - run_tox
 
 
 workflows:
