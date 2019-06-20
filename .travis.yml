@@ -54,6 +54,8 @@ cache:
     - ${HOME}/.pyenv_cache
     - ${TRAVIS_BUILD_DIR}/.tox
 
+install:
+  - pip install tox==3.0.0
 
 before_install: |
 
