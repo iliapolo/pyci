@@ -44,7 +44,7 @@ def test_upload(pypi, pyci, mocker):
                      pyci.wheel_path]
 
     # noinspection PyUnresolvedReferences
-    upload.main.assert_called_once_with(expected_args)
+    upload.main.assert_called_once_with(expected_args)  # pylint: disable=no-member
 
 
 def test_upload_already_exists(pypi, pyci, mocker):

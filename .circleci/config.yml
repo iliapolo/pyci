@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  python27:
+  test-py27:
     docker:
       - image: circleci/python:2.7
     working_directory: ~/repo
@@ -15,7 +15,7 @@ jobs:
           command: sudo pip install tox==3.0.0
       - run:
           name: install dependencies
-          command: tox --notest -e py27
+          command: tox --notest -e test-py27
       - save_cache:
           key: tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
@@ -27,7 +27,7 @@ jobs:
           path: test-reports
       - store_artifacts:
           path: test-reports
-  python36:
+  test-py36:
     docker:
       - image: circleci/python:3.6
     working_directory: ~/repo
@@ -49,23 +49,94 @@ jobs:
             - .tox
       - run:
           name: run tox
-          command: tox -e py36
+          command: tox -e test-py36
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
+  test-cross-distro:
+    docker:
+      - image: circleci/python:3.6
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - setup_remote_docker
+      - restore_cache:
+          keys:
+            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install tox
+          command: sudo pip install tox==3.0.0
+      - run:
+          name: install dependencies
+          command: tox --notest -e test-cross-distro
+      - save_cache:
+          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+      - run:
+          name: run tox
+          command: tox -e test-cross-distro
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
+  release:
+    docker:
+      - image: circleci/python:3.6
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - setup_remote_docker
+      - restore_cache:
+          keys:
+            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: install tox
+          command: sudo pip install tox==3.0.0
+      - run:
+          name: install dependencies
+          command: tox --notest -e test-cross-distro
+      - save_cache:
+          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+      - run:
+          name: run tox
+          command: tox -e release
       - store_test_results:
           path: test-reports
       - store_artifacts:
           path: test-reports
 
+
 workflows:
   version: 2
-  python:
+  ci:
     jobs:
-      - python27:
+      - test-cross-distro:
           filters:
             branches:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-      - python36:
+      - test-py36:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
+      - test-py27:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
+      - release:
+          requires:
+            - test-py27
+            - test-py36
+            - test-cross-distro
           filters:
             branches:
               ignore:

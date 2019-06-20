@@ -30,7 +30,7 @@ import pytest
 
 from pyci.api.packager import Packager
 from pyci.api import utils
-# from pyci.tests import distros
+from pyci.tests import distros
 from pyci.tests import conftest
 
 
@@ -57,9 +57,10 @@ def test_binary(pack, runner, binary, mocker):
 
     else:
 
-        # pylint: disable=no-member
         # noinspection PyUnresolvedReferences
-        Packager.binary.assert_called_once_with(name=None, entrypoint=conftest.SPEC_FILE, pyinstaller_version=None)
+        Packager.binary.assert_called_once_with(name=None,  # pylint: disable=no-member
+                                                entrypoint=conftest.SPEC_FILE,
+                                                pyinstaller_version=None)
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -99,8 +100,9 @@ if __name__ == '__main__':
     else:
 
         # noinspection PyUnresolvedReferences
-        # pylint: disable=no-member
-        Packager.binary.assert_called_once_with(name=name, entrypoint=custom_main, pyinstaller_version=None)
+        Packager.binary.assert_called_once_with(name=name,  # pylint: disable=no-member
+                                                entrypoint=custom_main,
+                                                pyinstaller_version=None)
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -169,8 +171,7 @@ def test_wheel(pack, repo_version, binary, mocker):
     else:
 
         # noinspection PyUnresolvedReferences
-        # pylint: disable=no-member
-        Packager.wheel.assert_called_once_with(universal=False, wheel_version=None)
+        Packager.wheel.assert_called_once_with(universal=False, wheel_version=None)  # pylint: disable=no-member
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -195,8 +196,7 @@ def test_wheel_options(pack, repo_version, temp_dir, binary, mocker):
     else:
 
         # noinspection PyUnresolvedReferences
-        # pylint: disable=no-member
-        Packager.wheel.assert_called_once_with(universal=True, wheel_version=None)
+        Packager.wheel.assert_called_once_with(universal=True, wheel_version=None)  # pylint: disable=no-member
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -229,59 +229,60 @@ def test_wheel_not_python_project(pack, binary):
     assert expected_output in result.std_out
 
 
-# @pytest.mark.docker
-# @pytest.mark.parametrize("build_distro_id", [
-#     'build:PythonStretch:2.7.16',
-#     'build:PythonStretch:3.6.8'
-# ])
-# @pytest.mark.parametrize("run_distro_id", [
-#     'run:PythonStretch:2.7.16',
-#     'run:PythonStretch:3.6.8',
-#     'run:Ubuntu:18.04',
-#     'run:Ubuntu:16.04',
-#     'run:Ubuntu:14.04'
-# ])
-# def test_binary_cross_distribution_wheel(repo_version, repo_path, test_name, build_distro_id, run_distro_id):
-#
-#     build_distro = distros.from_string(test_name, build_distro_id)
-#     run_distro = distros.from_string(test_name, run_distro_id)
-#
-#     if run_distro.python_version is not None:
-#         # wheels can only be built on distros with python installed
-#         expected_output = 'py_ci-{}-{}-none-any.whl'.format(
-#             repo_version,
-#             'py2' if run_distro.python_version.startswith('2') else 'py3')
-#     else:
-#         expected_output = 'Python installation not found in PATH'
-#
-#     local_binary_path = None
-#
-#     try:
-#
-#         build_distro.boot()
-#
-#         local_binary_path = build_distro.binary(repo_path)
-#
-#         run_distro.boot()
-#
-#         remote_binary_path = run_distro.add(local_binary_path)
-#         remote_repo_path = run_distro.add(repo_path)
-#
-#         locale_setup = ''
-#         if build_distro.python_version.startswith('3'):
-#             # pyci was packed with python 3.
-#             # need to configure locale before invoking.
-#             # http://click.palletsprojects.com/en/6.x/python3/
-#             locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
-#
-#         result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
-#                                 .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
-#                                 exit_on_failure=False)
-#
-#         assert expected_output in result.std_out
-#
-#     finally:
-#         if local_binary_path:
-#             os.remove(local_binary_path)
-#         build_distro.shutdown()
-#         run_distro.shutdown()
+@pytest.mark.docker
+@pytest.mark.cross_distro
+@pytest.mark.parametrize("build_distro_id", [
+    'build:PythonStretch:2.7.16',
+    'build:PythonStretch:3.6.8'
+])
+@pytest.mark.parametrize("run_distro_id", [
+    'run:PythonStretch:2.7.16',
+    'run:PythonStretch:3.6.8',
+    'run:Ubuntu:18.04',
+    'run:Ubuntu:16.04',
+    'run:Ubuntu:14.04'
+])
+def test_binary_cross_distribution_wheel(repo_version, repo_path, test_name, build_distro_id, run_distro_id):
+
+    build_distro = distros.from_string(test_name, build_distro_id)
+    run_distro = distros.from_string(test_name, run_distro_id)
+
+    if run_distro.python_version is not None:
+        # wheels can only be built on distros with python installed
+        expected_output = 'py_ci-{}-{}-none-any.whl'.format(
+            repo_version,
+            'py2' if run_distro.python_version.startswith('2') else 'py3')
+    else:
+        expected_output = 'Python installation not found in PATH'
+
+    local_binary_path = None
+
+    try:
+
+        build_distro.boot()
+
+        local_binary_path = build_distro.binary(repo_path)
+
+        run_distro.boot()
+
+        remote_binary_path = run_distro.add(local_binary_path)
+        remote_repo_path = run_distro.add(repo_path)
+
+        locale_setup = ''
+        if build_distro.python_version.startswith('3'):
+            # pyci was packed with python 3.
+            # need to configure locale before invoking.
+            # http://click.palletsprojects.com/en/6.x/python3/
+            locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
+
+        result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
+                                .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
+                                exit_on_failure=False)
+
+        assert expected_output in result.std_out
+
+    finally:
+        if local_binary_path:
+            os.remove(local_binary_path)
+        build_distro.shutdown()
+        run_distro.shutdown()

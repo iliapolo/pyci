@@ -56,7 +56,7 @@ def test_upload(pypi, binary, pyci, mocker):
                          pyci.wheel_path]
 
         # noinspection PyUnresolvedReferences
-        upload.main.assert_called_once_with(expected_args)
+        upload.main.assert_called_once_with(expected_args)  # pylint: disable=no-member
 
 
 @pytest.mark.parametrize("binary", [False, True])

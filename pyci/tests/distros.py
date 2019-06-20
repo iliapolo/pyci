@@ -74,7 +74,7 @@ class _Distro(object):
 
         container_repo_path = self.add(local_repo_path)
 
-        pack_command = 'echo "Installing pyci..." && {pip_install} {repo_path} && {pyci} pack ' \
+        pack_command = '{pip_install} {repo_path} && {pyci} pack ' \
                        '--path {repo_path} ' \
                        '--target-dir {repo_path} ' \
                        'binary ' \
