@@ -250,7 +250,7 @@ def get_python_executable(name, exec_home=None):
     else:
         executable_path = _for_linux()
 
-    return executable_path
+    return os.path.abspath(executable_path)
 
 
 def is_windows():

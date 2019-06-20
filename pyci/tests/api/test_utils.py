@@ -150,3 +150,13 @@ def test_get_python_executable_from_pyinstaller():
         assert 'Executables are not supported' in str(e)
     finally:
         delattr(sys, '_MEIPASS')
+
+
+def test_get_python_executable_from_pyinstaller_with_exec_host():
+
+    try:
+        setattr(sys, '_MEIPASS', 'mock')
+        python_path = utils.get_python_executable('python', exec_home=sys.exec_prefix)
+        assert os.path.abspath(sys.exec_prefix) in python_path
+    finally:
+        delattr(sys, '_MEIPASS')
