@@ -9,7 +9,7 @@ commands:
           keys:
             - ${CIRCLE_JOB}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
-          name: ${CIRCLE_JOB}
+          name: tox
           command: |
             sudo pip install tox==3.0.0
             tox -e ${CIRCLE_JOB}
