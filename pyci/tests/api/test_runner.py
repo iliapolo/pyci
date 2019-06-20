@@ -23,7 +23,9 @@ from pyci.api import exceptions
 @pytest.mark.linux
 def test_run_list(runner):
 
-    runner.run(['ls', '-l'])
+    result = runner.run(['ls', '-l'])
+
+    assert result.std_out
 
 
 @pytest.mark.linux

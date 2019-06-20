@@ -80,8 +80,8 @@ class LocalCommandRunner(object):
 
         self._debug('Running command...', command=command, cwd=cwd)
 
-        opipe = tempfile.NamedTemporaryFile()
-        epipe = tempfile.NamedTemporaryFile()
+        opipe = tempfile.NamedTemporaryFile(delete=False)
+        epipe = tempfile.NamedTemporaryFile(delete=False)
 
         try:
             command_env = os.environ.copy()
@@ -97,21 +97,25 @@ class LocalCommandRunner(object):
             self._debug('Process {} started: {}. Waiting for it to finish...'.format(popen_args, p.pid))
             p.wait()
 
-            with open(opipe.name) as stream:
-                out = stream.read().strip()
-
-            with open(epipe.name) as stream:
-                err = stream.read().strip()
-
-            if out:
-                self._output_logger.debug(out)
-            if err:
-                self._output_logger.debug(err)
-
             self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
         finally:
             opipe.close()
             epipe.close()
+
+        with open(opipe.name) as stream:
+            out = stream.read().strip()
+
+        os.remove(opipe.name)
+
+        with open(epipe.name) as stream:
+            err = stream.read().strip()
+
+        os.remove(epipe.name)
+
+        if out:
+            self._output_logger.debug(out)
+        if err:
+            self._output_logger.debug(err)
 
         if p.returncode != 0:
             error = exceptions.CommandExecutionException(
