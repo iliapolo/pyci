@@ -35,27 +35,39 @@ jobs:
     steps:
       - run-tox
       - store_test_results:
-          path: test-reports
+          path: reports/test
       - store_artifacts:
-          path: test-reports
+          path: reports/test
+      - persist_to_workspace:
+          root: reports/coverage
+          paths:
+            - coverage
   test-py36:
     docker:
       - image: circleci/python:3.6
     steps:
       - run-tox
       - store_test_results:
-          path: test-reports
+          path: reports/test
       - store_artifacts:
-          path: test-reports
+          path: reports/test
+      - persist_to_workspace:
+          root: reports/coverage
+          paths:
+            - coverage
   codecov-py27:
     docker:
       - image: circleci/python:2.7
     steps:
+      - attach_workspace:
+          at: reports/coverage
       - run-tox
   codecov-py36:
     docker:
       - image: circleci/python:3.6
     steps:
+      - attach_workspace:
+          at: reports/coverage
       - run-tox
   test-cross-distro:
     docker:
@@ -74,13 +86,13 @@ workflows:
   version: 2
   ci:
     jobs:
-      - lint-py36:
+      - lint-py27:
           filters:
             branches:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-      - lint-py27:
+      - lint-py36:
           filters:
             branches:
               ignore:
@@ -108,6 +120,13 @@ workflows:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
+      - codecov-py27:
+          requires:
+            - test-py27
+          filters:
+            branches:
+              ignore:
+                - master
       - codecov-py36:
           requires:
             - test-py36
@@ -117,13 +136,6 @@ workflows:
                 - master
                 - /\d*\.\d*\.\d*/
                 - /\d*\.\d*\.\d*/
-      - codecov-py27:
-          requires:
-            - test-py27
-          filters:
-            branches:
-              ignore:
-                - master
       - release:
           requires:
             - codecov-py27
