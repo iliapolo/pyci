@@ -108,8 +108,8 @@ workflows:
                 - /\d*\.\d*\.\d*/
       - release:
           requires:
-            - test-py27
-            - test-py36
+            - ci-py27
+            - ci-py36
             - test-cross-distro
           filters:
             branches:
