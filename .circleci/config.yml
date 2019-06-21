@@ -4,7 +4,6 @@ commands:
   run-tox:
     description: Run a specific tox environment
     steps:
-      - checkout
       - restore_cache:
           keys:
             - tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
@@ -23,16 +22,19 @@ jobs:
     docker:
       - image: circleci/python:2.7
     steps:
+      - checkout
       - run-tox
   lint-py36:
     docker:
       - image: circleci/python:3.6
     steps:
+      - checkout
       - run-tox
   test-py27:
     docker:
       - image: circleci/python:2.7
     steps:
+      - checkout
       - run-tox
       - store_test_results:
           path: reports/test
@@ -46,6 +48,7 @@ jobs:
     docker:
       - image: circleci/python:3.6
     steps:
+      - checkout
       - run-tox
       - store_test_results:
           path: reports/test
@@ -59,6 +62,7 @@ jobs:
     docker:
       - image: circleci/python:2.7
     steps:
+      - checkout
       - attach_workspace:
           at: reports/coverage
       - run-tox
@@ -66,6 +70,7 @@ jobs:
     docker:
       - image: circleci/python:3.6
     steps:
+      - checkout
       - attach_workspace:
           at: reports/coverage
       - run-tox
@@ -73,12 +78,14 @@ jobs:
     docker:
       - image: circleci/python:3.6
     steps:
+      - checkout
       - setup_remote_docker
       - run-tox
   release:
     docker:
       - image: circleci/python:3.6
     steps:
+      - checkout
       - run-tox
 
 
