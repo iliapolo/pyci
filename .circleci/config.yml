@@ -18,7 +18,7 @@ commands:
       - run:
           name: Install Dependencies
           command: |
-            tox -e --notest lint-<< paramaters.py >>
+            tox -e --notest release
       - save_cache:
           key: tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
@@ -34,11 +34,11 @@ commands:
       - run:
           name: Lint
           command: |
-            tox -e lint-<< paramaters.py >>
+            tox -e lint-<< parameters.py >>
       - run:
           name: Test
           command: |
-            tox -e test-<< paramaters.py >>
+            tox -e test-<< parameters.py >>
       - store_test_results:
           path: reports/test
       - store_artifacts:
