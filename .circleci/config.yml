@@ -13,10 +13,6 @@ commands:
           command: |
             sudo pip install tox==3.0.0
             tox -e ${CIRCLE_JOB}
-      - store_test_results:
-          path: test-reports
-      - store_artifacts:
-          path: test-reports
       - save_cache:
           key: ${CIRCLE_JOB}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
@@ -38,11 +34,19 @@ jobs:
       - image: circleci/python:2.7
     steps:
       - run-tox
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
   test-py36:
     docker:
       - image: circleci/python:3.6
     steps:
       - run-tox
+      - store_test_results:
+          path: test-reports
+      - store_artifacts:
+          path: test-reports
   test-cross-distro:
     docker:
       - image: circleci/python:3.6
