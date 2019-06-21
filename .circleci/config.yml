@@ -18,7 +18,7 @@ commands:
       - run:
           name: Install Dependencies
           command: |
-            tox -e --notest release
+            tox --notest -e release
       - save_cache:
           key: tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
