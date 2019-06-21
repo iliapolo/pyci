@@ -184,54 +184,61 @@ def test_wheel_not_python_project(pack, binary):
     'build:PythonStretch:2.7.16',
     'build:PythonStretch:3.6.8'
 ])
-@pytest.mark.parametrize("run_distro_id", [
-    'run:PythonStretch:2.7.16',
-    'run:PythonStretch:3.6.8',
-    'run:Ubuntu:18.04',
-    'run:Ubuntu:16.04',
-    'run:Ubuntu:14.04'
-])
-def test_binary_cross_distribution_wheel(repo_version, repo_path, test_name, build_distro_id, run_distro_id):
+def test_binary_cross_distribution_wheel(log, repo_version, repo_path, test_name, build_distro_id):
+
+    run_distro_ids = [
+        'run:PythonStretch:2.7.16',
+        'run:PythonStretch:3.6.8',
+        'run:Ubuntu:18.04',
+        'run:Ubuntu:16.04',
+        'run:Ubuntu:14.04'
+    ]
 
     build_distro = distros.from_string(test_name, build_distro_id)
-    run_distro = distros.from_string(test_name, run_distro_id)
 
-    if run_distro.python_version is not None:
-        # wheels can only be built on distros with python installed
-        expected_output = 'py_ci-{}-{}-none-any.whl'.format(
-            repo_version,
-            'py2' if run_distro.python_version.startswith('2') else 'py3')
-    else:
-        expected_output = 'Python installation not found in PATH'
+    build_distro.boot()
 
-    local_binary_path = None
+    log.debug("Creating binary package on: {}".format(build_distro_id))
+    local_binary_path = build_distro.binary(repo_path)
+    log.debug("Binary package created: {}".format(local_binary_path))
 
     try:
+        for run_distro_id in run_distro_ids:
 
-        build_distro.boot()
+            log.debug('Running on target: {}'.format(run_distro_id))
 
-        local_binary_path = build_distro.binary(repo_path)
+            run_distro = distros.from_string(test_name, run_distro_id)
 
-        run_distro.boot()
+            if run_distro.python_version is not None:
+                # wheels can only be built on distros with python installed
+                expected_output = 'py_ci-{}-{}-none-any.whl'.format(
+                    repo_version,
+                    'py2' if run_distro.python_version.startswith('2') else 'py3')
+            else:
+                expected_output = 'Python installation not found in PATH'
 
-        remote_binary_path = run_distro.add(local_binary_path)
-        remote_repo_path = run_distro.add(repo_path)
+            try:
 
-        locale_setup = ''
-        if build_distro.python_version.startswith('3'):
-            # pyci was packed with python 3.
-            # need to configure locale before invoking.
-            # http://click.palletsprojects.com/en/6.x/python3/
-            locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
+                run_distro.boot()
 
-        result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
-                                .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
-                                exit_on_failure=False)
+                remote_binary_path = run_distro.add(local_binary_path)
+                remote_repo_path = run_distro.add(repo_path)
 
-        assert expected_output in result.std_out
+                locale_setup = ''
+                if build_distro.python_version.startswith('3'):
+                    # pyci was packed with python 3.
+                    # need to configure locale before invoking.
+                    # http://click.palletsprojects.com/en/6.x/python3/
+                    locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
 
+                result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
+                                        .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
+                                        exit_on_failure=False)
+
+                assert expected_output in result.std_out
+
+            finally:
+                run_distro.shutdown()
     finally:
-        if local_binary_path:
-            os.remove(local_binary_path)
+        os.remove(local_binary_path)
         build_distro.shutdown()
-        run_distro.shutdown()
