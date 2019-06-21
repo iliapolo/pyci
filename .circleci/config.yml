@@ -7,14 +7,14 @@ commands:
       - checkout
       - restore_cache:
           keys:
-            - ${CIRCLE_JOB}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+            - tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: tox
           command: |
             sudo pip install tox==3.0.0
             tox -e ${CIRCLE_JOB}
       - save_cache:
-          key: ${CIRCLE_JOB}-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          key: tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
             - .tox
 
@@ -47,6 +47,16 @@ jobs:
           path: test-reports
       - store_artifacts:
           path: test-reports
+  codecov-py27:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      - run-tox
+  codecov-py36:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - run-tox
   test-cross-distro:
     docker:
       - image: circleci/python:3.6
@@ -76,7 +86,9 @@ workflows:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-      - test-cross-distro:
+      - test-py27:
+          requires:
+            - lint-py27
           filters:
             branches:
               ignore:
@@ -90,13 +102,27 @@ workflows:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-      - test-py27:
-          requires:
-            - lint-py27
+      - test-cross-distro:
           filters:
             branches:
               ignore:
                 - master
+                - /\d*\.\d*\.\d*/
+      - codecov-py27:
+          requires:
+            - test-py27
+          filters:
+            branches:
+              ignore:
+                - master
+      - codecov-py36:
+          requires:
+            - test-py36
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
                 - /\d*\.\d*\.\d*/
       - release:
           requires:
