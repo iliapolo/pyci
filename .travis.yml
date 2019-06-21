@@ -5,11 +5,22 @@ language: generic
 osx_image: xcode7.3
 
 stages:
+  - lint
   - test
   - release
 
 jobs:
   include:
+    - stage: lint
+      name: lint-py27
+      env:
+        - PYTHON=2.7.14
+        - PYENV_VERSION=2.7.14
+    - stage: lint
+      name: lint-py36
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
     - stage: test
       name: test-py27
       env:

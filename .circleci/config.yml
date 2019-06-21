@@ -1,121 +1,100 @@
 version: 2.1
 
 commands:
-  run-tox:
-    description: Run a specific tox environment
+
+  install-tox:
+    steps:
+      - run:
+          name: Installing tox
+          command: |
+            sudo pip install tox==3.0.0
+      - install-dependencies
+
+  install-dependencies:
     steps:
       - restore_cache:
           keys:
             - tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
-          name: tox
+          name: Install Dependencies
           command: |
-            sudo pip install tox==3.0.0
-            tox -e ${CIRCLE_JOB}
+            tox -e --notest lint-<< paramaters.py >>
       - save_cache:
           key: tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
           paths:
             - .tox
 
+  ci:
+    parameters:
+      py:
+        type: string
+    steps:
+      - checkout
+      - install-tox
+      - run:
+          name: Lint
+          command: |
+            tox -e lint-<< paramaters.py >>
+      - run:
+          name: Test
+          command: |
+            tox -e test-<< paramaters.py >>
+      - store_test_results:
+          path: reports/test
+      - store_artifacts:
+          path: reports/test
+      - run:
+          name: Codecov
+          command: |
+            tox -e codecov
+
 jobs:
-  lint-py27:
+  ci-py27:
     docker:
       - image: circleci/python:2.7
     steps:
-      - checkout
-      - run-tox
-  lint-py36:
+      - ci:
+          py: py27
+  ci-py36:
     docker:
       - image: circleci/python:3.6
     steps:
-      - checkout
-      - run-tox
-  test-py27:
-    docker:
-      - image: circleci/python:2.7
-    steps:
-      - checkout
-      - run-tox
-      - store_test_results:
-          path: reports/test
-      - store_artifacts:
-          path: reports/test
-      - persist_to_workspace:
-          root: reports/coverage
-          paths:
-            - coverage
-  test-py36:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - checkout
-      - run-tox
-      - store_test_results:
-          path: reports/test
-      - store_artifacts:
-          path: reports/test
-      - persist_to_workspace:
-          root: reports/coverage
-          paths:
-            - coverage
-  codecov-py27:
-    docker:
-      - image: circleci/python:2.7
-    steps:
-      - checkout
-      - attach_workspace:
-          at: reports/coverage
-      - run-tox
-  codecov-py36:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - checkout
-      - attach_workspace:
-          at: reports/coverage
-      - run-tox
+      - ci:
+          py: py36
   test-cross-distro:
     docker:
       - image: circleci/python:3.6
     steps:
       - checkout
       - setup_remote_docker
-      - run-tox
+      - install-tox
+      - run:
+          name: Test
+          command: |
+            tox -e test-cross-distro
   release:
     docker:
       - image: circleci/python:3.6
     steps:
       - checkout
-      - run-tox
+      - install-tox
+      - run:
+          name: Release
+          command: |
+            tox -e release
 
 
 workflows:
   version: 2
   ci:
     jobs:
-      - lint-py27:
+      - ci-py27:
           filters:
             branches:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-      - lint-py36:
-          filters:
-            branches:
-              ignore:
-                - master
-                - /\d*\.\d*\.\d*/
-      - test-py27:
-          requires:
-            - lint-py27
-          filters:
-            branches:
-              ignore:
-                - master
-                - /\d*\.\d*\.\d*/
-      - test-py36:
-          requires:
-            - lint-py36
+      - ci-py36:
           filters:
             branches:
               ignore:
@@ -127,26 +106,10 @@ workflows:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-      - codecov-py27:
-          requires:
-            - test-py27
-          filters:
-            branches:
-              ignore:
-                - master
-      - codecov-py36:
-          requires:
-            - test-py36
-          filters:
-            branches:
-              ignore:
-                - master
-                - /\d*\.\d*\.\d*/
-                - /\d*\.\d*\.\d*/
       - release:
           requires:
-            - codecov-py27
-            - codecov-py36
+            - test-py27
+            - test-py36
             - test-cross-distro
           filters:
             branches:
