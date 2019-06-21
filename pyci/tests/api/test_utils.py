@@ -188,7 +188,7 @@ def test_which_python():
 
     python_path = utils.which('python')
 
-    assert os.path.abspath(sys.exec_prefix) in python_path
+    assert os.path.abspath(sys.exec_prefix).lower() in python_path.lower()
 
 
 @pytest.mark.linux
