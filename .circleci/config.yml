@@ -23,6 +23,16 @@ commands:
             - .tox
 
 jobs:
+  lint-py27:
+    docker:
+      - image: circleci/python:2.7
+    steps:
+      - run-tox
+  lint-py36:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - run-tox
   test-py27:
     docker:
       - image: circleci/python:2.7
@@ -50,6 +60,18 @@ workflows:
   version: 2
   ci:
     jobs:
+      - lint-py27:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
+      - lint-py36:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
       - test-cross-distro:
           filters:
             branches:
@@ -57,12 +79,16 @@ workflows:
                 - master
                 - /\d*\.\d*\.\d*/
       - test-py36:
+          requires:
+            - lint-py36
           filters:
             branches:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
       - test-py27:
+          requires:
+            - lint-py27
           filters:
             branches:
               ignore:
