@@ -106,6 +106,17 @@ setup(
     assert actual == expected
 
 
+def test_extract_name_from_setup_py_no_match():
+
+    with pytest.raises(exceptions.RegexMatchFailureException):
+        utils.extract_name_from_setup_py("""
+setup(
+    hello='world',
+)
+    
+""")
+
+
 def test_extract_version_from_setup_py_double_quotes():
 
     expected = '0.1.0'
@@ -134,6 +145,17 @@ setup(
     assert actual == expected
 
 
+def test_extract_version_from_setup_py_no_match():
+
+    with pytest.raises(exceptions.RegexMatchFailureException):
+        utils.extract_version_from_setup_py("""
+setup(
+    hello='world',
+)
+    
+""")
+
+
 def test_get_python_executable():
 
     python_path = utils.get_python_executable('python')
@@ -160,3 +182,25 @@ def test_get_python_executable_from_pyinstaller_with_exec_host():
         assert os.path.abspath(sys.exec_prefix) in python_path
     finally:
         delattr(sys, '_MEIPASS')
+
+
+def test_which_python():
+
+    python_path = utils.which('python')
+
+    assert os.path.abspath(sys.exec_prefix) in python_path
+
+
+@pytest.mark.linux
+def test_which_ls():
+
+    ls_path = utils.which('ls')
+
+    assert 'ls' in ls_path
+
+
+def test_which_non_existent():
+
+    poop = utils.which('poop')
+
+    assert poop is None
