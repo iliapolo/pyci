@@ -19,5 +19,5 @@ install:
 test_script:
   - cmd: "%PYTHON%\\Scripts\\tox.exe -e lint-py27"
   - cmd: "%PYTHON%\\Scripts\\tox.exe -e test-py27"
-  - cmd: "%PYTHON%\\Scripts\\tox.exe -e coverage"
+  - cmd: "%PYTHON%\\Scripts\\tox.exe -e codecov"
   - cmd: "%PYTHON%\\Scripts\\tox.exe -e release"
