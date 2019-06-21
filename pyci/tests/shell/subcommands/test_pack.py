@@ -29,42 +29,12 @@ except ImportError:
 import pytest
 
 from pyci.api.packager import Packager
-from pyci.api import utils
 from pyci.tests import distros
 from pyci.tests import conftest
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_binary(pack, runner, binary, mocker):
-
-    if not binary:
-        mocker.patch(target='pyci.api.packager.Packager.binary', new=MagicMock())
-
-    pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), binary=binary)
-
-    if binary:
-
-        expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-            platform.machine(), platform.system()))
-
-        if platform.system() == 'Windows':
-            expected_package_path = '{0}.exe'.format(expected_package_path)
-
-        assert os.path.exists(expected_package_path)
-
-        # lets make sure the binary actually works
-        runner.run('{0} --help'.format(expected_package_path))
-
-    else:
-
-        # noinspection PyUnresolvedReferences
-        Packager.binary.assert_called_once_with(name=None,  # pylint: disable=no-member
-                                                entrypoint=conftest.SPEC_FILE,
-                                                pyinstaller_version=None)
-
-
-@pytest.mark.parametrize("binary", [False, True])
-def test_binary_options(pack, temp_dir, request, runner, binary, mocker):
+def test_binary(pack, temp_dir, request, runner, binary, mocker):
 
     pack.api.target_dir = temp_dir
 
@@ -82,7 +52,7 @@ if __name__ == '__main__':
     six.print_('It works!')        
 ''')
 
-    pack.run('binary --name {} --entrypoint {}'.format(name, custom_main), binary=binary)
+    pack.run('binary --name {} --entrypoint {} --pyinstaller-version 3.4'.format(name, custom_main), binary=binary)
 
     if binary:
 
@@ -102,7 +72,7 @@ if __name__ == '__main__':
         # noinspection PyUnresolvedReferences
         Packager.binary.assert_called_once_with(name=name,  # pylint: disable=no-member
                                                 entrypoint=custom_main,
-                                                pyinstaller_version=None)
+                                                pyinstaller_version='3.4')
 
 
 @pytest.mark.parametrize("binary", [False, True])
@@ -153,36 +123,14 @@ def test_binary_entrypoint_doesnt_exist(pack, binary):
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_wheel(pack, repo_version, binary, mocker):
-
-    if not binary:
-        mocker.patch(target='pyci.api.packager.Packager.wheel', new=MagicMock())
-
-    pack.run('wheel', binary=binary)
-
-    if binary:
-
-        py = 'py3' if utils.is_python_3() else 'py2'
-
-        expected_path = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'.format(repo_version, py))
-
-        assert os.path.exists(expected_path)
-
-    else:
-
-        # noinspection PyUnresolvedReferences
-        Packager.wheel.assert_called_once_with(universal=False, wheel_version=None)  # pylint: disable=no-member
-
-
-@pytest.mark.parametrize("binary", [False, True])
-def test_wheel_options(pack, repo_version, temp_dir, binary, mocker):
+def test_wheel(pack, repo_version, temp_dir, binary, mocker):
 
     pack.api.target_dir = temp_dir
 
     if not binary:
         mocker.patch(target='pyci.api.packager.Packager.wheel', new=MagicMock())
 
-    result = pack.run('wheel --universal', binary=binary)
+    result = pack.run('wheel --universal --wheel-version 0.33.4', binary=binary)
 
     if binary:
 
@@ -196,7 +144,8 @@ def test_wheel_options(pack, repo_version, temp_dir, binary, mocker):
     else:
 
         # noinspection PyUnresolvedReferences
-        Packager.wheel.assert_called_once_with(universal=True, wheel_version=None)  # pylint: disable=no-member
+        Packager.wheel.assert_called_once_with(universal=True,  # pylint: disable=no-member
+                                               wheel_version='0.33.4')
 
 
 @pytest.mark.parametrize("binary", [False, True])
