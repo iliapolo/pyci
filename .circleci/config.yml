@@ -126,8 +126,8 @@ workflows:
                 - /\d*\.\d*\.\d*/
       - release:
           requires:
-            - test-py27
-            - test-py36
+            - codecov-py27
+            - codecov-py36
             - test-cross-distro
           filters:
             branches:
