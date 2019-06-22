@@ -12,17 +12,10 @@ commands:
 
   install-dependencies:
     steps:
-      - restore_cache:
-          keys:
-            - tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
       - run:
           name: Install Dependencies
           command: |
             tox --notest -e release
-      - save_cache:
-          key: tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
-          paths:
-            - .tox
 
   ci:
     parameters:
