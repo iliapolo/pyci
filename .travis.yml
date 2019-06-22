@@ -35,6 +35,9 @@ jobs:
       script:
         - tox -e release
 
+cache:
+  directories:
+    - ${HOME}/.pyenv_cache
 
 branches:
   except:
