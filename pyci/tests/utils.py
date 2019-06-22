@@ -15,6 +15,12 @@
 #
 #############################################################################
 
+import shutil
+import os
+import time
+
+from pyci.api.utils import generate_setup_py
+
 
 def create_release(github, request, sha, name=None):
 
@@ -26,3 +32,31 @@ def create_release(github, request, sha, name=None):
         name=release_name,
         message=''
     )
+
+
+def patch_setup_py(local_repo_path):
+
+    with open(os.path.join(local_repo_path, 'setup.py'), 'r') as stream:
+        setup_py = stream.read()
+
+    version = int(round(time.time() * 1000))
+    setup_py = generate_setup_py(setup_py, '{}'.format(version))
+
+    with open(os.path.join(local_repo_path, 'setup.py'), 'w') as stream:
+        stream.write(setup_py)
+
+    return version
+
+
+def copy_repo(dst):
+
+    import pyci
+    source_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+
+    code = os.path.join(source_path, 'pyci')
+    setup_py = os.path.join(source_path, 'setup.py')
+    spec = os.path.join(source_path, 'pyci.spec')
+
+    shutil.copytree(code, os.path.join(dst, 'pyci'))
+    shutil.copyfile(setup_py, os.path.join(dst, 'setup.py'))
+    shutil.copyfile(spec, os.path.join(dst, 'pyci.spec'))

@@ -15,49 +15,57 @@
 #
 #############################################################################
 
+import logging
 import os
 import platform
 import re
-import tempfile
 
-import click
-from click.testing import CliRunner
 from boltons.cacheutils import cachedproperty
+from click.testing import CliRunner
 
+from pyci.tests import utils as test_utils
+from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api.packager import Packager
+from pyci.api.runner import CommandExecutionResponse
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app
-from pyci.api.runner import CommandExecutionResponse
 
-log = logger.get_logger(__name__)
-
-
-DEBUG = False
+CLICK_ISOLATION = '__CLICK_ISOLATION'
 
 
 # pylint: disable=too-few-public-methods
 class PyCI(object):
 
-    def __init__(self, repo_path):
+    def __init__(self, repo_path, log=None):
+
+        self.repo_path = repo_path
+        self.version = test_utils.patch_setup_py(self.repo_path)
+
+        self._logger = log or logger.Logger(__name__)
         self._click_runner = CliRunner()
         self._local_runner = LocalCommandRunner()
-        self._packager = Packager.create(path=repo_path, target_dir=tempfile.mkdtemp())
+        self._packager = Packager.create(path=repo_path, target_dir=repo_path)
 
     def run(self, command, binary=False, catch_exceptions=False):
 
-        if DEBUG:
+        if self._logger.isEnabledFor(logging.DEBUG):
             command = '--debug {}'.format(command)
 
         if binary:
             response = self._run_binary(command=command)
         else:
-            response = self._run_source(command=command)
-
-        click.echo(response.std_out)
+            try:
+                os.environ[CLICK_ISOLATION] = 'True'
+                response = self._run_source(command=command)
+            finally:
+                del os.environ[CLICK_ISOLATION]
 
         if response.return_code != 0 and not catch_exceptions:
-            raise click.ClickException(response.std_err)
+            raise exceptions.CommandExecutionException(command=command,
+                                                       error=response.std_err,
+                                                       output=response.std_out,
+                                                       code=response.return_code)
 
         return response
 
@@ -65,7 +73,7 @@ class PyCI(object):
 
         args = split(command)
 
-        log.info('Invoking command: {} [cwd={}]'.format(command, os.getcwd()))
+        self._logger.info('Invoking command: {} [cwd={}]'.format(command, os.getcwd()))
 
         result = self._click_runner.invoke(app, args, catch_exceptions=True)
 
@@ -78,17 +86,35 @@ class PyCI(object):
 
     def _run_binary(self, command):
 
-        command = '{} {}'.format(self._binary_path, command)
+        command = '{} {}'.format(self.binary_path, command)
 
-        log.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
+        self._logger.info('Invoking command: {}. [cwd={}]'.format(command, os.getcwd()))
 
-        return self._local_runner.run(command, exit_on_failure=False, pipe=True)
+        return self._local_runner.run(command, exit_on_failure=False, execution_env={
+            'PYCI_INTERACTIVE': 'False'
+        })
 
     @cachedproperty
-    def _binary_path(self):
-        log.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
-        package_path = self._packager.binary()
-        log.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
+    def binary_path(self):
+
+        # pylint: disable=cyclic-import
+        from pyci.tests import conftest
+
+        package_path = os.environ.get('PYCI_BINARY_PATH', None)
+
+        if not package_path:
+            self._logger.info('Creating binary package... [cwd={}]'.format(os.getcwd()))
+            package_path = self._packager.binary(entrypoint=conftest.SPEC_FILE)
+            self._logger.info('Created binary package: {} [cwd={}]'.format(package_path, os.getcwd()))
+
+        return package_path
+
+    @cachedproperty
+    def wheel_path(self):
+
+        self._logger.info('Creating wheel package... [cwd={}]'.format(os.getcwd()))
+        package_path = self._packager.wheel()
+        self._logger.info('Created wheel package: {} [cwd={}]'.format(package_path, os.getcwd()))
         return package_path
 
 

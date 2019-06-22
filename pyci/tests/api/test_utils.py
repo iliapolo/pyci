@@ -15,7 +15,9 @@
 #
 #############################################################################
 
+import os
 import tempfile
+import sys
 
 import pytest
 
@@ -74,3 +76,131 @@ def test_validate_file_does_not_exist():
         utils.validate_file_does_not_exist(path=tempfile.mkdtemp())
 
     utils.validate_file_does_not_exist(path='doesnt-exist')
+
+
+def test_extract_name_from_setup_py_double_quotes():
+
+    expected = 'my-name'
+
+    actual = utils.extract_name_from_setup_py("""
+setup(
+    name="{}",
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_name_from_setup_py_single_quotes():
+
+    expected = 'my-name'
+
+    actual = utils.extract_name_from_setup_py("""
+setup(
+    name='{}',
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_name_from_setup_py_no_match():
+
+    with pytest.raises(exceptions.RegexMatchFailureException):
+        utils.extract_name_from_setup_py("""
+setup(
+    hello='world',
+)
+    
+""")
+
+
+def test_extract_version_from_setup_py_double_quotes():
+
+    expected = '0.1.0'
+
+    actual = utils.extract_version_from_setup_py("""
+setup(
+    version="{}",
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_version_from_setup_py_single_quotes():
+
+    expected = '0.1.0'
+
+    actual = utils.extract_version_from_setup_py("""
+setup(
+    version='{}',
+)
+
+    """.format(expected))
+
+    assert actual == expected
+
+
+def test_extract_version_from_setup_py_no_match():
+
+    with pytest.raises(exceptions.RegexMatchFailureException):
+        utils.extract_version_from_setup_py("""
+setup(
+    hello='world',
+)
+    
+""")
+
+
+def test_get_python_executable():
+
+    python_path = utils.get_python_executable('python')
+
+    assert os.path.abspath(sys.exec_prefix) in python_path
+
+
+def test_get_python_executable_from_pyinstaller():
+
+    try:
+        setattr(sys, '_MEIPASS', 'mock')
+        with pytest.raises(RuntimeError) as e:
+            utils.get_python_executable('python')
+        assert 'Executables are not supported' in str(e)
+    finally:
+        delattr(sys, '_MEIPASS')
+
+
+def test_get_python_executable_from_pyinstaller_with_exec_host():
+
+    try:
+        setattr(sys, '_MEIPASS', 'mock')
+        python_path = utils.get_python_executable('python', exec_home=sys.exec_prefix)
+        assert os.path.abspath(sys.exec_prefix) in python_path
+    finally:
+        delattr(sys, '_MEIPASS')
+
+
+def test_which_python():
+
+    python_path = utils.which('python')
+
+    assert os.path.abspath(sys.exec_prefix).lower() in python_path.lower()
+
+
+@pytest.mark.linux
+def test_which_ls():
+
+    ls_path = utils.which('ls')
+
+    assert 'ls' in ls_path
+
+
+def test_which_non_existent():
+
+    poop = utils.which('poop')
+
+    assert poop is None

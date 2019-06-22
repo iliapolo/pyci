@@ -22,6 +22,7 @@ import pytest
 from pyci.api import exceptions
 from pyci.api.packager import Packager
 from pyci.api import utils
+from pyci.tests import conftest
 
 
 def test_sha_and_not_repo():
@@ -61,18 +62,17 @@ def test_target_dir_doesnt_exist(pack):
                         path=pack.api.repo_dir)
 
 
+def test_default_target_dir(pack):
+
+    target_dir = Packager.create(path=pack.api.repo_dir).target_dir
+
+    assert os.getcwd() == target_dir
+
+
 def test_set_target_dir_doesnt_exist(pack):
 
     with pytest.raises(exceptions.DirectoryDoesntExistException):
         pack.api.target_dir = 'doesnt-exist'
-
-
-def test_not_python_project(pack):
-
-    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
-
-    with pytest.raises(exceptions.NotPythonProjectException):
-        Packager.create(path=pack.api.repo_dir)
 
 
 def test_repo_dir_sha():
@@ -90,35 +90,40 @@ def test_sha_doesnt_exist():
         Packager.create(repo='iliapolo/pyci', sha='doesnt-exist')
 
 
-def test_wheel(pack):
+def test_wheel(pyci):
 
     py_version = 'py3' if utils.is_python_3() else 'py2'
 
-    expected = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'
-                            .format(pack.version, py_version))
+    expected = 'py_ci-{}-{}-none-any.whl'.format(pyci.version, py_version)
 
-    actual = pack.api.wheel()
-
-    assert expected == actual
+    assert expected in pyci.wheel_path
 
 
-def test_wheel_options(pack, temp_dir):
+def test_wheel_not_python_project(pack):
+
+    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
+
+    with pytest.raises(exceptions.NotPythonProjectException):
+        pack.api.wheel()
+
+
+def test_wheel_options(pack, repo_version, temp_dir):
 
     pack.api.target_dir = temp_dir
 
-    expected = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(pack.version))
+    expected = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(repo_version))
 
     actual = pack.api.wheel(universal=True)
 
     assert expected == actual
 
 
-def test_wheel_file_exists(pack):
+def test_wheel_file_exists(pack, repo_version):
 
     py_version = 'py3' if utils.is_python_3() else 'py2'
 
     expected = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'
-                            .format(pack.version, py_version))
+                            .format(repo_version, py_version))
 
     with open(expected, 'w') as stream:
         stream.write('package')
@@ -127,20 +132,17 @@ def test_wheel_file_exists(pack):
         pack.api.wheel()
 
 
-def test_binary(pack, runner):
+def test_binary(runner, pyci):
 
-    expected = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-        platform.machine(), platform.system()))
+    expected = 'py-ci-{0}-{1}'.format(platform.machine(), platform.system())
 
     if platform.system() == 'Windows':
         expected = '{0}.exe'.format(expected)
 
-    actual = pack.api.binary()
-
-    assert expected == actual
+    assert expected in pyci.binary_path
 
     # lets make sure the binary actually works
-    runner.run('{0} --help'.format(actual))
+    runner.run('{0} --help'.format(pyci.binary_path))
 
 
 def test_binary_options(pack, request, runner, temp_dir):
@@ -185,12 +187,12 @@ def test_binary_file_exists(pack):
         stream.write('package')
 
     with pytest.raises(exceptions.FileExistException):
-        pack.api.binary()
+        pack.api.binary(entrypoint=conftest.SPEC_FILE)
 
 
 def test_binary_default_entrypoint_doesnt_exist(pack):
 
-    os.remove(os.path.join(pack.api.repo_dir, 'pyci.spec'))
+    os.remove(os.path.join(pack.api.repo_dir, conftest.SPEC_FILE))
     os.remove(os.path.join(pack.api.repo_dir, 'pyci', 'shell', 'main.py'))
 
     with pytest.raises(exceptions.DefaultEntrypointNotFoundException):

@@ -20,11 +20,9 @@ import sys
 
 from pyci.api import exceptions
 
-loggers = {}
-
 
 DEFAULT_LOG_LEVEL = logging.INFO
-DEFAULT_LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+DEFAULT_LOG_FORMAT = '%(asctime)s - [%(name)s] - [%(levelname)s] - %(message)s'
 
 
 class Logger(object):
@@ -42,25 +40,30 @@ class Logger(object):
 
     _logger = None
 
-    def __init__(self, name, level=DEFAULT_LOG_LEVEL, ch=None):
+    def __init__(self, name, level=None, ch=None, fmt=None):
 
         if not name:
             raise exceptions.InvalidArgumentsException('name cannot be empty')
 
+        level = level or DEFAULT_LOG_LEVEL
+        fmt = fmt or DEFAULT_LOG_FORMAT
+
         self._name = name
         self._logger = logging.getLogger(name)
         self._logger.propagate = False
-        self.add_console_handler(level, ch)
+
+        if not self._logger.handlers:
+            self.add_console_handler(level, ch, fmt)
         self.set_level(level)
 
     @property
     def logger(self):
         return self._logger
 
-    def add_console_handler(self, level, ch):
+    def add_console_handler(self, level, ch, fmt):
         ch = ch or logging.StreamHandler(stream=sys.stdout)
         ch.setLevel(level)
-        formatter = logging.Formatter(DEFAULT_LOG_FORMAT)
+        formatter = logging.Formatter(fmt)
         ch.setFormatter(formatter)
         self._logger.addHandler(ch)
 
@@ -81,14 +84,17 @@ class Logger(object):
     def warn(self, message, **kwargs):
         self._log(logging.WARN, message, **kwargs)
 
+    def isEnabledFor(self, level):
+        return self._logger.isEnabledFor(level)
+
     # we disable this because for some reason it prevents
     # testfixtures from properly capturing logs for tests.
     # pylint: disable=logging-format-interpolation
     def _log(self, level, message, **kwargs):
-        self._logger.log(level, '{}{}'.format(message, self._format_key_values(**kwargs)))
+        self._logger.log(level, '{}{}'.format(message, self.format_key_values(**kwargs)))
 
     @staticmethod
-    def _format_key_values(**kwargs):
+    def format_key_values(**kwargs):
 
         if not kwargs:
             return ''
@@ -97,27 +103,3 @@ class Logger(object):
         for key, value in kwargs.items():
             kvs.append('{}={}'.format(key, value))
         return ' [{}]'.format(', '.join(kvs))
-
-
-def get_logger(name):
-
-    """
-    Get or create a specific logger by name.
-
-    Returns:
-          Logger: The logger instance.
-    """
-
-    if name not in loggers:
-        loggers[name] = Logger(name=name)
-    return loggers[name]
-
-
-def setup_loggers(level=DEFAULT_LOG_LEVEL):
-
-    """
-    Configure all loggers to the given level.
-
-    """
-    for logger in loggers.values():
-        logger.set_level(level)

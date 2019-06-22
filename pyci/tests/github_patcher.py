@@ -25,13 +25,8 @@ import types
 import six
 from github import Requester
 
-from pyci.api import logger
-
 python2 = sys.hexversion < 0x03000000
 at_least_python3 = sys.hexversion >= 0x03000000
-
-
-log = logger.get_logger(__name__)
 
 
 class FakeHttpResponse(object):
@@ -106,11 +101,12 @@ class RecordingConnection(object):  # pragma no cover
 
 class ReplayingConnection(object):
 
-    def __init__(self, protocol, host, port, *_, **__):
+    def __init__(self, protocol, host, port, token, *_, **__):
         self._replayer = None
         self._protocol = protocol
         self._host = host
         self._port = str(port)
+        self._token = token
 
     def set_replayer(self, replayer):
         self._replayer = replayer
@@ -125,7 +121,7 @@ class ReplayingConnection(object):
 
         # pylint: disable=eval-used
         desanitized_headers = eval(self._replay())
-        desanitized_headers['Authorization'] = 'token {}'.format(os.environ['GITHUB_ACCESS_TOKEN'])
+        desanitized_headers['Authorization'] = 'token {}'.format(self._token)
         if 'Content-Length' in desanitized_headers:
             # the content-length during the recording does not necessarily
             # match it during replay, this is ok.
@@ -135,8 +131,9 @@ class ReplayingConnection(object):
         expected_input = self._replay()
         if isinstance(inp, six.string_types):
             if inp.startswith("{"):
-                assert json.loads(inp.replace('\n', '').replace('\r', '')) == \
-                       json.loads(expected_input)
+                actual = json.loads(inp.replace('\n', '').replace('\r', ''))
+                expected = json.loads(expected_input)
+                assert actual == expected
             elif python2:
                 # pylint: disable=fixme
                 # TODO Test in all cases, including Python 3.4+
@@ -247,9 +244,10 @@ class Replayer(object):
 
 class GithubConnectionPatcher(object):
 
-    def __init__(self, record=False):
+    def __init__(self, record=False, token=None):
         self.file = None
-        self.record_mode = record or os.environ.get('PYGITHUB_RECORD', False)
+        self.record_mode = record
+        self.token = token
         self.recorder = Recorder()
         self.replayer = Replayer()
 
@@ -282,6 +280,8 @@ class GithubConnectionPatcher(object):
             def _for_protocol(protocol):
 
                 def _connection(_, *args, **kwargs):
+
+                    kwargs['token'] = self.token
 
                     if protocol == 'http':
                         connection = ReplayingHttpConnection(*args, **kwargs)

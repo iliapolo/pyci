@@ -27,22 +27,23 @@ from pyci.shell import secrets
 @contextlib.contextmanager
 def env(key, value):
 
-    current_value = os.environ[key]
+    current_value = os.environ.get(key)
 
     try:
-        if value is None:
+        if value is None and key in os.environ:
             del os.environ[key]
-        else:
+        elif value is not None:
             os.environ[key] = value
         yield
     finally:
-        os.environ[key] = current_value
+        if current_value is not None:
+            os.environ[key] = current_value
 
 
 def test_github_access_token():
 
     with env(secrets.GITHUB_ACCESS_TOKEN, 'token'):
-        token = secrets.github_access_token(True)
+        token = secrets.github_access_token()
 
         expected_token = 'token'
 
@@ -53,13 +54,13 @@ def test_github_access_token_none():
 
     with env(secrets.GITHUB_ACCESS_TOKEN, None):
         with pytest.raises(click.ClickException):
-            secrets.github_access_token(True)
+            secrets.github_access_token()
 
 
 def test_twine_username():
 
     with env(secrets.TWINE_USERNAME, 'user'):
-        token = secrets.twine_username(True)
+        token = secrets.twine_username()
 
         expected_token = 'user'
 
@@ -70,13 +71,13 @@ def test_twine_username_none():
 
     with env(secrets.TWINE_USERNAME, None):
         with pytest.raises(click.ClickException):
-            secrets.twine_username(True)
+            secrets.twine_username()
 
 
 def test_twine_password():
 
     with env(secrets.TWINE_PASSWORD, 'user'):
-        token = secrets.twine_password(True)
+        token = secrets.twine_password()
 
         expected_token = 'user'
 
@@ -87,4 +88,4 @@ def test_twine_password_none():
 
     with env(secrets.TWINE_PASSWORD, None):
         with pytest.raises(click.ClickException):
-            secrets.twine_password(True)
+            secrets.twine_password()

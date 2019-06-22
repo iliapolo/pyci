@@ -58,6 +58,6 @@ def upload_internal(wheel, pypi):
         wheel_url = pypi.upload(wheel=wheel)
         log.checkmark()
         return wheel_url
-    except:
+    except BaseException as _:
         log.xmark()
         raise

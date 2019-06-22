@@ -271,17 +271,54 @@ class IssueNotFoundException(ApiException):
         return 'Issue {} not found'.format(self.issue)
 
 
+class RegexMatchFailureException(ApiException):
+
+    def __init__(self, regex):
+        self.regex = regex
+        super(RegexMatchFailureException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "No match found for regex '{}'".format(self.regex)
+
+
+class FailedExtractingNameFromSetupPyException(ApiException):
+
+    def __init__(self, cause, repo=None, sha=None, path=None):
+        self.sha = sha
+        self.repo = repo
+        self.path = path
+        self.cause = cause
+        super(FailedExtractingNameFromSetupPyException, self).__init__(self.__str__())
+
+    def __str__(self):
+
+        if self.repo:
+            repo_location = 'github.com/{}@{}'.format(self.repo, self.sha)
+        else:
+            repo_location = self.path
+
+        return "Failed extracting project name from setup.py file of repository at location {}: {}".format(
+            repo_location, self.cause)
+
+
 class NotPythonProjectException(ApiException):
 
-    def __init__(self, repo, cause, sha):
+    def __init__(self, cause, repo=None, sha=None, path=None):
         self.sha = sha
         self.cause = cause
         self.repo = repo
+        self.path = path
         super(NotPythonProjectException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Commit {} in repository {} does not contain a valid ' \
-               'python project: {}.'.format(self.sha, self.repo, self.cause)
+
+        if self.repo:
+            repo_location = 'github.com/{}@{}'.format(self.repo, self.sha)
+        else:
+            repo_location = self.path
+
+        return 'Repository at location {} does not contain a valid ' \
+               'python project: {}.'.format(repo_location, self.cause)
 
 
 class RepositoryNotFoundException(ApiException):
@@ -380,3 +417,26 @@ class RefAlreadyAtShaException(ApiException):
 
     def __str__(self):
         return 'Reference {} is already at {}'.format(self.ref, self.sha)
+
+
+class ScriptInvocationException(ApiException):
+
+    def __init__(self, script, arguments, error):
+        self.script = script
+        self.args = arguments
+        self.error = error
+        super(ScriptInvocationException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Invocation of script '{}' with arguments {} failed: {}".format(self.script,
+                                                                               self.args,
+                                                                               self.error)
+
+
+class PythonNotFoundException(ApiException):
+
+    def __init__(self):
+        super(PythonNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Python installation not found in PATH"

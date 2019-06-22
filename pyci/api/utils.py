@@ -29,10 +29,6 @@ import six
 import requests
 
 from pyci.api import exceptions
-from pyci.api import logger
-
-
-log = logger.get_logger(__name__)
 
 
 def extract_link(commit_message):
@@ -197,8 +193,8 @@ def generate_setup_py(setup_py, version):
     section of the setup.py file with the specified version value.
 
     Args:
-        setup_py (str): The current setup.py file contents.
-        version (str): The desired version the setup.py file should have.
+        setup_py (:str): The current setup.py file contents.
+        version (:str): The desired version the setup.py file should have.
 
     Returns:
         str: The modified contents of the setup.py file with the new version number.
@@ -211,7 +207,7 @@ def generate_setup_py(setup_py, version):
     raise exceptions.FailedGeneratingSetupPyException(setup_py=setup_py, version=version)
 
 
-def get_executable(name):
+def get_python_executable(name, exec_home=None):
 
     """
     Retrieve the path to an executable script. On linux platforms this wont actually do
@@ -219,9 +215,17 @@ def get_executable(name):
     'Scripts' directory of the python installation.
 
     Args:
-        name (str): The executable name.
+        name (:str): The executable name.
+        exec_home (:str, optional): The base python installation directory. Defaults to `sys.exec_prefix`
+
+    Returns:
+        Full path to the executable file.
 
     """
+
+    if not exec_home and is_pyinstaller():
+        raise RuntimeError('Executables are not supported when running inside a PyInstaller bootloader. '
+                           'Are you sure this is what you wanted to do?')
 
     def _for_linux():
 
@@ -230,25 +234,35 @@ def get_executable(name):
     def _for_windows():
 
         exe = '{}.exe'.format(name)
-        executable = os.path.join(exec_home, exe)
-        if os.path.exists(executable):
-            return executable
-        scripts_directory = os.path.join(exec_home, 'scripts')
-        executable = os.path.join(scripts_directory, exe)
-        if os.path.exists(executable):
-            return executable
+        executable_p = os.path.join(exec_home, exe)
+        if not os.path.exists(executable_p):
+            scripts_directory = os.path.join(exec_home, 'scripts')
+            executable_p = os.path.join(scripts_directory, exe)
+        if os.path.exists(executable_p):
+            return executable_p
 
         raise RuntimeError('Executable not found: {}'.format(exe))
 
-    exec_home = os.path.abspath(sys.exec_prefix)
-    if is_pyinstaller():
-        exec_home = getattr(sys, '_MEIPASS')
+    exec_home = exec_home or os.path.abspath(sys.exec_prefix)
 
-    if platform.system().lower() == 'windows':
+    if is_windows():
         executable_path = _for_windows()
     else:
         executable_path = _for_linux()
-    return executable_path
+
+    return os.path.abspath(executable_path)
+
+
+def is_windows():
+
+    """
+    Check if the current OS is window.
+
+    Returns:
+         True if windows, False otherwise.
+    """
+
+    return platform.system().lower() == 'windows'
 
 
 def download_repo(repo_name, sha):
@@ -268,19 +282,18 @@ def download_repo(repo_name, sha):
     repo_base_name = '/'.join(repo_name.split('/')[1:])
 
     url = 'https://github.com/{}/archive/{}.zip'.format(repo_name, sha)
-    archive = download(url, headers={
-        'Authorization': 'token {}'.format(os.environ['GITHUB_ACCESS_TOKEN'])
-    })
+
+    headers = {}
+
+    token = os.environ.get('GITHUB_ACCESS_TOKEN')
+    if token:
+        headers = {
+            'Authorization': 'token {}'.format(token)
+        }
+    archive = download(url, headers=headers)
     repo_dir = unzip(archive=archive)
 
     repo_dir = os.path.join(repo_dir, '{}-{}'.format(repo_base_name, sha))
-
-    setup_py_file = os.path.join(repo_dir, 'setup.py')
-
-    try:
-        validate_file_exists(setup_py_file)
-    except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
-        raise exceptions.NotPythonProjectException(repo=repo_name, cause=str(e), sha=sha)
 
     return repo_dir
 
@@ -323,3 +336,90 @@ def is_pyinstaller():
         return True
     except AttributeError:
         return False
+
+
+def extract_name_from_setup_py(setup_py_content):
+
+    """
+    Extract the value of the 'name' argument from the setup.py file. (Regex based)
+
+    Args:
+        setup_py_content (str): The setup.py file contents.
+
+    Returns:
+         The name defined in setup.py
+    """
+
+    regex = 'name=["\'](.*)["\']'
+
+    name = re.compile(regex)
+
+    match = name.search(setup_py_content)
+
+    if match:
+        return match.group(1)
+
+    raise exceptions.RegexMatchFailureException(regex=regex)
+
+
+def extract_version_from_setup_py(setup_py_content):
+
+    """
+    Extract the value of the 'version' argument from the setup.py file. (Regex based)
+
+    Args:
+        setup_py_content (str): The setup.py file contents.
+
+    Returns:
+         The version defined in setup.py
+    """
+
+    regex = 'version=["\'](.*)["\']'
+
+    name = re.compile(regex)
+
+    match = name.search(setup_py_content)
+
+    if match:
+        return match.group(1)
+
+    raise exceptions.RegexMatchFailureException(regex=regex)
+
+
+def which(program):
+
+    """
+    Lookup the program in the system PATH. Equivalent to the unix 'which' command.
+
+    Args:
+        program (str): The program pure name.
+
+    Returns:
+        The program full name (including .exe if necessary)
+    """
+
+    path = os.getenv('PATH')
+
+    for p in path.split(os.path.pathsep):
+        program_path = os.path.join(p, executable(program))
+        if os.path.exists(program_path):
+            if os.access(program_path, os.X_OK):
+                return program_path
+
+    return None
+
+
+def executable(program):
+
+    """
+    Transform the program name to an executable name. Basically just means
+    adding .exe in case of windows.
+
+    Args:
+        program (str): The program pure name.
+
+    Returns:
+        The program "canonical" name.
+    """
+
+    return '{}.exe'.format(program) if is_windows() else program

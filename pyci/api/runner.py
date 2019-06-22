@@ -14,15 +14,14 @@
 #   * limitations under the License.
 #
 #############################################################################
-import copy
+
+import tempfile
 import os
 import shlex
 import subprocess
 
 from pyci.api import exceptions
 from pyci.api import logger
-
-log = logger.get_logger(__name__)
 
 
 # pylint: disable=too-many-arguments,too-few-public-methods
@@ -32,15 +31,15 @@ class LocalCommandRunner(object):
     Provides local command line execution abilities.
 
     Args:
-        host (str): The host string to be displayed in log messages.
+        log (Logger): A logger instance to use for debug logging.
     """
 
-    def __init__(self, host='localhost'):
-        self._log_ctx = {
-            'host': host
-        }
+    def __init__(self, log=None):
+        self._logger = log or logger.Logger(__name__)
+        self._output_logger = logger.Logger(name='runner-output', fmt='%(message)s')
 
-    def run(self, command, exit_on_failure=True, cwd=None, execution_env=None, pipe=True):
+    # pylint: disable=too-many-locals
+    def run(self, command, exit_on_failure=True, cwd=None, execution_env=None):
 
         """
         Runs the specified command.
@@ -58,7 +57,6 @@ class LocalCommandRunner(object):
             cwd (str): The directory to execute the command in.
             execution_env (dict): Additional environment for the execution. (on top of the
                 current one)
-            pipe (bool): True to pipe stdout and stderr, False to print in real time.
 
         Raises:
             exceptions.CommandExecutionException: Raised when the execution failed and the
@@ -76,25 +74,48 @@ class LocalCommandRunner(object):
         if isinstance(command, list):
             popen_args = command
         else:
-            popen_args = _shlex_split(command)
+            popen_args = shlex_split(command)
 
-        self._debug('Running command...', command=command)
+        cwd = cwd or os.getcwd()
 
-        command_env = os.environ.copy()
-        command_env.update(execution_env or {})
-        p = subprocess.Popen(args=popen_args,
-                             stdout=subprocess.PIPE if pipe else None,
-                             stderr=subprocess.PIPE if pipe else None,
-                             cwd=cwd,
-                             env=command_env,
-                             universal_newlines=True)
-        out, err = p.communicate()
+        self._debug('Running command...', command=command, cwd=cwd)
+
+        opipe = tempfile.NamedTemporaryFile(delete=False)
+        epipe = tempfile.NamedTemporaryFile(delete=False)
+
+        try:
+            command_env = os.environ.copy()
+            command_env.update(execution_env or {})
+            self._debug('Creating subprocess: {}'.format(popen_args))
+            p = subprocess.Popen(args=popen_args,
+                                 stdout=opipe,
+                                 stderr=epipe,
+                                 cwd=cwd,
+                                 env=command_env,
+                                 universal_newlines=True)
+
+            self._debug('Process {} started: {}. Waiting for it to finish...'.format(popen_args, p.pid))
+            p.wait()
+
+            self._debug('Finished running command.', command=command, exit_code=p.returncode, cwd=cwd)
+        finally:
+            opipe.close()
+            epipe.close()
+
+        with open(opipe.name) as stream:
+            out = stream.read().strip()
+
+        os.remove(opipe.name)
+
+        with open(epipe.name) as stream:
+            err = stream.read().strip()
+
+        os.remove(epipe.name)
+
         if out:
-            out = out.rstrip()
+            self._output_logger.debug(out)
         if err:
-            err = err.rstrip()
-
-        self._debug('Finished running command.', command=command, exit_code=p.returncode)
+            self._output_logger.debug(err)
 
         if p.returncode != 0:
             error = exceptions.CommandExecutionException(
@@ -112,12 +133,10 @@ class LocalCommandRunner(object):
             return_code=p.returncode)
 
     def _debug(self, message, **kwargs):
-        kwargs = copy.deepcopy(kwargs)
-        kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
 
 
-def _shlex_split(command):
+def shlex_split(command):
     lex = shlex.shlex(command, posix=True)
     lex.whitespace_split = True
     lex.escape = ''

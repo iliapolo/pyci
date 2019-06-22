@@ -23,16 +23,14 @@ import semver
 from boltons.cacheutils import cachedproperty
 from github import Github
 from github import InputGitTreeElement
-from github.GithubException import GithubException
 from github.GithubException import UnknownObjectException
+from github.GithubException import GithubException
 
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
 from pyci.api import model
 from pyci.api.runner import LocalCommandRunner
-
-log = logger.get_logger(__name__)
 
 
 BUMP_VERSION_COMMIT_MESSAGE_FORMAT = 'Bump version to {}'
@@ -59,6 +57,7 @@ class GitHubRepository(object):
             raise exceptions.InvalidArgumentsException('access_token cannot be empty')
 
         self.__branches = {}
+        self._logger = logger.Logger(__name__)
         self._hub = Github(access_token, timeout=30)
         self._repo_name = repo
         self._log_ctx = {
@@ -249,9 +248,9 @@ class GitHubRepository(object):
         except UnknownObjectException:
             raise exceptions.ReleaseNotFoundException(release=release)
 
-        log.debug('Updating release with changelog...', release=release)
+        self._logger.debug('Updating release with changelog...', release=release)
         git_release.update_release(name=git_release.title, message=changelog)
-        log.debug('Successfully updated release with changelog', release=release)
+        self._logger.debug('Successfully updated release with changelog', release=release)
 
         release_sha = self.repo.get_git_ref(ref='tags/{}'.format(git_release.tag_name)).object.sha
         return model.Release(impl=git_release,
@@ -288,8 +287,9 @@ class GitHubRepository(object):
             self._debug('Fetching commit message...', sha=sha)
             try:
                 commit_message = self.repo.get_commit(sha=sha).commit.message
-            except UnknownObjectException:
-                raise exceptions.CommitNotFoundException(sha=sha)
+            except GithubException as e:
+                if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
+                    raise exceptions.CommitNotFoundException(sha=sha)
 
             self._debug('Fetched commit message...', sha=sha, commit_message=commit_message)
 
@@ -740,7 +740,7 @@ class GitHubRepository(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
 
 
 class _GitHubBranch(object):
@@ -750,6 +750,7 @@ class _GitHubBranch(object):
         self.branch_name = branch_name
         self.__commits = {}
         self._runner = LocalCommandRunner()
+        self._logger = logger.Logger(__name__)
         self._log_ctx = {
             'repo': self.github.repo.full_name,
             'branch': self.branch_name
@@ -773,7 +774,7 @@ class _GitHubBranch(object):
         try:
             last_commit = self.github.repo.get_commit(sha=self.branch_name)
         except GithubException as e:
-            if e.data['message'] == 'Not Found':
+            if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
                 raise exceptions.BranchNotFoundException(branch=self.branch_name,
                                                          repo=self.github.repo.full_name)
             raise  # pragma: no cover
@@ -813,7 +814,7 @@ class _GitHubBranch(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)
 
 
 class _GitHubCommit(object):
@@ -822,6 +823,7 @@ class _GitHubCommit(object):
         self._branch = branch
         self._sha = sha
         self._runner = LocalCommandRunner()
+        self._logger = logger.Logger(__name__)
         self._log_ctx = {
             'repo': self._branch.github.repo.full_name,
             'branch': self._branch.branch_name,
@@ -835,8 +837,10 @@ class _GitHubCommit(object):
             commit = self._branch.github.repo.get_commit(sha=self._sha)
             self._debug('Fetched commit.', commit=commit.html_url)
             return commit
-        except UnknownObjectException:
-            raise exceptions.CommitNotFoundException(sha=self._sha)
+        except GithubException as e:
+            if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
+                raise exceptions.CommitNotFoundException(sha=self._sha)
+            raise
 
     @cachedproperty
     def issue(self):
@@ -879,9 +883,7 @@ class _GitHubCommit(object):
     @cachedproperty
     def setup_py_version(self):
         self._debug('Extracting current setup.py version...')
-        setup_py_version = self._runner.run('{} {} --version'
-                                            .format(utils.get_executable('python'),
-                                                    self.setup_py_path)).std_out
+        setup_py_version = utils.extract_version_from_setup_py(self.setup_py)
         self._debug('Extracted current setup.py version...', setup_py_version=setup_py_version)
         return setup_py_version
 
@@ -1147,4 +1149,4 @@ class _GitHubCommit(object):
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
-        log.debug(message, **kwargs)
+        self._logger.debug(message, **kwargs)

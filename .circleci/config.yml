@@ -1,66 +1,119 @@
-version: 2
+version: 2.1
+
+commands:
+
+  install-tox:
+    steps:
+      - run:
+          name: Installing tox
+          command: |
+            sudo pip install tox==3.0.0
+      - install-dependencies
+
+  install-dependencies:
+    steps:
+      - restore_cache:
+          keys:
+            - tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - run:
+          name: Install Dependencies
+          command: |
+            tox --notest -e release
+      - save_cache:
+          key: tox-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+          paths:
+            - .tox
+
+  ci:
+    parameters:
+      py:
+        type: string
+    steps:
+      - checkout
+      - install-tox
+      - run:
+          name: Lint
+          command: |
+            tox -e lint-<< parameters.py >>
+      - run:
+          name: Test
+          command: |
+            tox -e test-<< parameters.py >>
+      - store_test_results:
+          path: reports/test
+      - store_artifacts:
+          path: reports/test
+      - run:
+          name: Codecov
+          command: |
+            tox -e codecov
+
 jobs:
-  python27:
+  ci-py27:
     docker:
       - image: circleci/python:2.7
-    working_directory: ~/repo
     steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
-      - run:
-          name: install tox
-          command: sudo pip install tox==3.0.0
-      - run:
-          name: install dependencies
-          command: tox --notest -e py27
-      - save_cache:
-          key: tox-py27-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
-          paths:
-            - .tox
-      - run:
-          name: run tox
-          command: tox -e py27
-  python36:
+      - ci:
+          py: py27
+  ci-py36:
     docker:
       - image: circleci/python:3.6
-    working_directory: ~/repo
+    steps:
+      - ci:
+          py: py36
+  test-cross-distro:
+    docker:
+      - image: circleci/python:3.6
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
+      - setup_remote_docker
+      - install-tox
       - run:
-          name: install tox
-          command: sudo pip install tox==3.0.0
+          name: Test
+          command: |
+            tox -e test-cross-distro
+  release:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - checkout
+      - install-tox
       - run:
-          name: install dependencies
-          command: tox --notest -e py27
-      - save_cache:
-          key: tox-py36-{{ checksum "test-requirements.txt" }}-{{ checksum "setup.py" }}
-          paths:
-            - .tox
-      - run:
-          name: run tox
-          command: tox -e py36
+          name: Release
+          command: |
+            tox -e release
+
 
 workflows:
   version: 2
-  python:
+  ci:
     jobs:
-      - python27:
+      - ci-py27:
           filters:
             branches:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-
-      - python36:
+      - ci-py36:
           filters:
             branches:
               ignore:
                 - master
                 - /\d*\.\d*\.\d*/
-
+      - test-cross-distro:
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
+      - release:
+          requires:
+            - ci-py27
+            - ci-py36
+            - test-cross-distro
+          filters:
+            branches:
+              ignore:
+                - master
+                - /\d*\.\d*\.\d*/
 

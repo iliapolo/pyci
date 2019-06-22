@@ -1,40 +1,58 @@
+sudo: false
+
+os: osx
+language: generic
+osx_image: xcode7.3
+
+stages:
+  - ci
+  - release
+
+jobs:
+  include:
+
+    - stage: ci
+      name: ci-py27
+      env:
+        - PYTHON=2.7.14
+        - PYENV_VERSION=2.7.14
+      script:
+        - tox -e lint-py27
+        - tox -e test-py27
+        - tox -e codecov
+
+    - stage: ci
+      name: ci-py36
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
+      script:
+        - tox -e lint-py36
+        - tox -e test-py36
+        - tox -e codecov
+
+    - stage: release
+      name: release
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
+      script:
+        - tox -e release
+
+
 branches:
   except:
     - master
     - /\d*\.\d*\.\d*/
-
-sudo: false
-matrix:
-  include:
-    - os: osx
-      language: generic
-      osx_image: xcode7.3
-      env:
-        - TOX_ENV=py27
-        - PYTHON=2.7.14
-        - PYENV_VERSION=2.7.14
-    - os: osx
-      language: generic
-      osx_image: xcode8.3
-      env:
-        - TOX_ENV=py36
-        - PYTHON=3.6.4
-        - PYENV_VERSION=3.6.4
 
 cache:
   directories:
     - ${HOME}/.pyenv_cache
     - ${TRAVIS_BUILD_DIR}/.tox
 
+install:
+  - pip install tox==3.0.0
 
 before_install: |
 
   source setup-pyenv.sh
-
-install:
-  - pip install tox==3.0.0
-  - pip install wheel==0.31.0
-  - tox --notest -e ${TOX_ENV}
-
-script:
-  - tox -e ${TOX_ENV}

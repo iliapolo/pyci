@@ -39,7 +39,6 @@ from pyci.shell.subcommands import pypi as pypi_group
 from pyci.shell import logger as shell_logger
 from pyci import resources
 
-
 log = shell_logger.get()
 
 
@@ -72,13 +71,13 @@ def app(ctx, debug, no_ci):
 
     """
 
-    ascii_art = resources.get_resource('pyci.ascii')
+    ascii_art = resources.get_text_resource('pyci.ascii')
 
     log.echo('', prefix=False)
     log.echo(ascii_art, prefix=False)
 
     if debug:
-        api_logger.setup_loggers(level=logging.DEBUG)
+        api_logger.DEFAULT_LOG_LEVEL = logging.DEBUG
         shell_logger.get().logger.set_level(logging.DEBUG)
 
     ctx.ci_provider = None
@@ -104,7 +103,7 @@ def github(ctx, repo):
 
     ctx.github = GitHubRepository.create(
         repo=repo,
-        access_token=secrets.github_access_token(ctx.parent.ci_provider))
+        access_token=secrets.github_access_token())
 
 
 @click.group()
@@ -183,8 +182,8 @@ def pypi(ctx, test, repository_url):
 
     ctx.pypi = PyPI.create(repository_url=repository_url,
                            test=test,
-                           username=secrets.twine_username(ctx.parent.ci_provider),
-                           password=secrets.twine_password(ctx.parent.ci_provider))
+                           username=secrets.twine_username(),
+                           password=secrets.twine_password())
 
 
 github.add_command(github_group.release_branch)

@@ -15,8 +15,6 @@
 #
 #############################################################################
 
-import os
-
 import pytest
 
 
@@ -72,20 +70,6 @@ def test_pack_target_dir_doesnt_exist(pyci, binary):
                       binary=binary)
 
     expected_output = 'The target directory you specified does not exist: doesnt-exist'
-
-    assert expected_output in result.std_out
-
-
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_not_python_project(pyci, pack, binary):
-
-    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
-
-    result = pyci.run('pack --path {} wheel --help'.format(pack.api.repo_dir),
-                      catch_exceptions=True,
-                      binary=binary)
-
-    expected_output = 'The project is not structured as a standard python project'
 
     assert expected_output in result.std_out
 

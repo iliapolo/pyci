@@ -14,23 +14,18 @@
 #
 #############################################################################
 
+import logging
+import sys
 import contextlib
 import os
 import platform
-import shutil
 import tempfile
-import time
+
+import click
 
 import pytest
 from github import Github
 
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
 
 from pyci.api import logger
 from pyci.api import utils
@@ -40,36 +35,42 @@ from pyci.api.pypi import PyPI
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell import secrets
 from pyci.tests.shell import PyCI
+from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
+from pyci.tests import utils as test_utils
 
-
-log = logger.get_logger(__name__)
+# logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
-LAST_COMMIT = '1b8e0b8ef5929e6d2e6017242bba68425ff64b9a'
+LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
+SPEC_FILE = 'pyci.spec'
 
 
 @pytest.fixture(name='skip', autouse=True)
-def _skip(request):
+def _skip(request, test_name):
 
     def __skip(reason):
         pytest.skip('[{}] {}'.format(request.node.location, reason))
 
     system = platform.system().lower()
+    docker = utils.which('docker')
 
-    if hasattr(request.node.function, 'linux') and system == 'windows':
+    if _get_marker(request, test_name, 'linux') is not None and system == 'windows':
         __skip('This test should not run on windows')
+
+    if _get_marker(request, test_name, 'docker') is not None and docker is None:
+        __skip('This test can only run when docker is installed')
 
 
 @pytest.fixture(name='cleanup', autouse=True)
-def _cleanup(request, repo):
-    with _github_cleanup(request, repo):
+def _cleanup(log, request, repo, test_name):
+    with _github_cleanup(log, test_name, request, repo):
         yield
 
 
 @pytest.fixture(name='patch', autouse=True)
-def _patch_github_connection(request, connection_patcher):
-    connection_patcher.update(_get_data_file(request))
+def _patch_github_connection(request, test_name, connection_patcher):
+    connection_patcher.update(_get_data_file(request, test_name))
     yield
 
 
@@ -85,10 +86,33 @@ def _cwd(temp_dir):
         os.chdir(cwd)
 
 
-@pytest.fixture(name='pyci', scope='session')
-def _pyci(repo_path):
+@pytest.fixture(name='non_interactive', autouse=True)
+def _non_interactive():
+    os.environ['PYCI_INTERACTIVE'] = 'False'
 
-    yield PyCI(repo_path)
+
+@pytest.fixture(name='_log', autouse=True)
+def _mock_log(mocker, log):
+
+    def _log(level, message, **kwargs):
+
+        if os.environ.get(CLICK_ISOLATION):
+            # This means we are running inside an isolated click
+            # environment, So we add this to buffer regular log messages as well
+            # in order to capture the entire execution output.
+            # TODO this feels super hacky - rethink.
+            click.echo(message)
+
+        # This prints the messages in real time while the test is running
+        log.log(level, '{}{}'.format(message.strip(), logger.Logger.format_key_values(**kwargs)))
+
+    mocker.patch(target='pyci.api.logger.Logger._log', side_effect=_log)
+
+
+@pytest.fixture(name='pyci', scope='session')
+def _pyci(log, global_repo_path):
+
+    return PyCI(global_repo_path, log)
 
 
 @pytest.fixture(name='release')
@@ -113,10 +137,10 @@ def _release(pyci, github):
 
 
 @pytest.fixture(name='github')
-def _github(pyci, repo):
+def _github(pyci, repo, token):
 
     repository = GitHubRepository.create(repo=REPO_UNDER_TEST,
-                                         access_token=secrets.github_access_token(True))
+                                         access_token=token)
     setattr(repository, 'repo', repo)
 
     # pylint: disable=too-few-public-methods
@@ -140,24 +164,13 @@ def _github(pyci, repo):
 @pytest.fixture(name='pack')
 def _pack(pyci, repo_path):
 
-    temp_dir = tempfile.mkdtemp()
-
-    ignore = shutil.ignore_patterns('build', '.tox', 'pytest_cache')
-
-    target_repo_path = os.path.join(temp_dir, 'repo')
-
-    shutil.copytree(src=repo_path, dst=target_repo_path, ignore=ignore)
-
-    version = _patch_setup_py(target_repo_path)
-
-    packager = Packager.create(path=target_repo_path)
+    packager = Packager.create(path=repo_path)
 
     # pylint: disable=too-few-public-methods
     class PackSubCommand(object):
 
         def __init__(self):
             self.api = packager
-            self.version = version
 
         def run(self, command, binary=False, catch_exceptions=False):
 
@@ -173,10 +186,7 @@ def _pack(pyci, repo_path):
                             binary=binary,
                             catch_exceptions=catch_exceptions)
 
-    try:
-        yield PackSubCommand()
-    finally:
-        utils.rmf(packager.repo_dir)
+    return PackSubCommand()
 
 
 @pytest.fixture(name='pypi')
@@ -186,8 +196,8 @@ def _pypi(pyci):
     class PyPISubCommand(object):
 
         def __init__(self):
-            self.api = PyPI.create(username=secrets.twine_username(True),
-                                   password=secrets.twine_password(True),
+            self.api = PyPI.create(username=secrets.twine_username(),
+                                   password=secrets.twine_password(),
                                    test=True)
 
         @staticmethod
@@ -212,45 +222,11 @@ def _temp_dir(request):
     try:
         yield dir_path
     finally:
-        # cleanup
         utils.rmf(dir_path)
 
 
-@pytest.fixture(name='patched_release')
-def _patched_release(mocker, pyci):
-
-    gh = MagicMock()
-    packager = MagicMock()
-    pypi = MagicMock()
-
-    mocker.patch(target='pyci.api.gh.GitHubRepository.create', new=MagicMock(return_value=gh))
-    mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock(return_value=packager))
-    mocker.patch(target='pyci.api.pypi.PyPI.create', new=MagicMock(return_value=pypi))
-
-    # pylint: disable=too-few-public-methods
-    class ReleaseCommand(object):
-
-        def __init__(self):
-            self.gh = gh
-            self.packager = packager
-            self.pypi = pypi
-
-        @staticmethod
-        def run(command, binary=False, catch_exceptions=False):
-
-            command = '--no-ci release --pypi-test --repo {} {}'.format(
-                REPO_UNDER_TEST,
-                command)
-
-            return pyci.run(command=command,
-                            binary=binary,
-                            catch_exceptions=catch_exceptions)
-
-    yield ReleaseCommand()
-
-
 @pytest.fixture(name='repo', scope='session')
-def _repo(connection_patcher):
+def _repo(connection_patcher, token):
 
     get_repo_data = os.path.join(os.path.dirname(tests.__file__),
                                  "replay_data",
@@ -259,7 +235,8 @@ def _repo(connection_patcher):
     try:
         connection_patcher.patch()
         connection_patcher.update(get_repo_data)
-        repo = Github(secrets.github_access_token(True), timeout=30).get_repo(
+
+        repo = Github(token, timeout=30).get_repo(
             REPO_UNDER_TEST, lazy=False)
         yield repo
     finally:
@@ -267,13 +244,42 @@ def _repo(connection_patcher):
 
 
 @pytest.fixture(name='connection_patcher', scope='session')
-def _github_connection_patcher():
+def _github_connection_patcher(token, mode):
 
     pytest.register_assert_rewrite('pyci.tests.framework')
 
     from pyci.tests import github_patcher
 
-    return github_patcher.GithubConnectionPatcher(record=False)
+    record = mode == 'RECORD'
+
+    return github_patcher.GithubConnectionPatcher(record=record, token=token)
+
+
+@pytest.fixture(name='token', scope='session')
+def _token(mode):
+
+    if mode == 'RECORD':
+        token = secrets.github_access_token()
+    else:
+        # when replaying, the token is not needed.
+        token = 'token'
+
+    # set the environment variable so that the commands code will use it and not
+    # get stuck on prompt when running from IDE.
+    os.environ[secrets.GITHUB_ACCESS_TOKEN] = token
+
+    return token
+
+
+@pytest.fixture(name='mode', scope='session')
+def _mode():
+
+    record = os.environ.get('PYGITHUB_RECORD', False)
+
+    if record:
+        return 'RECORD'
+
+    return 'REPLAY'
 
 
 @pytest.fixture(name='runner', scope='session')
@@ -282,39 +288,91 @@ def _runner():
     yield LocalCommandRunner()
 
 
-@pytest.fixture(name='repo_path', scope='session')
-def _repo_path():
-    import pyci
-    return os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
+@pytest.fixture(name='repo_path')
+def _repo_path(log, temp_dir):
+
+    target_repo_path = os.path.join(temp_dir, 'pyci')
+
+    log.info('Copying source directory to {}...'.format(target_repo_path))
+    test_utils.copy_repo(target_repo_path)
+    log.info('Finished copying source directory to: {}'.format(target_repo_path))
+
+    return target_repo_path
+
+
+@pytest.fixture(name='repo_version', autouse=True)
+def _repo_version(repo_path):
+
+    version = test_utils.patch_setup_py(repo_path)
+    return version
+
+
+@pytest.fixture(name='global_repo_path', scope='session')
+def _global_repo_path(log):
+
+    temp_dir = tempfile.mkdtemp()
+    target_repo_path = os.path.join(temp_dir, 'pyci')
+
+    log.info('Copying source directory to {}...'.format(target_repo_path))
+    test_utils.copy_repo(target_repo_path)
+    log.info('Finished copying source directory to: {}'.format(target_repo_path))
+
+    try:
+        yield target_repo_path
+    finally:
+        utils.rmf(target_repo_path)
 
 
 @contextlib.contextmanager
-def _github_cleanup(request, repo):
+def _github_cleanup(log, test_name, request, repo):
 
-    wet = None
-
-    try:
-        wet = getattr(request.node.function, 'wet')
-    except AttributeError:
-        pass
+    wet = _get_marker(request, test_name, 'wet') is not None
 
     try:
         yield
     finally:
         if wet:
-            _reset_repo(repo)
+            _reset_repo(log, repo)
 
 
-def _reset_repo(repo):
+@pytest.fixture(name='log', scope='session')
+def _log():
 
-    _reset_commits(repo)
-    _reset_releases(repo)
-    _reset_tags(repo)
-    _reset_branches(repo)
-    _reset_issues(repo)
+    lo = logging.getLogger('pyci.tests')
+    lo.setLevel(logger.DEFAULT_LOG_LEVEL)
+    lo.propagate = False
+    ch = logging.StreamHandler(stream=sys.stdout)
+    ch.setLevel(logger.DEFAULT_LOG_LEVEL)
+    formatter = logging.Formatter(logger.DEFAULT_LOG_FORMAT)
+    ch.setFormatter(formatter)
+
+    lo.addHandler(ch)
+
+    return lo
 
 
-def _reset_commits(repo):
+@pytest.fixture(name='test_name')
+def _test_name(request):
+    sanitized = request.node.nodeid\
+        .replace(os.sep, '.')\
+        .replace('/', '.')\
+        .replace('::', '.')\
+        .replace(':', '.')\
+        .replace('[', '-')\
+        .replace(']', '')
+    return sanitized
+
+
+def _reset_repo(log, repo):
+
+    _reset_commits(log, repo)
+    _reset_releases(log, repo)
+    _reset_tags(log, repo)
+    _reset_branches(log, repo)
+    _reset_issues(log, repo)
+
+
+def _reset_commits(log, repo):
 
     log.info('Resetting release branch to original state...')
     ref = repo.get_git_ref('heads/release')
@@ -325,7 +383,7 @@ def _reset_commits(repo):
     ref.edit(sha=LAST_COMMIT, force=True)
 
 
-def _reset_issues(repo):
+def _reset_issues(log, repo):
     log.info('Re-opening and cleaning all issues...')
     for issue in repo.get_issues(state='all'):
         if not issue.pull_request:
@@ -334,20 +392,20 @@ def _reset_issues(repo):
                 comment.delete()
 
 
-def _reset_releases(repo):
+def _reset_releases(log, repo):
     log.info('Deleting any releases...')
     for release in repo.get_releases():
         release.delete_release()
 
 
-def _reset_tags(repo):
+def _reset_tags(log, repo):
     log.info('Deleting any tags...')
     for tag in repo.get_tags():
         ref = repo.get_git_ref('tags/{}'.format(tag.name))
         ref.delete()
 
 
-def _reset_branches(repo):
+def _reset_branches(log, repo):
     log.info('Deleting any additional branches...')
     for branch in repo.get_branches():
         if branch.name not in ['master', 'release']:
@@ -355,31 +413,30 @@ def _reset_branches(repo):
             ref.delete()
 
 
-def _patch_setup_py(local_repo_path):
+def _get_marker(request, test_name, marker_name):
 
-    with open(os.path.join(local_repo_path, 'setup.py'), 'r') as stream:
-        setup_py = stream.read()
+    markers = [mark for mark in request.node.own_markers if mark.name == marker_name]
 
-    version = int(round(time.time() * 1000))
-    setup_py = utils.generate_setup_py(setup_py, '{}'.format(version))
+    if len(markers) > 1:
+        raise RuntimeError("Invalid markers for test '{}': Multiple '{}' markers found".format(marker_name, test_name))
 
-    with open(os.path.join(local_repo_path, 'setup.py'), 'w') as stream:
-        stream.write(setup_py)
-
-    return version
+    return markers[0] if markers else None
 
 
-def _get_data_file(request):
+def _get_data_file(request, test_name):
 
-    test_name = request.node.nodeid.replace(os.sep, '.').replace('/', '.').replace('::', '.')
+    def _is_test_platform_dependent():
+
+        record_mark = _get_marker(request, test_name, 'record')
+
+        if not record_mark:
+            return False
+
+        return record_mark.kwargs.get('platform', False)
 
     file_name = os.path.join(os.path.dirname(tests.__file__), "replay_data", test_name + ".txt")
 
-    try:
-        record = getattr(request.node.function, 'record')
-        if record.kwargs.get('platform', False):
-            file_name = '{}[{}]'.format(file_name, platform.system().lower())
-    except AttributeError:
-        pass
+    if _is_test_platform_dependent():
+        file_name = '{}-{}'.format(file_name, platform.system().lower())
 
     return file_name

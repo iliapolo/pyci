@@ -23,7 +23,6 @@ from github import UnknownObjectException, GithubException, GitRelease
 from pyci.api import exceptions, utils
 from pyci.api.gh import GitHubRepository
 from pyci.api.model import Changelog, ChangelogIssue
-from pyci.shell import secrets
 from pyci.tests import conftest
 from pyci.tests.conftest import LAST_COMMIT
 from pyci.tests import utils as test_utils
@@ -39,10 +38,10 @@ def _create_branch(github, request, sha, name=None):
     return github.api.repo.create_git_ref(ref='refs/heads/{}'.format(branch_name), sha=sha)
 
 
-def test_no_repo():
+def test_no_repo(token):
 
     with pytest.raises(exceptions.InvalidArgumentsException):
-        GitHubRepository.create(repo='', access_token='token')
+        GitHubRepository.create(repo='', access_token=token)
 
 
 def test_no_access_token():
@@ -51,11 +50,11 @@ def test_no_access_token():
         GitHubRepository.create(repo='repo', access_token='')
 
 
-def test_non_existing_repo():
+def test_non_existing_repo(token):
 
     with pytest.raises(exceptions.RepositoryNotFoundException):
         _ = GitHubRepository.create(repo='iliapolo/doesnt-exist',
-                                    access_token=secrets.github_access_token(True)).repo
+                                    access_token=token).repo
 
 
 def test_default_branch_name(github):

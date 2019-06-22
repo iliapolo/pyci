@@ -24,37 +24,41 @@ TWINE_USERNAME = 'TWINE_USERNAME'
 GITHUB_ACCESS_TOKEN = 'GITHUB_ACCESS_TOKEN'
 
 
-def github_access_token(ci_provider):
+def github_access_token():
 
     if GITHUB_ACCESS_TOKEN in os.environ:
         return os.environ[GITHUB_ACCESS_TOKEN]
 
-    if not ci_provider:
+    if not _is_interactive():
         return click.prompt('Enter Github access token:', hide_input=True)  # pragma: no cover
 
     raise click.ClickException('Please provide a github access token by setting the '
                                '{} env variable.'.format(GITHUB_ACCESS_TOKEN))
 
 
-def twine_username(ci_provider):
+def twine_username():
 
     if TWINE_USERNAME in os.environ:
         return os.environ[TWINE_USERNAME]
 
-    if not ci_provider:
+    if not _is_interactive():
         return click.prompt('Enter twine username:', hide_input=True)  # pragma: no cover
 
     raise click.ClickException('Please provide a pypi username by setting the '
                                '{} env variable.'.format(TWINE_USERNAME))
 
 
-def twine_password(ci_provider):
+def twine_password():
 
     if TWINE_PASSWORD in os.environ:
         return os.environ[TWINE_PASSWORD]
 
-    if not ci_provider:
+    if not _is_interactive():
         return click.prompt('Enter twine password:', hide_input=True)  # pragma: no cover
 
     raise click.ClickException('Please provide a pypi password by setting the '
                                '{} env variable.'.format(TWINE_PASSWORD))
+
+
+def _is_interactive():
+    return os.environ.get('PYCI_INTERACTIVE', True)

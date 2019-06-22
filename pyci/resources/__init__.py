@@ -18,16 +18,29 @@
 import pkgutil
 
 
-def get_resource(path):
+def get_text_resource(path):
 
     """
-    Fetch a resource file.
+    Fetch a resource text file.
 
     Args:
         path (str): The path of the resource relative to this package.
     Returns:
-        str: The resource as a string.
+        str: The resource as a character string.
     """
 
-    resource_binary = pkgutil.get_data(__name__, path)
-    return resource_binary.decode('UTF-8', 'ignore')
+    return get_binary_resource(path).decode('UTF-8', 'ignore')
+
+
+def get_binary_resource(path):
+
+    """
+    Fetch a resource binary file.
+
+    Args:
+        path (str): The path of the resource relative to this package.
+    Returns:
+        str: The resource as a binary string.
+    """
+
+    return pkgutil.get_data(__name__, path)

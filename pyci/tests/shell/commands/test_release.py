@@ -25,29 +25,95 @@ from pyci.tests.conftest import LAST_COMMIT
 
 @pytest.mark.wet
 @pytest.mark.record(platform=True)
-def test_release(release):
+def test_release(release, temp_dir, mocker):
 
     release_options = '--pypi-test --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
+
+    expected_binary_name = 'pyci-guinea-pig-{}-{}'.format(platform.machine(), platform.system())
+    if platform.system().lower() == 'windows':
+        expected_binary_name = '{0}.exe'.format(expected_binary_name)
+
+    # This mock has to create a file with the proper name
+    # since the file is actually uploaded to the release.
+    def _binary(*_, **__):
+
+        binary_path = os.path.join(temp_dir, expected_binary_name)
+
+        with open(binary_path, 'w') as f:
+            f.write('binary')
+
+        return binary_path
+
+    # This mock can create whatever file it wants since it not
+    # being uploaded anywhere, nor is it being asserted on.
+    def _wheel(*_, **__):
+
+        binary_path = os.path.join(temp_dir, 'pyci-guinea-pig.whl')
+
+        with open(binary_path, 'w') as f:
+            f.write('wheel')
+
+        return binary_path
+
+    # This mock can return anything it wants since this URL is not being
+    # asserted upon.
+    def _upload(*_, **__):
+        return 'http://this-is-an-upload-url'
+
+    mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
+    mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch-name release {}'.format(release_options))
 
     github_release = release.github.api.repo.get_release(id='1.0.0')
 
-    expected_asset_name = 'pyci-guinea-pig-{}-{}'.format(platform.machine(), platform.system())
-    if platform.system().lower() == 'windows':
-        expected_asset_name = '{0}.exe'.format(expected_asset_name)
-
     assets = [asset.name for asset in github_release.get_assets()]
-    assert expected_asset_name in assets
+    assert expected_binary_name in assets
 
 
 @pytest.mark.wet
 @pytest.mark.record(platform=True)
-def test_release_twice(release):
+def test_release_twice(release, mocker, temp_dir):
 
     release_options = '--pypi-test --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
+
+    expected_binary_name = 'pyci-guinea-pig-{}-{}'.format(platform.machine(), platform.system())
+    if platform.system().lower() == 'windows':
+        expected_binary_name = '{0}.exe'.format(expected_binary_name)
+
+    # This mock has to create a file with the proper name
+    # since the file is actually uploaded to the release.
+    def _binary(*_, **__):
+
+        binary_path = os.path.join(temp_dir, expected_binary_name)
+
+        with open(binary_path, 'w') as f:
+            f.write('binary')
+
+        return binary_path
+
+    # This mock can create whatever file it wants since it not
+    # being uploaded anywhere, nor is it being asserted on.
+    def _wheel(*_, **__):
+
+        binary_path = os.path.join(temp_dir, 'pyci-guinea-pig.whl')
+
+        with open(binary_path, 'w') as f:
+            f.write('wheel')
+
+        return binary_path
+
+    # This mock can return anything it wants since this URL is not being
+    # asserted upon.
+    def _upload(*_, **__):
+        return 'http://this-is-an-upload-url'
+
+    mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
+    mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch-name release {}'.format(release_options))
 
@@ -61,10 +127,11 @@ def test_release_twice(release):
     assert expected_number_of_releases == len(list(release.github.api.repo.get_releases()))
 
 
+@pytest.mark.skip('Need to create a specific commit to fit this use case')
 @pytest.mark.wet
 def test_release_default_entrypoint_not_found(release):
 
-    sha = 'b22803b93eaca693db78f9d551ec295946765135'
+    sha = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
     release.github.api.reset_branch(name='release', sha=sha, hard=True)
     release.github.api.reset_branch(name='master', sha=sha, hard=True)
 
@@ -98,6 +165,6 @@ def test_release_failed(release):
 
     result = release.run('--branch-name doesnt-exist', catch_exceptions=True)
 
-    expected_output = 'ERROR: Commit not found: doesnt-exist'
+    expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out

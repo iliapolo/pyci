@@ -16,42 +16,46 @@
 #############################################################################
 
 import os
-import pytest
+
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # python3
+    # noinspection PyUnresolvedReferences,PyCompatibility
+    from unittest.mock import MagicMock
+
+from twine.commands import upload
+
+from pyci.shell import secrets
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_upload(pypi, pack, binary):
+def test_upload(pypi, pyci, mocker):
 
-    wheel_path = pack.api.wheel()
+    mocker.patch(target='twine.commands.upload.main', new=MagicMock())
 
-    expected_url = 'https://test.pypi.org/manage/project/py-ci/release/{}/'.format(
-        wheel_path.split('-')[1])
+    pypi.run('upload --wheel {}'.format(pyci.wheel_path))
 
-    result = pypi.run('upload --wheel {}'.format(wheel_path), binary=binary)
+    expected_args = ['--username', secrets.twine_username(),
+                     '--password', secrets.twine_password(),
+                     '--repository-url', 'https://test.pypi.org/legacy/',
+                     pyci.wheel_path]
 
-    expected_output = '* Wheel uploaded: {}'.format(expected_url)
+    # noinspection PyUnresolvedReferences
+    upload.main.assert_called_once_with(expected_args)  # pylint: disable=no-member
 
-    assert expected_output in result.std_out
 
+def test_upload_already_published(pypi, pyci, mocker):
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_upload_already_published(pypi, pack, binary):
+    # Mocking the response from PyPI in this case
+    def _upload(*_, **__):
+        raise BaseException('File already exists')
 
-    wheel_path = pack.api.wheel()
+    mocker.patch(target='twine.commands.upload.main', side_effect=_upload)
 
-    pypi.run('upload --wheel {}'.format(wheel_path), catch_exceptions=True, binary=binary)
+    result = pypi.run('upload --wheel {}'.format(pyci.wheel_path), catch_exceptions=True)
 
-    # change the source code but create a wheel with the same version
-    main = os.path.join(pack.api.repo_dir, 'pyci', 'shell', 'main.py')
-    with open(main, 'w') as stream:
-        stream.write('import os')
-
-    os.remove(wheel_path)
-    wheel_path = pack.api.wheel()
-
-    result = pypi.run('upload --wheel {}'.format(wheel_path), catch_exceptions=True, binary=binary)
-
-    expected_output = 'A wheel with the same name as {} was already uploaded'\
-                      .format(os.path.basename(wheel_path))
+    expected_output = 'A wheel with the same name as {} was already uploaded' \
+        .format(os.path.basename(pyci.wheel_path))
 
     assert expected_output in result.std_out

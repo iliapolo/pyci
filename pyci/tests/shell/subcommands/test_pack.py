@@ -17,37 +17,33 @@
 
 import os
 import platform
-import shutil
+
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # python3
+    # noinspection PyUnresolvedReferences,PyCompatibility
+    from unittest.mock import MagicMock
 
 import pytest
 
-from pyci.api import utils
+from pyci.api.packager import Packager
+from pyci.tests import distros
+from pyci.tests import conftest
 
 
-def test_binary(pack, runner):
-
-    result = pack.run('binary')
-
-    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-        platform.machine(), platform.system()))
-
-    if platform.system() == 'Windows':
-        expected_package_path = '{0}.exe'.format(expected_package_path)
-
-    expected_output = '* Binary package created: {}'.format(expected_package_path)
-
-    assert expected_output in result.std_out
-    assert os.path.exists(expected_package_path)
-
-    # lets make sure the binary actually works
-    runner.run('{0} --help'.format(expected_package_path))
-
-
-def test_binary_options(pack, temp_dir, request, runner):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary(pack, temp_dir, request, runner, binary, mocker):
 
     pack.api.target_dir = temp_dir
 
+    if not binary:
+        mocker.patch(target='pyci.api.packager.Packager.binary', new=MagicMock())
+
+    name = request.node.name.replace('[', '-').replace(']', '')
     custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
+
     with open(os.path.join(pack.api.repo_dir, custom_main), 'w') as stream:
         stream.write('''
 import six
@@ -56,43 +52,31 @@ if __name__ == '__main__':
     six.print_('It works!')        
 ''')
 
-    name = request.node.name
+    pack.run('binary --name {} --entrypoint {} --pyinstaller-version 3.4'.format(name, custom_main), binary=binary)
 
-    result = pack.run('binary --name {} --entrypoint {}'.format(name, custom_main))
+    if binary:
 
-    expected_package_path = os.path.join(temp_dir, '{}-{}-{}'
-                                         .format(name, platform.machine(), platform.system()))
+        expected_package_path = os.path.join(temp_dir, '{}-{}-{}'
+                                             .format(name, platform.machine(), platform.system()))
 
-    if platform.system() == 'Windows':
-        expected_package_path = '{0}.exe'.format(expected_package_path)
+        if platform.system() == 'Windows':
+            expected_package_path = '{0}.exe'.format(expected_package_path)
 
-    expected_output = '* Binary package created: {}'.format(expected_package_path)
+        assert os.path.exists(expected_package_path)
 
-    assert expected_output in result.std_out
-    assert os.path.exists(expected_package_path)
+        # lets make sure the binary actually works
+        assert runner.run(expected_package_path).std_out == 'It works!'
 
-    # lets make sure the binary actually works
-    assert runner.run(expected_package_path).std_out == 'It works!'
+    else:
 
-
-def test_binary_from_binary(pack):
-
-    result = pack.run('binary', binary=True, catch_exceptions=True)
-
-    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-        platform.machine(), platform.system()))
-
-    if platform.system() == 'Windows':
-        expected_package_path = '{0}.exe'.format(expected_package_path)
-
-    expected_output = 'Creating a binary package is not supported when ' \
-                      'running from within a binary'
-
-    assert expected_output in result.std_out
-    assert not os.path.exists(expected_package_path)
+        # noinspection PyUnresolvedReferences
+        Packager.binary.assert_called_once_with(name=name,  # pylint: disable=no-member
+                                                entrypoint=custom_main,
+                                                pyinstaller_version='3.4')
 
 
-def test_binary_file_exists(pack):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_file_exists(pack, binary):
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
         platform.machine(), platform.system()))
@@ -103,7 +87,7 @@ def test_binary_file_exists(pack):
     with open(expected_package_path, 'w') as stream:
         stream.write('package')
 
-    result = pack.run('binary', catch_exceptions=True)
+    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), catch_exceptions=True, binary=binary)
 
     expected_output = 'Binary already exists: {}'.format(expected_package_path)
     expected_possible_solution = 'Delete/Move the binary and try again'
@@ -112,17 +96,10 @@ def test_binary_file_exists(pack):
     assert expected_possible_solution in result.std_out
 
 
-def test_binary_default_entrypoint_doesnt_exist(pack):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_default_entrypoint_doesnt_exist(pack, binary):
 
-    repo_dir = pack.api.repo_dir
-
-    shutil.move(src=os.path.join(repo_dir, 'pyci', 'shell', 'main.py'),
-                dst=os.path.join(repo_dir, 'pyci', 'shell', 'main2.py'))
-
-    shutil.move(src=os.path.join(repo_dir, 'pyci.spec'),
-                dst=os.path.join(repo_dir, 'pyci2.spec'))
-
-    result = pack.run('binary', catch_exceptions=True)
+    result = pack.run('binary', catch_exceptions=True, binary=binary)
 
     expected_output = 'Failed locating an entrypoint file'
     expected_possible_solutions = [
@@ -135,9 +112,10 @@ def test_binary_default_entrypoint_doesnt_exist(pack):
         assert expected_possible_solution in result.std_out
 
 
-def test_binary_entrypoint_doesnt_exist(pack):
+@pytest.mark.parametrize("binary", [False, True])
+def test_binary_entrypoint_doesnt_exist(pack, binary):
 
-    result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True)
+    result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True, binary=binary)
 
     expected_output = 'The entrypoint path you specified does not exist: doesnt-exist'
 
@@ -145,40 +123,36 @@ def test_binary_entrypoint_doesnt_exist(pack):
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_wheel(pack, binary):
-
-    result = pack.run('wheel', binary=binary)
-
-    py = 'py3' if utils.is_python_3() else 'py2'
-
-    expected_path = os.path.join(os.getcwd(), 'py_ci-{}-{}-none-any.whl'.format(pack.version, py))
-
-    expected_output = '* Wheel package created: {}'.format(expected_path)
-
-    assert expected_output in result.std_out
-    assert os.path.exists(expected_path)
-
-
-@pytest.mark.parametrize("binary", [False, True])
-def test_wheel_options(pack, temp_dir, binary):
+def test_wheel(pack, repo_version, temp_dir, binary, mocker):
 
     pack.api.target_dir = temp_dir
 
-    result = pack.run('wheel --universal', binary=binary)
+    if not binary:
+        mocker.patch(target='pyci.api.packager.Packager.wheel', new=MagicMock())
 
-    expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(pack.version))
+    result = pack.run('wheel --universal --wheel-version 0.33.4', binary=binary)
 
-    expected_output = '* Wheel package created: {}'.format(expected_path)
+    if binary:
 
-    assert expected_output in result.std_out
-    assert os.path.exists(expected_path)
+        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(repo_version))
+
+        expected_output = 'Wheel package created: {}'.format(expected_path)
+
+        assert expected_output in result.std_out
+        assert os.path.exists(expected_path)
+
+    else:
+
+        # noinspection PyUnresolvedReferences
+        Packager.wheel.assert_called_once_with(universal=True,  # pylint: disable=no-member
+                                               wheel_version='0.33.4')
 
 
 @pytest.mark.parametrize("binary", [False, True])
-def test_wheel_file_exists(pack, binary):
+def test_wheel_file_exists(pack, repo_version, binary):
 
     expected_path = os.path.join(os.getcwd(), 'py_ci-{}-py2.py3-none-any.whl'
-                                 .format(pack.version))
+                                 .format(repo_version))
 
     with open(expected_path, 'w') as stream:
         stream.write('package')
@@ -190,3 +164,81 @@ def test_wheel_file_exists(pack, binary):
 
     assert expected_output in result.std_out
     assert expected_possible_solution in result.std_out
+
+
+@pytest.mark.parametrize("binary", [False, True])
+def test_wheel_not_python_project(pack, binary):
+
+    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
+
+    result = pack.run('wheel', binary=binary, catch_exceptions=True)
+
+    expected_output = 'does not contain a valid python project'
+
+    assert expected_output in result.std_out
+
+
+@pytest.mark.docker
+@pytest.mark.cross_distro
+@pytest.mark.parametrize("build_distro_id", [
+    'build:PythonStretch:2.7.16',
+    'build:PythonStretch:3.6.8'
+])
+def test_binary_cross_distribution_wheel(log, repo_version, repo_path, test_name, build_distro_id):
+
+    run_distro_ids = [
+        'run:PythonStretch:2.7.16',
+        'run:PythonStretch:3.6.8',
+        'run:Ubuntu:18.04',
+        'run:Ubuntu:16.04',
+        'run:Ubuntu:14.04'
+    ]
+
+    build_distro = distros.from_string(test_name, build_distro_id)
+
+    build_distro.boot()
+
+    log.debug("Creating binary package on: {}".format(build_distro_id))
+    local_binary_path = build_distro.binary(repo_path)
+    log.debug("Binary package created: {}".format(local_binary_path))
+
+    try:
+        for run_distro_id in run_distro_ids:
+
+            log.debug('Running on target: {}'.format(run_distro_id))
+
+            run_distro = distros.from_string(test_name, run_distro_id)
+
+            if run_distro.python_version is not None:
+                # wheels can only be built on distros with python installed
+                expected_output = 'py_ci-{}-{}-none-any.whl'.format(
+                    repo_version,
+                    'py2' if run_distro.python_version.startswith('2') else 'py3')
+            else:
+                expected_output = 'Python installation not found in PATH'
+
+            try:
+
+                run_distro.boot()
+
+                remote_binary_path = run_distro.add(local_binary_path)
+                remote_repo_path = run_distro.add(repo_path)
+
+                locale_setup = ''
+                if build_distro.python_version.startswith('3'):
+                    # pyci was packed with python 3.
+                    # need to configure locale before invoking.
+                    # http://click.palletsprojects.com/en/6.x/python3/
+                    locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
+
+                result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
+                                        .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
+                                        exit_on_failure=False)
+
+                assert expected_output in result.std_out
+
+            finally:
+                run_distro.shutdown()
+    finally:
+        os.remove(local_binary_path)
+        build_distro.shutdown()

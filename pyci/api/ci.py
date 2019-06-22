@@ -18,14 +18,10 @@
 import os
 
 from pyci.api import exceptions
-from pyci.api import logger
 
 CIRCLE = 'CircleCI'
 TRAVIS = 'Travis-CI'
 APPVEYOR = 'AppVeyor'
-
-
-log = logger.get_logger(__name__)
 
 
 class _Provider(object):
