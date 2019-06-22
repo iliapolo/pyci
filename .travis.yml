@@ -17,9 +17,7 @@ jobs:
         - PYTHON=2.7.14
         - PYENV_VERSION=2.7.14
       script:
-        - tox -e lint-py27
-        - tox -e test-py27
-        - tox -e codecov
+        - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
 
     - stage: ci
       name: ci-py36
@@ -27,9 +25,7 @@ jobs:
         - PYTHON=3.6.4
         - PYENV_VERSION=3.6.4
       script:
-        - tox -e lint-py36
-        - tox -e test-py36
-        - tox -e codecov
+        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
 
     - stage: release
       name: release
