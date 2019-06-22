@@ -176,7 +176,7 @@ if __name__ == '__main__':
     assert runner.run(actual).std_out == 'It works!'
 
 
-def test_binary_only_requirements(runner, temp_dir):
+def test_binary_only_requirements_txt(runner, temp_dir):
 
     repo_path = test_resources.get_resource_path(os.path.join('repos', 'only-requirements'))
 
@@ -186,6 +186,20 @@ def test_binary_only_requirements(runner, temp_dir):
 
     # lets make sure the binary actually works
     assert runner.run(binary_path).std_out == 'Hello from requirements'
+
+
+def test_binary_no_requirements(runner, temp_dir):
+
+    repo_path = test_resources.get_resource_path(os.path.join('repos', 'no-requirements'))
+
+    packager = Packager.create(path=repo_path, target_dir=temp_dir)
+
+    binary_path = packager.binary(name='no-requirements', entrypoint='main.py')
+
+    result = runner.run(binary_path, exit_on_failure=False)
+
+    assert 'ModuleNotFoundError' in result.std_err
+    assert 'six' in result.std_err
 
 
 def test_binary_file_exists(pack):

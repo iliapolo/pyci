@@ -436,23 +436,6 @@ class PythonNotFoundException(ApiException):
         return "Python installation not found in PATH"
 
 
-class NoRequirementsException(ApiException):
-
-    def __init__(self, sha, repo, path, lookups):
-        self.lookups = lookups
-        self.sha = sha
-        self.repo = repo
-        self.path = path
-        super(NoRequirementsException, self).__init__(self.__str__())
-
-    def __str__(self):
-
-        location = repo_location(self.repo, self.sha, self.path)
-
-        return "No requirements of repository at location {} found. Looked in --> [{}]".format(
-            location, ', '.join(self.lookups))
-
-
 def repo_location(repo, sha, path):
 
     if repo:

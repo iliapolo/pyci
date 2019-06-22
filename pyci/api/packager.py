@@ -375,17 +375,11 @@ class Packager(object):
         setup_py_file = os.path.join(self._repo_dir, 'setup.py')
         requirements_file = os.path.join(self._repo_dir, 'requirements.txt')
 
-        if not os.path.exists(setup_py_file) and not os.path.exists(requirements_file):
-            raise exceptions.NoRequirementsException(
-                repo=self._repo,
-                sha=self._sha,
-                path=self._path,
-                lookups=[setup_py_file, requirements_file]
-            )
-
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
 
         pip_path = utils.get_python_executable('pip', exec_home=virtualenv_path)
+
+        requires = None
 
         if os.path.exists(requirements_file):
 
@@ -393,7 +387,7 @@ class Packager(object):
             self._debug('Using requirements file: {}'.format(requirements_file))
             requires = requirements_file
 
-        else:
+        elif os.path.exists(setup_py_file):
 
             # Dump the 'install_requires' argument from setup.py into a requirements file.
             egg_base = os.path.join(temp_dir, 'egg-base')
@@ -412,9 +406,10 @@ class Packager(object):
                 # Something is really wrong if this happens
                 raise RuntimeError('Unable to create requires.txt file')
 
-        command = '{} -r {}'.format(self._pip_install(pip_path), requires)
-        self._debug('Installing {} requirements...'.format(name))
-        self._runner.run(command, cwd=self._repo_dir)
+        if requires:
+            command = '{} -r {}'.format(self._pip_install(pip_path), requires)
+            self._debug('Installing {} requirements...'.format(name))
+            self._runner.run(command, cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 
