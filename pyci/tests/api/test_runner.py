@@ -15,17 +15,22 @@
 #
 #############################################################################
 
+import os
+
 import pytest
 
 from pyci.api import exceptions
 
 
 @pytest.mark.linux
-def test_run_list(runner):
+def test_run_list(runner, temp_dir):
 
-    result = runner.run(['ls', '-l'])
+    with open(os.path.join(temp_dir, 'test_run_list'), 'w') as f:
+        f.write('hello')
 
-    assert result.std_out
+    result = runner.run(['ls', '-l'], cwd=temp_dir)
+
+    assert 'test_run_list' in result.std_out
 
 
 @pytest.mark.linux

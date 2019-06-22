@@ -300,7 +300,7 @@ def _repo_path(log, temp_dir):
     return target_repo_path
 
 
-@pytest.fixture(name='repo_version', autouse=True)
+@pytest.fixture(name='repo_version')
 def _repo_version(repo_path):
 
     version = test_utils.patch_setup_py(repo_path)
