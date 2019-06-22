@@ -23,6 +23,7 @@ from pyci.api import exceptions
 from pyci.api.packager import Packager
 from pyci.api import utils
 from pyci.tests import conftest
+from pyci.tests import  resources as test_resources
 
 
 def test_sha_and_not_repo():
@@ -173,6 +174,18 @@ if __name__ == '__main__':
 
     # lets make sure the binary actually works
     assert runner.run(actual).std_out == 'It works!'
+
+
+def test_binary_only_requirements(runner, temp_dir):
+
+    repo_path = test_resources.get_resource_path(os.path.join('repos', 'only-requirements'))
+
+    packager = Packager.create(path=repo_path, target_dir=temp_dir)
+
+    binary_path = packager.binary(name='only-requirements', entrypoint='main.py')
+
+    # lets make sure the binary actually works
+    assert runner.run(binary_path).std_out == 'Hello from requirements'
 
 
 def test_binary_file_exists(pack):

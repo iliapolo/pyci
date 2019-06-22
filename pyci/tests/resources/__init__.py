@@ -20,6 +20,10 @@ import os
 
 def get_resource(path):
 
-    resource_path = os.path.join(os.path.dirname(__file__), path)
+    resource_path = get_resource_path(path)
     with open(resource_path) as stream:
         return stream.read()
+
+
+def get_resource_path(path):
+    return os.path.join(os.path.dirname(__file__), path)

@@ -372,26 +372,48 @@ class Packager(object):
                                                                  virtualenv_py,
                                                                  virtualenv_path)
 
+        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
+        requirements_file = os.path.join(self._repo_dir, 'requirements.txt')
+
+        if not os.path.exists(setup_py_file) and not os.path.exists(requirements_file):
+            raise exceptions.NoRequirementsException(
+                repo=self._repo,
+                sha=self._sha,
+                path=self._path,
+                lookups=[setup_py_file, requirements_file]
+            )
+
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
 
-        egg_base = os.path.join(temp_dir, 'egg-base')
-
-        self._debug('Dumping requirements file for {}'.format(name))
-        os.mkdir(egg_base)
-        self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter,
-                                                               os.path.join(self._repo_dir,
-                                                                            'setup.py'),
-                                                               egg_base),
-                         cwd=self._repo_dir)
-
-        requires = None
-        for dirpath, _, filenames in os.walk(egg_base):
-            if 'requires.txt' in filenames:
-                requires = os.path.join(dirpath, 'requires.txt')
-
-        self._debug('Installing {} requirements...'.format(name))
         pip_path = utils.get_python_executable('pip', exec_home=virtualenv_path)
+
+        if os.path.exists(requirements_file):
+
+            # Simply use the requirements file.
+            self._debug('Using requirements file: {}'.format(requirements_file))
+            requires = requirements_file
+
+        else:
+
+            # Dump the 'install_requires' argument from setup.py into a requirements file.
+            egg_base = os.path.join(temp_dir, 'egg-base')
+            os.mkdir(egg_base)
+
+            self._debug('Dumping requirements file for {}'.format(name))
+            self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter, setup_py_file, egg_base),
+                             cwd=self._repo_dir)
+
+            requires = None
+            for dirpath, _, filenames in os.walk(egg_base):
+                if 'requires.txt' in filenames:
+                    requires = os.path.join(dirpath, 'requires.txt')
+
+            if not requires:
+                # Something is really wrong if this happens
+                raise RuntimeError('Unable to create requires.txt file')
+
         command = '{} -r {}'.format(self._pip_install(pip_path), requires)
+        self._debug('Installing {} requirements...'.format(name))
         self._runner.run(command, cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))

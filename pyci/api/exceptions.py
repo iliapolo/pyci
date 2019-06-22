@@ -292,13 +292,10 @@ class FailedExtractingNameFromSetupPyException(ApiException):
 
     def __str__(self):
 
-        if self.repo:
-            repo_location = 'github.com/{}@{}'.format(self.repo, self.sha)
-        else:
-            repo_location = self.path
+        location = repo_location(self.repo, self.sha, self.path)
 
         return "Failed extracting project name from setup.py file of repository at location {}: {}".format(
-            repo_location, self.cause)
+            location, self.cause)
 
 
 class NotPythonProjectException(ApiException):
@@ -312,13 +309,10 @@ class NotPythonProjectException(ApiException):
 
     def __str__(self):
 
-        if self.repo:
-            repo_location = 'github.com/{}@{}'.format(self.repo, self.sha)
-        else:
-            repo_location = self.path
+        location = repo_location(self.repo, self.sha, self.path)
 
         return 'Repository at location {} does not contain a valid ' \
-               'python project: {}.'.format(repo_location, self.cause)
+               'python project: {}.'.format(location, self.cause)
 
 
 class RepositoryNotFoundException(ApiException):
@@ -440,3 +434,30 @@ class PythonNotFoundException(ApiException):
 
     def __str__(self):
         return "Python installation not found in PATH"
+
+
+class NoRequirementsException(ApiException):
+
+    def __init__(self, sha, repo, path, lookups):
+        self.lookups = lookups
+        self.sha = sha
+        self.repo = repo
+        self.path = path
+        super(NoRequirementsException, self).__init__(self.__str__())
+
+    def __str__(self):
+
+        location = repo_location(self.repo, self.sha, self.path)
+
+        return "No requirements of repository at location {} found. Looked in --> [{}]".format(
+            location, ', '.join(self.lookups))
+
+
+def repo_location(repo, sha, path):
+
+    if repo:
+        location = 'github.com/{}@{}'.format(repo, sha)
+    else:
+        location = path
+
+    return location
