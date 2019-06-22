@@ -198,7 +198,7 @@ def test_binary_no_requirements(runner, temp_dir):
 
     result = runner.run(binary_path, exit_on_failure=False)
 
-    assert 'ModuleNotFoundError' in result.std_err
+    assert 'No module' in result.std_err
     assert 'six' in result.std_err
 
 
