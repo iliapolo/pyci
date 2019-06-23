@@ -89,6 +89,16 @@ class Packager(object):
         }
         self._repo_dir = self._create_repo()
 
+    def _create_repo(self):
+
+        if self._path:
+            repo_dir = self._path
+        else:
+            self._debug('Downloading repo {}@{}...'.format(self._repo, self._sha))
+            repo_dir = utils.download_repo(self._repo, self._sha)
+
+        return repo_dir
+
     @property
     def target_dir(self):
         return self._target_dir
@@ -234,10 +244,8 @@ class Packager(object):
             dist_dir = os.path.join(temp_dir, 'dist')
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
-            setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-
             try:
-                utils.validate_file_exists(setup_py_file)
+                utils.validate_file_exists(self._setup_py_path)
             except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
                 raise exceptions.NotPythonProjectException(repo=self._repo,
                                                            cause=str(e),
@@ -256,7 +264,7 @@ class Packager(object):
 
                 command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}'.format(
                     utils.get_python_executable('python', exec_home=virtualenv),
-                    setup_py_file,
+                    self._setup_py_path,
                     bdist_dir,
                     dist_dir)
 
@@ -282,28 +290,47 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def _create_repo(self):
+    def exei(self, binary_path, author=None, website=None, copyr=None, license_path=None):
 
-        if self._path:
-            repo_dir = self._path
+        name = os.path.basename(binary_path).split('-')[0]
+        author = author or self._default_author
+        website = website or self._default_website
+        copyr = copyr or ''
+
+        if license_path:
+            with open(license_path) as f:
+                license_text = f.read()
         else:
-            self._debug('Downloading repo {}@{}...'.format(self._repo, self._sha))
-            repo_dir = utils.download_repo(self._repo, self._sha)
+            license_text = self._default_license
 
-        return repo_dir
+        config = {
+            'name': name,
+            'author': author,
+            'website': website,
+            'copyright': copyr,
+            'license_text': license_text,
+            'binary_path': binary_path
+        }
+
+        pass
 
     @cachedproperty
     def _default_name(self):
-        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-        with open(setup_py_file) as f:
-            try:
-                return utils.extract_name_from_setup_py(f.read())
-            except exceptions.RegexMatchFailureException as e:
-                raise exceptions.FailedExtractingNameFromSetupPyException(repo=self._repo,
-                                                                          sha=self._sha,
-                                                                          path=self._path,
-                                                                          cause=str(e))
+        return self.__setup_py('name')
 
+    @cachedproperty
+    def _default_author(self):
+        return self.__setup_py('author')
+
+    @cachedproperty
+    def _default_license(self):
+        return self.__setup_py('license')
+
+    @cachedproperty
+    def _default_website(self):
+        return self.__setup_py('url')
+
+    @cachedproperty
     def _default_entrypoint(self, name):
 
         expected_paths = [
@@ -322,6 +349,30 @@ class Packager(object):
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
+    @cachedproperty
+    def _interpreter(self):
+
+        if utils.is_pyinstaller():
+            interpreter = utils.which('python')
+        else:
+            interpreter = utils.get_python_executable('python')
+
+        if not interpreter:
+            raise exceptions.PythonNotFoundException()
+
+        return interpreter
+
+    @cachedproperty
+    def _setup_py_path(self):
+        setup_py_path = os.path.join(self._repo, 'setup.py')
+        return setup_py_path
+
+    def __setup_py(self, argument):
+
+        command = '{} {} --{}'.format(self._interpreter, self._setup_py_path, argument)
+
+        return self._runner.run(command).std_out
+
     @contextlib.contextmanager
     def _create_virtualenv(self, name, python=None):
 
@@ -331,17 +382,7 @@ class Packager(object):
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
 
-        interpreter = python
-
-        if not interpreter:
-
-            if utils.is_pyinstaller():
-                interpreter = utils.which('python')
-                if not interpreter:
-                    raise exceptions.PythonNotFoundException()
-
-            else:
-                interpreter = utils.get_python_executable('python')
+        interpreter = python or self._interpreter
 
         def _create_virtualenv_dist():
 
@@ -372,7 +413,6 @@ class Packager(object):
                                                                  virtualenv_py,
                                                                  virtualenv_path)
 
-        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
         requirements_file = os.path.join(self._repo_dir, 'requirements.txt')
 
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
@@ -387,14 +427,14 @@ class Packager(object):
             self._debug('Using requirements file: {}'.format(requirements_file))
             requires = requirements_file
 
-        elif os.path.exists(setup_py_file):
+        elif os.path.exists(self._setup_py_path):
 
             # Dump the 'install_requires' argument from setup.py into a requirements file.
             egg_base = os.path.join(temp_dir, 'egg-base')
             os.mkdir(egg_base)
 
             self._debug('Dumping requirements file for {}'.format(name))
-            self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter, setup_py_file, egg_base),
+            self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter, self._setup_py_path, egg_base),
                              cwd=self._repo_dir)
 
             requires = None
