@@ -24,6 +24,7 @@ import tempfile
 import contextlib
 
 from boltons.cacheutils import cachedproperty
+from jinja2 import Template
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
@@ -44,9 +45,9 @@ class Packager(object):
     A packager instance is associated with a specific version of your repository, and is capable
     of packing various formats of it.
 
-    If you specify a sha, the packager will download your repository from that sha and
-    operate on it. If you specify a local path, it will create a copy of your local
-    repository version and operate on that, in which case, the sha argument is irrelevant.
+    If you specify a sha (and repo), the packager will download your repository from that sha and
+    operate on it. If you specify a local path, it will operate directly on that path,
+    in which case, the sha and repo arguments are irrelevant.
 
     Args:
         repo (:str, optional): The repository full name.
@@ -245,14 +246,14 @@ class Packager(object):
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
             try:
-                utils.validate_file_exists(self._setup_py_path)
+                name = self._default_name
             except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
                 raise exceptions.NotPythonProjectException(repo=self._repo,
                                                            cause=str(e),
                                                            sha=self._sha,
                                                            path=self._path)
 
-            with self._create_virtualenv(self._default_name) as virtualenv:
+            with self._create_virtualenv(name) as virtualenv:
 
                 self._logger.debug('Installing wheel...')
 
@@ -290,12 +291,16 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def exei(self, binary_path, author=None, website=None, copyr=None, license_path=None):
+    def exei(self, binary_path, version=None, output=None, author=None, website=None, copyr=None, license_path=None):
+
+        utils.validate_file_exists(binary_path)
 
         name = os.path.basename(binary_path).split('-')[0]
         author = author or self._default_author
-        website = website or self._default_website
+        website = website or self._default_url
         copyr = copyr or ''
+        version = version or self._default_version
+        installer_name = '{}Installer'.format(name)
 
         if license_path:
             with open(license_path) as f:
@@ -312,23 +317,93 @@ class Packager(object):
             'binary_path': binary_path
         }
 
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+
+            self._debug('Rendering nsi template...')
+            template = get_text_resource(os.path.join('windows_support', 'installer.nsi.jinja'))
+            nsi = Template(template).render(**config)
+
+            installer_path = os.path.join(temp_dir, 'installer.nsi')
+
+            with open(installer_path, 'w') as f:
+                f.write(nsi)
+
+            self._debug('Finished rendering nsi template: {}'.format(nsi))
+
+            makensis_path = os.path.join(temp_dir, 'makensis.exe')
+
+            self._debug('Extracting makensis.exe from resources...')
+            with open(makensis_path, 'wb') as _w:
+                _w.write(get_binary_resource(os.path.join('windows_support', 'makensis.exe')))
+
+            self._debug('Finished extracting makensis.exe from resources: {}'.format(makensis_path))
+
+            command = '{} -DVERSION={} {}'.format(makensis_path, version, installer_path)
+
+            self._debug('Creating installer...')
+            self._runner.run(command)
+
+            out_file = os.path.join(os.getcwd(), '{}.exe'.format(installer_name))
+
+            if output:
+                self._debug('Copying {} to target path...'.format(out_file))
+                shutil.copyfile(out_file, output)
+                self._debug('Finished copying installer to target path: {}'.format(output))
+                target = output
+            else:
+                target = out_file
+
+            target = os.path.abspath(target)
+            self._debug('Packaged successfully.', package=target)
+
+            return target
+
+        finally:
+            utils.rmf(temp_dir)
+
+
         pass
 
     @cachedproperty
     def _default_name(self):
-        return self.__setup_py('name')
+        try:
+            return self.__setup_py('name')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyNameException(str(e))
 
     @cachedproperty
     def _default_author(self):
-        return self.__setup_py('author')
+        try:
+            self._debug('Reading author from setup.py...')
+            return self.__setup_py('author')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyAuthorException(str(e))
+
+    @cachedproperty
+    def _default_version(self):
+        try:
+            self._debug('Reading version from setup.py...')
+            return self.__setup_py('version')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyVersionException(str(e))
 
     @cachedproperty
     def _default_license(self):
-        return self.__setup_py('license')
+        try:
+            self._debug('Reading license from setup.py...')
+            return self.__setup_py('license')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyLicenseException(str(e))
 
     @cachedproperty
-    def _default_website(self):
-        return self.__setup_py('url')
+    def _default_url(self):
+        try:
+            self._debug('Reading url from setup.py...')
+            return self.__setup_py('url')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyURLException(str(e))
 
     @cachedproperty
     def _default_entrypoint(self, name):
@@ -364,8 +439,17 @@ class Packager(object):
 
     @cachedproperty
     def _setup_py_path(self):
+
         setup_py_path = os.path.join(self._repo, 'setup.py')
-        return setup_py_path
+
+        try:
+            utils.validate_file_exists(path=setup_py_path)
+            return setup_py_path
+        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
+            raise exceptions.NotPythonProjectException(repo=self._repo,
+                                                       cause=str(e),
+                                                       sha=self._sha,
+                                                       path=self._path)
 
     def __setup_py(self, argument):
 

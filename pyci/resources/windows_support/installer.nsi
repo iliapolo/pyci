@@ -10,7 +10,7 @@
 !define COPYRIGHT "{{ copyright }}"
 !define DESCRIPTION "Application"
 !define LICENSE_TXT "{{ license_text }}"
-!define INSTALLER_NAME "${APP_NAME}Installer.exe"
+!define INSTALLER_NAME "{{ installer_name }}.exe"
 !define MAIN_APP_EXE "${APP_NAME}.exe"
 !define INSTALL_TYPE "SetShellVarContext all"
 !define REG_ROOT "HKLM"

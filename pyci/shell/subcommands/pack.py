@@ -134,6 +134,121 @@ def wheel(ctx, universal, wheel_version):
         utils.raise_with_traceback(err, tb)
 
 
+@click.command()
+@click.pass_context
+@click.option('--name', required=False,
+              help='The base name of the binary executable to be created. Defaults to the top '
+                   'most python package of your project. Note that the full '
+                   'name will be a suffixed with platform specific info. This corresponds to '
+                   'the --name option used by '
+                   'PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+@click.option('--entrypoint', required=False,
+              help='Path (relative to the repository root) of the file to be used as the '
+                   'executable entry point. This corresponds to the positional script argument '
+                   'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+@click.option('--pyinstaller-version', required=False,
+              help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
+                   'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
+@handle_exceptions
+def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
+         version, output, author, website, copyr, license_path):
+
+    """
+    Create a windows executable installer.
+
+    This operation creates an windows installer from a binary executable. You can provide a pre-packaged binary
+    with the --binary-path option. If you do not provide it, PyCI will create one on the fly.
+
+    Under the hood, PyCI uses NSIS to create it. Can only be executed on windows machines.
+
+    See https://nsis.sourceforge.io/Main_Page
+    """
+
+    if not binary_path:
+
+        try:
+            binary_internal(name=name,
+                            entrypoint=entrypoint,
+                            pyinstaller_version=pyinstaller_version,
+                            packager=ctx.parent.packager)
+
+        except exceptions.DefaultEntrypointNotFoundException as e:
+            err = click.ClickException('Failed locating an entrypoint file')
+            err.exit_code = 102
+            err.cause = "You probably created the entrypoint in a different location than " \
+                        "PyCI knows about.\nFor more details see " \
+                        "https://github.com/iliapolo/pyci#cli-detection"
+            err.possible_solutions = [
+                'Create an entrypoint file in one of the following paths: {}'
+                .format(', '.join(e.expected_paths)),
+                'Use --entrypoint to specify a custom entrypoint path'
+            ]
+            tb = sys.exc_info()[2]
+            utils.raise_with_traceback(err, tb)
+        except exceptions.EntrypointNotFoundException as e:
+            err = click.ClickException('The entrypoint path you specified does not exist: {}'
+                                       .format(e.entrypoint))
+            err.exit_code = 103
+            tb = sys.exc_info()[2]
+            utils.raise_with_traceback(err, tb)
+        except exceptions.FailedReadingSetupPyNameException as e:
+            err = click.ClickException(str(e))
+            err.possible_solutions = [
+                'Create a standard setup.py file in your project root',
+                'Use --name to specify a custom name'
+            ]
+            err.exit_code = 104
+            tb = sys.exc_info()[2]
+            utils.raise_with_traceback(err, tb)
+
+    try:
+        package_path = exei_internal(binary_path=binary_path,
+                                     version=version,
+                                     output=output,
+                                     author=author,
+                                     website=website,
+                                     copyr=copyr,
+                                     license_path=license_path,
+                                     packager=ctx.parent.packager)
+        log.echo('Exei package created: {}'.format(package_path))
+    except exceptions.FailedReadingSetupPyAuthorException as e:
+        err = click.ClickException(str(e))
+        err.possible_solutions = [
+            'Create a standard setup.py file in your project root',
+            'Use --author to specify a custom author'
+        ]
+        err.exit_code = 105
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
+    except exceptions.FailedReadingSetupPyLicenseException as e:
+        err = click.ClickException(str(e))
+        err.possible_solutions = [
+            'Create a standard setup.py file in your project root',
+            'Use --license-path to specify a custom license'
+        ]
+        err.exit_code = 105
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
+    except exceptions.FailedReadingSetupPyVersionException as e:
+        err = click.ClickException(str(e))
+        err.possible_solutions = [
+            'Create a standard setup.py file in your project root',
+            'Use --version to specify a custom version'
+        ]
+        err.exit_code = 105
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
+    except exceptions.FailedReadingSetupPyURLException as e:
+        err = click.ClickException(str(e))
+        err.possible_solutions = [
+            'Create a standard setup.py file in your project root',
+            'Use --website to specify a custom website'
+        ]
+        err.exit_code = 105
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(err, tb)
+
+
 def wheel_internal(universal, packager, wheel_version):
 
     try:
@@ -154,6 +269,24 @@ def binary_internal(entrypoint, name, pyinstaller_version, packager):
             entrypoint=entrypoint,
             pyinstaller_version=pyinstaller_version,
             name=name)
+        log.checkmark()
+        return package_path
+    except BaseException as _:
+        log.xmark()
+        raise
+
+
+def exei_internal(binary_path, version, output, author, website, copyr, license_path, packager):
+
+    try:
+        log.echo('Packaging exei...', break_line=False)
+        package_path = packager.exei(binary_path,
+                                     version=version,
+                                     output=output,
+                                     author=author,
+                                     website=website,
+                                     copyr=copyr,
+                                     license_path=license_path)
         log.checkmark()
         return package_path
     except BaseException as _:

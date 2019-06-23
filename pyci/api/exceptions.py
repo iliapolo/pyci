@@ -436,6 +436,47 @@ class PythonNotFoundException(ApiException):
         return "Python installation not found in PATH"
 
 
+class FailedReadingSetupPyArgumentException(ApiException):
+
+    def __init__(self, argument, cause):
+        self.argument = argument
+        self.cause = cause
+        super(FailedReadingSetupPyArgumentException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Failed reading argument '{}' from setup.py: {}".format(self.argument, self.cause)
+
+
+class FailedReadingSetupPyAuthorException(ApiException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyAuthorException, self).__init__('author', cause)
+
+
+class FailedReadingSetupPyNameException(ApiException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyNameException, self).__init__('name', cause)
+
+
+class FailedReadingSetupPyVersionException(ApiException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyVersionException, self).__init__('version', cause)
+
+
+class FailedReadingSetupPyURLException(ApiException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyURLException, self).__init__('url', cause)
+
+
+class FailedReadingSetupPyLicenseException(ApiException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyLicenseException, self).__init__('license', cause)
+
+
 def repo_location(repo, sha, path):
 
     if repo:
