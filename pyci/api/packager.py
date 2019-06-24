@@ -448,7 +448,7 @@ class Packager(object):
     @cachedproperty
     def _setup_py_path(self):
 
-        setup_py_path = os.path.join(self._repo, 'setup.py')
+        setup_py_path = os.path.join(self._repo_dir, 'setup.py')
 
         try:
             utils.validate_file_exists(path=setup_py_path)
