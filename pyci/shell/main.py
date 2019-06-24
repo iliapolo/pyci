@@ -208,6 +208,7 @@ github.add_command(github_group.close_issue)
 
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)
+pack.add_command(pack_group.exei)
 
 pypi.add_command(pypi_group.upload)
 
