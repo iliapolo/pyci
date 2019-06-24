@@ -351,7 +351,7 @@ class Packager(object):
             command = '{} -DVERSION={} {}'.format(makensis_path, version, installer_path)
 
             self._debug('Creating installer...')
-            self._runner.run(command)
+            self._runner.run(command, cwd=temp_dir)
 
             out_file = os.path.join(os.getcwd(), '{}.exe'.format(installer_name))
 
