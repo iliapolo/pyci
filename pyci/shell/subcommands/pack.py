@@ -147,8 +147,16 @@ def wheel(ctx, universal, wheel_version):
                    'executable entry point. This corresponds to the positional script argument '
                    'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
 @click.option('--pyinstaller-version', required=False,
-              help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
+              help='Which version of PyInstaller to use. Note that PyCI is tested only against '
+                   'version {}, this is an advanced option, use at your own peril'
+              .format(DEFAULT_PY_INSTALLER_VERSION))
+@click.option('--binary-path', required=False)
+@click.option('--version', required=False)
+@click.option('--output', required=False)
+@click.option('--author', required=False)
+@click.option('--website', required=False)
+@click.option('--copyr', required=False)
+@click.option('--license-path', required=False)
 @handle_exceptions
 def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
          version, output, author, website, copyr, license_path):
@@ -163,6 +171,9 @@ def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
 
     See https://nsis.sourceforge.io/Main_Page
     """
+
+    if not utils.is_windows():
+        raise click.ClickException('exei packaging can only run on windows machines')
 
     if not binary_path:
 

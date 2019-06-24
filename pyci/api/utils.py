@@ -26,6 +26,7 @@ import uuid
 import zipfile
 import six
 
+
 import requests
 
 from pyci.api import exceptions
@@ -216,7 +217,8 @@ def get_python_executable(name, exec_home=None):
 
     Args:
         name (:str): The executable name.
-        exec_home (:str, optional): The base python installation directory. Defaults to `sys.exec_prefix`
+        exec_home (:str, optional): The base python installation directory. Defaults to
+        `sys.exec_prefix`
 
     Returns:
         Full path to the executable file.
@@ -224,8 +226,8 @@ def get_python_executable(name, exec_home=None):
     """
 
     if not exec_home and is_pyinstaller():
-        raise RuntimeError('Executables are not supported when running inside a PyInstaller bootloader. '
-                           'Are you sure this is what you wanted to do?')
+        raise RuntimeError('Executables are not supported when running inside a PyInstaller '
+                           'bootloader. Are you sure this is what you wanted to do?')
 
     def _for_linux():
 

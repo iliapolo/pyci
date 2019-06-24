@@ -43,7 +43,7 @@ InstallDir "${PROGRAMFILES}\${APP_NAME}"
 
 ######################################################################
 
-!include "AddToPath.nsh"
+!include "path.nsh"
 !include "MUI.nsh"
 
 !define MUI_ABORTWARNING

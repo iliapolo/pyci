@@ -302,6 +302,9 @@ class Packager(object):
         version = version or self._default_version
         installer_name = '{}Installer'.format(name)
 
+        validate_version('X.X.X.X')
+        validate_windows()
+
         if license_path:
             with open(license_path) as f:
                 license_text = f.read()
@@ -332,13 +335,18 @@ class Packager(object):
 
             self._debug('Finished rendering nsi template: {}'.format(nsi))
 
-            makensis_path = os.path.join(temp_dir, 'makensis.exe')
+            nsis_archive = os.path.join(temp_dir, 'nsis.zip')
 
-            self._debug('Extracting makensis.exe from resources...')
-            with open(makensis_path, 'wb') as _w:
-                _w.write(get_binary_resource(os.path.join('windows_support', 'makensis.exe')))
+            self._debug('Extracting NSIS from resources...')
 
-            self._debug('Finished extracting makensis.exe from resources: {}'.format(makensis_path))
+            with open(nsis_archive, 'wb') as _w:
+                _w.write(get_binary_resource(os.path.join('windows_support', 'nsis-3.04.zip')))
+
+            utils.unzip(nsis_archive, target_dir=temp_dir)
+
+            makensis_path = os.path.join(temp_dir, 'nsis-3.04', 'makensis.exe')
+
+            self._debug('Finished extracting makensis.exe from resources: {}'.format(nsis_archive))
 
             command = '{} -DVERSION={} {}'.format(makensis_path, version, installer_path)
 
