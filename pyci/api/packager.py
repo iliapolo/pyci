@@ -305,18 +305,15 @@ class Packager(object):
         # validate_version('X.X.X.X')
         # validate_windows()
 
-        if license_path:
-            with open(license_path) as f:
-                license_text = f.read()
-        else:
-            license_text = self._default_license
+        if not license_path:
+            license_path = os.path.abspath(os.path.join(self._repo_dir, self._default_license))
 
         config = {
             'name': name,
             'author': author,
             'website': website,
             'copyright': copyr,
-            'license_text': license_text,
+            'license_path': license_path,
             'binary_path': binary_path
         }
 
