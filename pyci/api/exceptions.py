@@ -447,31 +447,31 @@ class FailedReadingSetupPyArgumentException(ApiException):
         return "Failed reading argument '{}' from setup.py: {}".format(self.argument, self.cause)
 
 
-class FailedReadingSetupPyAuthorException(ApiException):
+class FailedReadingSetupPyAuthorException(FailedReadingSetupPyArgumentException):
 
     def __init__(self, cause):
         super(FailedReadingSetupPyAuthorException, self).__init__('author', cause)
 
 
-class FailedReadingSetupPyNameException(ApiException):
+class FailedReadingSetupPyNameException(FailedReadingSetupPyArgumentException):
 
     def __init__(self, cause):
         super(FailedReadingSetupPyNameException, self).__init__('name', cause)
 
 
-class FailedReadingSetupPyVersionException(ApiException):
+class FailedReadingSetupPyVersionException(FailedReadingSetupPyArgumentException):
 
     def __init__(self, cause):
         super(FailedReadingSetupPyVersionException, self).__init__('version', cause)
 
 
-class FailedReadingSetupPyURLException(ApiException):
+class FailedReadingSetupPyURLException(FailedReadingSetupPyArgumentException):
 
     def __init__(self, cause):
         super(FailedReadingSetupPyURLException, self).__init__('url', cause)
 
 
-class FailedReadingSetupPyLicenseException(ApiException):
+class FailedReadingSetupPyLicenseException(FailedReadingSetupPyArgumentException):
 
     def __init__(self, cause):
         super(FailedReadingSetupPyLicenseException, self).__init__('license', cause)

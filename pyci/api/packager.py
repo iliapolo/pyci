@@ -302,8 +302,8 @@ class Packager(object):
         version = version or self._default_version
         installer_name = '{}Installer'.format(name)
 
-        validate_version('X.X.X.X')
-        validate_windows()
+        # validate_version('X.X.X.X')
+        # validate_windows()
 
         if license_path:
             with open(license_path) as f:
