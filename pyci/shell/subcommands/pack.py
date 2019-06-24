@@ -178,11 +178,10 @@ def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
     if not binary_path:
 
         try:
-            binary_internal(name=name,
-                            entrypoint=entrypoint,
-                            pyinstaller_version=pyinstaller_version,
-                            packager=ctx.parent.packager)
-
+            binary_path = binary_internal(name=name,
+                                          entrypoint=entrypoint,
+                                          pyinstaller_version=pyinstaller_version,
+                                          packager=ctx.parent.packager)
         except exceptions.DefaultEntrypointNotFoundException as e:
             err = click.ClickException('Failed locating an entrypoint file')
             err.exit_code = 102
