@@ -335,6 +335,15 @@ class Packager(object):
 
             self._debug('Finished rendering nsi template: {}'.format(nsi))
 
+            path_header_path = os.path.join(temp_dir, 'path.nsh')
+
+            self._debug('Writing path header file...')
+
+            with open(path_header_path, 'w') as header:
+                header.write(get_text_resource(os.path.join('windows_support', 'path.nsh')))
+
+            self._debug('Finished writing path header file: {}'.format(path_header_path))
+
             nsis_archive = os.path.join(temp_dir, 'nsis.zip')
 
             self._debug('Extracting NSIS from resources...')
