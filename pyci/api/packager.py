@@ -332,6 +332,7 @@ class Packager(object):
         if not utils.is_windows():
             raise exceptions.WrongPlatformException(expected='Windows')
 
+        self._debug('Validating binary exists: {}'.format(binary_path))
         utils.validate_file_exists(binary_path)
 
         name = os.path.basename(binary_path).replace('.exe', '')
@@ -365,7 +366,8 @@ class Packager(object):
             'copyright': copyr,
             'license_path': license_path,
             'binary_path': binary_path,
-            'description': description
+            'description': description,
+            'installer_name': installer_name
         }
 
         temp_dir = tempfile.mkdtemp()

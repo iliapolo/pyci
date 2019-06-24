@@ -23,3 +23,8 @@ test_script:
 #  - cmd: "%PYTHON%\\Scripts\\tox.exe -e test-py27"
 #  - cmd: "%PYTHON%\\Scripts\\tox.exe -e codecov"
 #  - cmd: "%PYTHON%\\Scripts\\tox.exe -e release"
+
+
+artifacts:
+  - path: py-ci-x86-Windows-installer.exe
+    name: PyCI-Installer
