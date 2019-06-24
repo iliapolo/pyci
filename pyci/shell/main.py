@@ -128,8 +128,12 @@ def pack(ctx, repo, sha, path, target_dir):
 
     """
 
+    ci_provider = ctx.parent.ci_provider
+
+    sha = ci_provider.sha if ci_provider else None
+
     if not path:
-        repo = pyci.shell.detect_repo(ctx, ctx.parent.ci_provider, repo)
+        repo = pyci.shell.detect_repo(ctx, ci_provider, repo)
 
     if repo and not sha:
         raise click.BadOptionUsage('Must specify --sha as well')
