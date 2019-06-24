@@ -291,7 +291,14 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def exei(self, binary_path, version=None, output=None, author=None, website=None, copyr=None, license_path=None):
+    def exei(self, binary_path,
+             version=None,
+             output=None,
+             author=None,
+             website=None,
+             copyr=None,
+             description=None,
+             license_path=None):
 
         utils.validate_file_exists(binary_path)
 
@@ -300,6 +307,7 @@ class Packager(object):
         website = website or self._default_url
         copyr = copyr or ''
         version = version or self._default_version
+        description = description or self._default_description
         installer_name = '{}Installer'.format(name)
 
         # validate_version('X.X.X.X')
@@ -400,6 +408,14 @@ class Packager(object):
         try:
             self._debug('Reading version from setup.py...')
             return self.__setup_py('version')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyVersionException(str(e))
+
+    @cachedproperty
+    def _default_description(self):
+        try:
+            self._debug('Reading description from setup.py...')
+            return self.__setup_py('description')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyVersionException(str(e))
 

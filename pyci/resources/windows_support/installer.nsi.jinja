@@ -8,7 +8,7 @@
 !define COMP_NAME "{{ author }}"
 !define WEB_SITE "{{ website }}"
 !define COPYRIGHT "{{ copyright }}"
-!define DESCRIPTION "Application"
+!define DESCRIPTION "{{ description }}"
 !define LICENSE_TXT "{{ license_path }}"
 !define INSTALLER_NAME "{{ installer_name }}.exe"
 !define MAIN_APP_EXE "${APP_NAME}.exe"
@@ -136,7 +136,6 @@ Push $INSTDIR
 Call un.RemoveFromPath
 
 ${INSTALL_TYPE}
-
 RmDir "$INSTDIR"
 
 !ifdef REG_START_MENU

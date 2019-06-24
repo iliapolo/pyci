@@ -465,6 +465,12 @@ class FailedReadingSetupPyVersionException(FailedReadingSetupPyArgumentException
         super(FailedReadingSetupPyVersionException, self).__init__('version', cause)
 
 
+class FailedReadingSetupPyDescriptionException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyDescriptionException, self).__init__('description', cause)
+
+
 class FailedReadingSetupPyURLException(FailedReadingSetupPyArgumentException):
 
     def __init__(self, cause):
