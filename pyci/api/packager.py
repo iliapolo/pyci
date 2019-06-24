@@ -132,6 +132,8 @@ class Packager(object):
 
         Under the hood, this uses the PyInstaller project.
 
+        For more information please visit https://www.pyinstaller.org/
+
         Args:
             name (str): The base name of the target file. The final name will be in the
                form of: <name>-<platform-machine>-<platform-system> (e.g pyci-x86_64-Darwin).
@@ -142,8 +144,6 @@ class Packager(object):
                    - <name>.spec
                    - <name>/shell/main.py
             pyinstaller_version (:str, optional): Which PyInstaller version to use.
-
-        For more information please visit https://www.pyinstaller.org/.
 
         Raises:
             FileExistsException: Raised if the destination file already exists.
@@ -225,7 +225,9 @@ class Packager(object):
 
         This method will create a wheel package, according the the regular python wheel standards.
 
-        Under the hood, this uses the bdist_wheel command provider by the wheel project.
+        Under the hood, this uses the bdist_wheel command provided by the wheel project.
+
+        For more information please visit https://pythonwheels.com/
 
         Args:
             universal (bool): True if the created will should be universal, False otherwise.
@@ -234,8 +236,6 @@ class Packager(object):
         Raises:
             FileExistsException: Raised if the destination file already exists.
             DirectoryDoesntExistException: Raised if the destination directory does not exist.
-
-        For more information please visit https://pythonwheels.com/.
 
         """
 
@@ -300,15 +300,57 @@ class Packager(object):
              description=None,
              license_path=None):
 
+        """
+        Create a windows installer package.
+
+        This method will produce an executable installer (.exe) that, when executed, will install
+        the provided binary into "Program Files". In addition, it will manipulate the system PATH
+        variable on the target machine so that the binary can be executed from any directory.
+
+        Under the hood, this uses the NSIS project.
+
+        For more information please visit https://nsis.sourceforge.io/Main_Page
+
+        Args:
+            binary_path (:str): True if the created will should be universal, False otherwise.
+            version (:str, optional): Version string metadata. Defaults to the 'version' argument
+                in your setup.py file.
+            output (:str, optional): Target file to create. Defaults to
+                {binary-path-basename}-installer.exe
+            author (:str, optional): Which wheel version to use.
+            website (:str, optional): Which wheel version to use.
+            copyr (:str, optional): Which wheel version to use.
+            description (:str, optional): Which wheel version to use.
+            license_path (:str, optional): Which wheel version to use.
+
+        Raises:
+            FileExistsException: Raised if the destination file already exists.
+            DirectoryDoesntExistException: Raised if the destination directory does not exist.
+
+        """
+
+        if not utils.is_windows():
+            raise exceptions.WrongPlatformException(expected='Windows')
+
         utils.validate_file_exists(binary_path)
 
-        name = os.path.basename(binary_path).split('-')[0]
+        name = os.path.basename(binary_path).replace('.exe', '')
         author = author or self._default_author
         website = website or self._default_url
         copyr = copyr or ''
         version = version or self._default_version
         description = description or self._default_description
-        installer_name = '{}Installer'.format(name)
+        installer_name = '{}-installer'.format(name)
+
+        destination = os.path.abspath(output or '{}.exe'.format(
+            os.path.join(os.getcwd(), installer_name)))
+        self._debug('Validating destination file does not exist: {}'.format(destination))
+        utils.validate_file_does_not_exist(destination)
+
+        target_directory = os.path.abspath(os.path.join(destination, os.pardir))
+
+        self._debug('Validating target directory exists: {}'.format(target_directory))
+        utils.validate_directory_exists(target_directory)
 
         # validate_version('X.X.X.X')
         # validate_windows()
@@ -322,71 +364,59 @@ class Packager(object):
             'website': website,
             'copyright': copyr,
             'license_path': license_path,
-            'binary_path': binary_path
+            'binary_path': binary_path,
+            'description': description
         }
 
         temp_dir = tempfile.mkdtemp()
 
         try:
 
+            support = 'windows_support'
+
+            template = get_text_resource(os.path.join(support, 'installer.nsi.jinja'))
+            nsis_zip_resource = get_binary_resource(os.path.join(support, 'nsis-3.04.zip'))
+            path_header_resource = get_text_resource(os.path.join(support, 'path.nsh'))
+
             self._debug('Rendering nsi template...')
-            template = get_text_resource(os.path.join('windows_support', 'installer.nsi.jinja'))
             nsi = Template(template).render(**config)
-
             installer_path = os.path.join(temp_dir, 'installer.nsi')
-
             with open(installer_path, 'w') as f:
                 f.write(nsi)
-
             self._debug('Finished rendering nsi template: {}'.format(installer_path))
 
-            path_header_path = os.path.join(temp_dir, 'path.nsh')
-
             self._debug('Writing path header file...')
-
+            path_header_path = os.path.join(temp_dir, 'path.nsh')
             with open(path_header_path, 'w') as header:
-                header.write(get_text_resource(os.path.join('windows_support', 'path.nsh')))
-
+                header.write(path_header_resource)
             self._debug('Finished writing path header file: {}'.format(path_header_path))
-
-            nsis_archive = os.path.join(temp_dir, 'nsis.zip')
 
             self._debug('Extracting NSIS from resources...')
 
+            nsis_archive = os.path.join(temp_dir, 'nsis.zip')
             with open(nsis_archive, 'wb') as _w:
-                _w.write(get_binary_resource(os.path.join('windows_support', 'nsis-3.04.zip')))
-
+                _w.write(nsis_zip_resource)
             utils.unzip(nsis_archive, target_dir=temp_dir)
-
-            makensis_path = os.path.join(temp_dir, 'nsis-3.04', 'makensis.exe')
-
             self._debug('Finished extracting makensis.exe from resources: {}'.format(nsis_archive))
 
+            makensis_path = os.path.join(temp_dir, 'nsis-3.04', 'makensis.exe')
             command = '{} -DVERSION={} {}'.format(makensis_path, version, installer_path)
 
             self._debug('Creating installer...')
             self._runner.run(command, cwd=temp_dir)
 
-            out_file = os.path.join(os.getcwd(), '{}.exe'.format(installer_name))
+            out_file = os.path.join(temp_dir, '{}.exe'.format(installer_name))
 
-            if output:
-                self._debug('Copying {} to target path...'.format(out_file))
-                shutil.copyfile(out_file, output)
-                self._debug('Finished copying installer to target path: {}'.format(output))
-                target = output
-            else:
-                target = out_file
+            self._debug('Copying {} to target path...'.format(out_file))
+            shutil.copyfile(out_file, destination)
+            self._debug('Finished copying installer to target path: {}'.format(destination))
 
-            target = os.path.abspath(target)
-            self._debug('Packaged successfully.', package=target)
+            self._debug('Packaged successfully.', package=destination)
 
-            return target
+            return destination
 
         finally:
             utils.rmf(temp_dir)
-
-
-        pass
 
     @cachedproperty
     def _default_name(self):
@@ -548,7 +578,8 @@ class Packager(object):
             os.mkdir(egg_base)
 
             self._debug('Dumping requirements file for {}'.format(name))
-            self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter, self._setup_py_path, egg_base),
+            self._runner.run('{} {} egg_info --egg-base {}'
+                             .format(interpreter, self._setup_py_path, egg_base),
                              cwd=self._repo_dir)
 
             requires = None

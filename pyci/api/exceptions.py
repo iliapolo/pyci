@@ -16,6 +16,7 @@
 #############################################################################
 
 import os
+import platform
 
 
 class ApiException(BaseException):
@@ -294,8 +295,8 @@ class FailedExtractingNameFromSetupPyException(ApiException):
 
         location = repo_location(self.repo, self.sha, self.path)
 
-        return "Failed extracting project name from setup.py file of repository at location {}: {}".format(
-            location, self.cause)
+        return "Failed extracting project name from setup.py file of repository at location {}: " \
+               "{}".format(location, self.cause)
 
 
 class NotPythonProjectException(ApiException):
@@ -481,6 +482,18 @@ class FailedReadingSetupPyLicenseException(FailedReadingSetupPyArgumentException
 
     def __init__(self, cause):
         super(FailedReadingSetupPyLicenseException, self).__init__('license', cause)
+
+
+class WrongPlatformException(ApiException):
+
+    def __init__(self, expected):
+        self.expected = expected
+        super(WrongPlatformException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Wrong execution Platform. Expected '{}' but running on '{}'".format(
+            self.expected, platform.system()
+        )
 
 
 def repo_location(repo, sha, path):
