@@ -330,7 +330,7 @@ class Packager(object):
             with open(installer_path, 'w') as f:
                 f.write(nsi)
 
-            self._debug('Finished rendering nsi template: {}'.format(nsi))
+            self._debug('Finished rendering nsi template: {}'.format(installer_path))
 
             path_header_path = os.path.join(temp_dir, 'path.nsh')
 
