@@ -220,7 +220,7 @@ def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
                                      copyr=copyr,
                                      license_path=license_path,
                                      packager=ctx.parent.packager)
-        log.echo('Exei package created: {}'.format(package_path))
+        log.echo('Installer package created: {}'.format(package_path))
     except exceptions.FailedReadingSetupPyAuthorException as e:
         err = click.ClickException(str(e))
         err.possible_solutions = [

@@ -94,27 +94,9 @@ Section -Icons_Reg
 SetOutPath "$INSTDIR"
 WriteUninstaller "$INSTDIR\uninstall.exe"
 
-!ifdef REG_START_MENU
-!insertmacro MUI_STARTMENU_WRITE_BEGIN Application
-CreateDirectory "$SMPROGRAMS\$SM_Folder"
-CreateShortCut "$SMPROGRAMS\$SM_Folder\${APP_NAME}.lnk" "$INSTDIR\${MAIN_APP_EXE}"
 !ifdef WEB_SITE
 WriteIniStr "$INSTDIR\${APP_NAME} website.url" "InternetShortcut" "URL" "${WEB_SITE}"
-CreateShortCut "$SMPROGRAMS\$SM_Folder\${APP_NAME} Website.lnk" "$INSTDIR\${APP_NAME} website.url"
 !endif
-!insertmacro MUI_STARTMENU_WRITE_END
-!endif
-
-!ifndef REG_START_MENU
-CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${MAIN_APP_EXE}"
-!ifdef WEB_SITE
-WriteIniStr "$INSTDIR\${APP_NAME} website.url" "InternetShortcut" "URL" "${WEB_SITE}"
-CreateShortCut "$SMPROGRAMS\${APP_NAME}\${APP_NAME} Website.lnk" "$INSTDIR\${APP_NAME} website.url"
-!endif
-!endif
-
-CreateShortCut "$SMPROGRAMS\${APP_NAME}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\uninstall.exe"
 
 WriteRegStr ${REG_ROOT} "${REG_APP_PATH}" "" "$INSTDIR\${MAIN_APP_EXE}"
 WriteRegStr ${REG_ROOT} "${UNINSTALL_PATH}"  "DisplayName" "${APP_NAME}"
@@ -136,24 +118,7 @@ Push $INSTDIR
 Call un.RemoveFromPath
 
 ${INSTALL_TYPE}
-RmDir "$INSTDIR"
-
-!ifdef REG_START_MENU
-!insertmacro MUI_STARTMENU_GETFOLDER "Application" $SM_Folder
-Delete "$SMPROGRAMS\$SM_Folder\${APP_NAME}.lnk"
-!ifdef WEB_SITE
-Delete "$SMPROGRAMS\$SM_Folder\${APP_NAME} Website.lnk"
-!endif
-RmDir "$SMPROGRAMS\$SM_Folder"
-!endif
-
-!ifndef REG_START_MENU
-Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
-!ifdef WEB_SITE
-Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME} Website.lnk"
-!endif
-RmDir "$SMPROGRAMS\${APP_NAME}"
-!endif
+RMDir /r "$INSTDIR"
 
 DeleteRegKey ${REG_ROOT} "${REG_APP_PATH}"
 DeleteRegKey ${REG_ROOT} "${UNINSTALL_PATH}"
