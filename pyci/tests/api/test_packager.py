@@ -267,12 +267,12 @@ def test_exei_on_linux(pack):
 
 
 @pytest.mark.windows
-def test_exei(pack, runner, binary_path):
+def test_exei(pack, runner, pyci):
 
-    basename = os.path.basename(binary_path)
+    basename = os.path.basename(pyci.binary_path)
     name = basename.replace('.exe', '')
 
-    pack.api.exei(binary_path)
+    pack.api.exei(pyci.binary_path)
 
     expected = os.path.join(os.getcwd(), '{}-installer.exe'.format(name))
 
