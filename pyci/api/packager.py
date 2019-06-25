@@ -341,6 +341,8 @@ class Packager(object):
         self._debug('Validating binary exists: {}'.format(binary_path))
         utils.validate_file_exists(binary_path)
 
+        version = version or self._default_version
+
         try:
             self._debug('Validating version string: {}'.format(version))
             utils.validate_nsis_version(version)
@@ -357,7 +359,6 @@ class Packager(object):
         author = author or self._default_author
         website = website or self._default_url
         copyr = copyr or ''
-        version = version or self._default_version
         description = description or self._default_description
         installer_name = '{}-installer'.format(name)
 
