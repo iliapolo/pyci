@@ -56,7 +56,9 @@ def copy_repo(dst):
     code = os.path.join(source_path, 'pyci')
     setup_py = os.path.join(source_path, 'setup.py')
     spec = os.path.join(source_path, 'pyci.spec')
+    license = os.path.join(source_path, 'LICENSE')
 
-    shutil.copytree(code, os.path.join(dst, 'pyci'))
-    shutil.copyfile(setup_py, os.path.join(dst, 'setup.py'))
-    shutil.copyfile(spec, os.path.join(dst, 'pyci.spec'))
+    shutil.copytree(code, os.path.join(dst, os.path.basename(code)))
+    shutil.copyfile(setup_py, os.path.join(dst, os.path.basename(setup_py)))
+    shutil.copyfile(spec, os.path.join(dst, os.path.basename(spec)))
+    shutil.copyfile(license, os.path.join(license, os.path.basename(license)))
