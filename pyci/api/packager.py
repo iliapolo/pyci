@@ -530,7 +530,7 @@ class Packager(object):
 
     def __setup_py(self, argument):
 
-        command = '{} {} --{}'.format(self._interpreter, self._setup_py_path, argument)
+        command = '{} {} --{}'.format(self._interpreter(), self._setup_py_path, argument)
 
         return self._runner.run(command).std_out
 
@@ -543,7 +543,7 @@ class Packager(object):
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
 
-        interpreter = python or self._interpreter
+        interpreter = python or self._interpreter()
 
         def _create_virtualenv_dist():
 
