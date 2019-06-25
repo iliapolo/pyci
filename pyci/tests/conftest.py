@@ -58,6 +58,9 @@ def _skip(request, test_name):
     if _get_marker(request, test_name, 'linux') is not None and system == 'windows':
         __skip('This test should not run on windows')
 
+    if _get_marker(request, test_name, 'windows') is not None and system != 'windows':
+        __skip('This test should not run on windows')
+
     if _get_marker(request, test_name, 'docker') is not None and docker is None:
         __skip('This test can only run when docker is installed')
 

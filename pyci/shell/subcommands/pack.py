@@ -158,6 +158,8 @@ def wheel(ctx, universal, wheel_version):
 @click.option('--copyr', required=False)
 @click.option('--license-path', required=False)
 @handle_exceptions
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-statements
 def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
          version, output, author, website, copyr, license_path):
 

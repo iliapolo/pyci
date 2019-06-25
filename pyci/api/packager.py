@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import sys
 import copy
 import logging
 import os
@@ -291,6 +292,8 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
+    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-statements
     def exei(self, binary_path,
              version=None,
              output=None,
@@ -329,11 +332,26 @@ class Packager(object):
 
         """
 
+        if not binary_path:
+            raise exceptions.InvalidArgumentsException('Must pass binary_path')
+
         if not utils.is_windows():
             raise exceptions.WrongPlatformException(expected='Windows')
 
         self._debug('Validating binary exists: {}'.format(binary_path))
         utils.validate_file_exists(binary_path)
+
+        try:
+            self._debug('Validating version string: {}'.format(version))
+            utils.validate_nsis_version(version)
+        except exceptions.InvalidNSISVersionException as err:
+            tb = sys.exc_info()[2]
+            try:
+                # Auto-correction attempt for standard python versions
+                version = '{}.0'.format(version)
+                utils.validate_nsis_version(version)
+            except exceptions.InvalidNSISVersionException:
+                utils.raise_with_traceback(err, tb)
 
         name = os.path.basename(binary_path).replace('.exe', '')
         author = author or self._default_author
@@ -352,9 +370,6 @@ class Packager(object):
 
         self._debug('Validating target directory exists: {}'.format(target_directory))
         utils.validate_directory_exists(target_directory)
-
-        # validate_version('X.X.X.X')
-        # validate_windows()
 
         if not license_path:
             license_path = os.path.abspath(os.path.join(self._repo_dir, self._default_license))
@@ -487,19 +502,6 @@ class Packager(object):
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
     @cachedproperty
-    def _interpreter(self):
-
-        if utils.is_pyinstaller():
-            interpreter = utils.which('python')
-        else:
-            interpreter = utils.get_python_executable('python')
-
-        if not interpreter:
-            raise exceptions.PythonNotFoundException()
-
-        return interpreter
-
-    @cachedproperty
     def _setup_py_path(self):
 
         setup_py_path = os.path.join(self._repo_dir, 'setup.py')
@@ -512,6 +514,19 @@ class Packager(object):
                                                        cause=str(e),
                                                        sha=self._sha,
                                                        path=self._path)
+
+    @staticmethod
+    def _interpreter():
+
+        if utils.is_pyinstaller():
+            interpreter = utils.which('python')
+        else:
+            interpreter = utils.get_python_executable('python')
+
+        if not interpreter:
+            raise exceptions.PythonNotFoundException()
+
+        return interpreter
 
     def __setup_py(self, argument):
 

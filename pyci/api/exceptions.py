@@ -282,6 +282,18 @@ class RegexMatchFailureException(ApiException):
         return "No match found for regex '{}'".format(self.regex)
 
 
+class InvalidNSISVersionException(ApiException):
+
+    def __init__(self, version, pattern):
+        self.pattern = pattern
+        self.version = version
+        super(InvalidNSISVersionException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Illegal NSIS version string '{}': Must match pattern '{}'".format(
+            self.pattern, self.version)
+
+
 class FailedExtractingNameFromSetupPyException(ApiException):
 
     def __init__(self, cause, repo=None, sha=None, path=None):

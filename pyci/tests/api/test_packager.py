@@ -230,3 +230,54 @@ def test_binary_entrypoint_doesnt_exist(pack):
 
     with pytest.raises(exceptions.EntrypointNotFoundException):
         pack.api.binary(entrypoint='doesnt-exist')
+
+
+def test_exei_no_binary_path(pack):
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pack.api.exei(binary_path=None)
+
+
+def test_exei_binary_path_doesnt_exist(pack, mocker):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    with pytest.raises(exceptions.FileDoesntExistException):
+        pack.api.exei(binary_path='doesnt-exist')
+
+
+def test_exei_invalid_version_string(pack, mocker, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    with pytest.raises(exceptions.InvalidNSISVersionException):
+        pack.api.exei(binary_package, version='1.2')
+
+
+@pytest.mark.linux
+def test_exei_on_linux(pack):
+
+    with pytest.raises(exceptions.WrongPlatformException):
+        pack.api.exei(binary_path='doesnt-exist')
+
+
+@pytest.mark.windows
+def test_exei(pack, runner, binary_path):
+
+    basename = os.path.basename(binary_path)
+    name = basename.replace('.exe', '')
+
+    pack.api.exei(binary_path)
+
+    expected = os.path.join(os.getcwd(), '{}-installer.exe'.format(name))
+
+    runner.run('{} /SD'.format(expected))
+
+    expected_installation = os.path.join('C:', 'Program Files (x86)', name, basename)
+
+    runner.run('{} --help'.format(expected_installation))

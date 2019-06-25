@@ -9,7 +9,7 @@ environment:
   matrix:
 
     - PYTHON: "C:\\Python27"
-#    - PYTHON: "C:\\Python36"
+    - PYTHON: "C:\\Python36"
 
 build: off
 
@@ -18,13 +18,7 @@ install:
 
 test_script:
 
-  - cmd: "%PYTHON%\\Scripts\\tox.exe -e exei"
-#  - cmd: "%PYTHON%\\Scripts\\tox.exe -e lint-py27"
-#  - cmd: "%PYTHON%\\Scripts\\tox.exe -e test-py27"
-#  - cmd: "%PYTHON%\\Scripts\\tox.exe -e codecov"
-#  - cmd: "%PYTHON%\\Scripts\\tox.exe -e release"
-
-
-artifacts:
-  - path: py-ci-x86-Windows-installer.exe
-    name: PyCI-Installer
+  - cmd: "%PYTHON%\\Scripts\\tox.exe -e lint-py27"
+  - cmd: "%PYTHON%\\Scripts\\tox.exe -e test-py27"
+  - cmd: "%PYTHON%\\Scripts\\tox.exe -e codecov"
+  - cmd: "%PYTHON%\\Scripts\\tox.exe -e release"

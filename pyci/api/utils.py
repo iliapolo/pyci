@@ -340,30 +340,6 @@ def is_pyinstaller():
         return False
 
 
-def extract_name_from_setup_py(setup_py_content):
-
-    """
-    Extract the value of the 'name' argument from the setup.py file. (Regex based)
-
-    Args:
-        setup_py_content (str): The setup.py file contents.
-
-    Returns:
-         The name defined in setup.py
-    """
-
-    regex = 'name=["\'](.*)["\']'
-
-    name = re.compile(regex)
-
-    match = name.search(setup_py_content)
-
-    if match:
-        return match.group(1)
-
-    raise exceptions.RegexMatchFailureException(regex=regex)
-
-
 def extract_version_from_setup_py(setup_py_content):
 
     """
@@ -425,3 +401,22 @@ def executable(program):
     """
 
     return '{}.exe'.format(program) if is_windows() else program
+
+
+def validate_nsis_version(version):
+
+    """
+    Validate the version number adheres to NSIS specifications.
+    NSIS enforces version strings in the form of X.X.X.X
+
+    Args:
+        version (str): The version to check.
+
+    Raises:
+         IllegalNSISVersion: In case the version doesn't meet the regex.
+    """
+
+    parts = version.split('.')
+
+    if len(parts) != 4:
+        raise exceptions.InvalidNSISVersionException(pattern='X.X.X.X', version=version)
