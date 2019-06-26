@@ -483,7 +483,6 @@ class Packager(object):
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyURLException(str(e))
 
-    @cachedproperty
     def _default_entrypoint(self, name):
 
         expected_paths = [
