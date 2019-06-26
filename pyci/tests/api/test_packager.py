@@ -232,7 +232,9 @@ def test_binary_entrypoint_doesnt_exist(pack):
         pack.api.binary(entrypoint='doesnt-exist')
 
 
-def test_exei_no_binary_path(pack):
+def test_exei_no_binary_path(pack, mocker):
+
+    mocker.patch('pyci.api.utils.is_windows')
 
     with pytest.raises(exceptions.InvalidArgumentsException):
         pack.api.exei(binary_path=None)
@@ -242,7 +244,7 @@ def test_exei_binary_path_doesnt_exist(pack, mocker):
 
     mocker.patch('pyci.api.utils.is_windows')
 
-    with pytest.raises(exceptions.FileDoesntExistException):
+    with pytest.raises(exceptions.BinaryFileDoesntExistException):
         pack.api.exei(binary_path='doesnt-exist')
 
 
@@ -257,6 +259,58 @@ def test_exei_invalid_version_string(pack, mocker, temp_dir):
 
     with pytest.raises(exceptions.InvalidNSISVersionException):
         pack.api.exei(binary_package, version='1.2')
+
+
+def test_exei_license_not_found(pack, mocker, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    with pytest.raises(exceptions.LicenseNotFoundException):
+        pack.api.exei(binary_package, version='1.0.0.0', license_path='doesnt-exist')
+
+
+def test_exei_destination_exists(pack, mocker, repo_path, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    destination = os.path.join(temp_dir, 'installer.exe')
+
+    with open(destination, 'w') as f:
+        f.write('dummy')
+
+    with pytest.raises(exceptions.FileExistException):
+        pack.api.exei(binary_package,
+                      version='1.0.0.0',
+                      license_path=os.path.join(repo_path, 'LICENSE'),
+                      output=destination)
+
+
+def test_exei_target_directory_doesnt_exists(pack, mocker, repo_path, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    destination = os.path.join(temp_dir, 'doesnt-exist', 'installer.exe')
+
+    with pytest.raises(exceptions.DirectoryDoesntExistException):
+        pack.api.exei(binary_package,
+                      version='1.0.0.0',
+                      license_path=os.path.join(repo_path, 'LICENSE'),
+                      output=destination)
 
 
 @pytest.mark.linux

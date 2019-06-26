@@ -291,7 +291,7 @@ class InvalidNSISVersionException(ApiException):
 
     def __str__(self):
         return "Illegal NSIS version string '{}': Must match pattern '{}'".format(
-            self.pattern, self.version)
+            self.version, self.pattern)
 
 
 class FailedExtractingNameFromSetupPyException(ApiException):
@@ -506,6 +506,26 @@ class WrongPlatformException(ApiException):
         return "Wrong execution Platform. Expected '{}' but running on '{}'".format(
             self.expected, platform.system()
         )
+
+
+class LicenseNotFoundException(ApiException):
+
+    def __init__(self, cause):
+        self.cause = cause
+        super(LicenseNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "License not found: {}".format(self.cause)
+
+
+class BinaryFileDoesntExistException(ApiException):
+
+    def __init__(self, cause):
+        self.cause = cause
+        super(BinaryFileDoesntExistException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Binary file doesn't exist: {}".format(self.cause)
 
 
 def repo_location(repo, sha, path):

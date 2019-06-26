@@ -109,8 +109,8 @@ def validate_directory_exists(path):
     Validate that the given path points an existing directory.
 
     Raises:
-        FileDoesntExistException: Raised if the path does not exist.
-        FileIsADirectoryException: Raised if the given path points to a directory.
+        DirectoryDoesntExistException: Raised if the directory doesnt exist.
+        DirectoryIsAFileException: Raised if the directory path points to a file.
     """
 
     if not os.path.exists(path):

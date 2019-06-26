@@ -248,7 +248,7 @@ class Packager(object):
 
             try:
                 name = self._default_name
-            except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
+            except exceptions.FailedReadingSetupPyNameException as e:
                 raise exceptions.NotPythonProjectException(repo=self._repo,
                                                            cause=str(e),
                                                            sha=self._sha,
@@ -327,23 +327,27 @@ class Packager(object):
             license_path (:str, optional): Which wheel version to use.
 
         Raises:
+            LicenseNotFoundException: Raised if a license file is missing.
+            BinaryFileDoesntExistException: Raised if the provided binary file doesn't exist.
             FileExistsException: Raised if the destination file already exists.
             DirectoryDoesntExistException: Raised if the destination directory does not exist.
 
         """
 
-        if not binary_path:
-            raise exceptions.InvalidArgumentsException('Must pass binary_path')
-
         if not utils.is_windows():
             raise exceptions.WrongPlatformException(expected='Windows')
 
-        self._debug('Validating binary exists: {}'.format(binary_path))
-        utils.validate_file_exists(binary_path)
-
-        version = version or self._default_version
+        if not binary_path:
+            raise exceptions.InvalidArgumentsException('Must pass binary_path')
 
         try:
+            self._debug('Validating binary exists: {}'.format(binary_path))
+            utils.validate_file_exists(binary_path)
+        except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException) as e:
+            raise exceptions.BinaryFileDoesntExistException(str(e))
+
+        try:
+            version = version or self._default_version
             self._debug('Validating version string: {}'.format(version))
             utils.validate_nsis_version(version)
         except exceptions.InvalidNSISVersionException as err:
@@ -356,14 +360,11 @@ class Packager(object):
                 utils.raise_with_traceback(err, tb)
 
         name = os.path.basename(binary_path).replace('.exe', '')
-        author = author or self._default_author
-        website = website or self._default_url
-        copyr = copyr or ''
-        description = description or self._default_description
         installer_name = '{}-installer'.format(name)
+        copyr = copyr or ''
 
         destination = os.path.abspath(output or '{}.exe'.format(
-            os.path.join(os.getcwd(), installer_name)))
+            os.path.join(self._target_dir, installer_name)))
         self._debug('Validating destination file does not exist: {}'.format(destination))
         utils.validate_file_does_not_exist(destination)
 
@@ -372,8 +373,17 @@ class Packager(object):
         self._debug('Validating target directory exists: {}'.format(target_directory))
         utils.validate_directory_exists(target_directory)
 
-        if not license_path:
-            license_path = os.path.abspath(os.path.join(self._repo_dir, self._default_license))
+        try:
+            license_path = license_path or os.path.abspath(os.path.join(self._repo_dir,
+                                                                        self._default_license))
+            self._debug('Validating license file exists: {}'.format(license_path))
+            utils.validate_file_exists(license_path)
+        except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException) as e:
+            raise exceptions.LicenseNotFoundException(str(e))
+
+        author = author or self._default_author
+        website = website or self._default_url
+        description = description or self._default_description
 
         config = {
             'name': name,
@@ -439,7 +449,7 @@ class Packager(object):
     @cachedproperty
     def _default_name(self):
         try:
-            return self.__setup_py('name')
+            return self.__run_setup_py('name')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyNameException(str(e))
 
@@ -447,7 +457,7 @@ class Packager(object):
     def _default_author(self):
         try:
             self._debug('Reading author from setup.py...')
-            return self.__setup_py('author')
+            return self.__run_setup_py('author')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyAuthorException(str(e))
 
@@ -455,7 +465,7 @@ class Packager(object):
     def _default_version(self):
         try:
             self._debug('Reading version from setup.py...')
-            return self.__setup_py('version')
+            return self.__run_setup_py('version')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyVersionException(str(e))
 
@@ -463,7 +473,7 @@ class Packager(object):
     def _default_description(self):
         try:
             self._debug('Reading description from setup.py...')
-            return self.__setup_py('description')
+            return self.__run_setup_py('description')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyVersionException(str(e))
 
@@ -471,7 +481,7 @@ class Packager(object):
     def _default_license(self):
         try:
             self._debug('Reading license from setup.py...')
-            return self.__setup_py('license')
+            return self.__run_setup_py('license')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyLicenseException(str(e))
 
@@ -479,7 +489,7 @@ class Packager(object):
     def _default_url(self):
         try:
             self._debug('Reading url from setup.py...')
-            return self.__setup_py('url')
+            return self.__run_setup_py('url')
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyURLException(str(e))
 
@@ -503,17 +513,7 @@ class Packager(object):
 
     @cachedproperty
     def _setup_py_path(self):
-
-        setup_py_path = os.path.join(self._repo_dir, 'setup.py')
-
-        try:
-            utils.validate_file_exists(path=setup_py_path)
-            return setup_py_path
-        except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
-            raise exceptions.NotPythonProjectException(repo=self._repo,
-                                                       cause=str(e),
-                                                       sha=self._sha,
-                                                       path=self._path)
+        return os.path.join(self._repo_dir, 'setup.py')
 
     @staticmethod
     def _interpreter():
@@ -528,7 +528,13 @@ class Packager(object):
 
         return interpreter
 
-    def __setup_py(self, argument):
+    def __run_setup_py(self, argument):
+
+        if not os.path.exists(self._setup_py_path):
+            raise exceptions.NotPythonProjectException(repo=self._repo,
+                                                       cause='setup.py file doesnt exist',
+                                                       sha=self._sha,
+                                                       path=self._path)
 
         command = '{} {} --{}'.format(self._interpreter(), self._setup_py_path, argument)
 

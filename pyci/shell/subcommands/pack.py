@@ -42,8 +42,9 @@ log = logger.get()
                    'executable entry point. This corresponds to the positional script argument '
                    'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
 @click.option('--pyinstaller-version', required=False,
-              help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
+              help='Which version of PyInstaller to use. Note that PyCI is tested only against '
+                   'version {}, this is an advanced option, use at your own peril'
+              .format(DEFAULT_PY_INSTALLER_VERSION))
 @handle_exceptions
 def binary(ctx, name, entrypoint, pyinstaller_version):
 
@@ -70,7 +71,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
                                        pyinstaller_version=pyinstaller_version)
         log.echo('Binary package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
-        err = click.ClickException('Binary already exists: {}'.format(e.path))
+        err = click.ClickException('Binary already exists: {}'.format(str(e)))
         err.exit_code = 101
         err.cause = 'You probably forgot to move/delete the package you created last time'
         err.possible_solutions = [
@@ -79,7 +80,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
     except exceptions.DefaultEntrypointNotFoundException as e:
-        err = click.ClickException('Failed locating an entrypoint file')
+        err = click.ClickException(str(e))
         err.exit_code = 102
         err.cause = "You probably created the entrypoint in a different location than " \
                     "PyCI knows about.\nFor more details see " \
@@ -92,8 +93,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
     except exceptions.EntrypointNotFoundException as e:
-        err = click.ClickException('The entrypoint path you specified does not exist: {}'
-                                   .format(e.entrypoint))
+        err = click.ClickException(str(e))
         err.exit_code = 103
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
@@ -106,8 +106,9 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
                    'corresponds to the --universal option of bdis_wheel '
                    '(https://wheel.readthedocs.io/en/stable/)')
 @click.option('--wheel-version', required=False,
-              help='Which version of wheel to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION))
+              help='Which version of wheel to use. Note that PyCI is tested only against '
+                   'version {}, this is an advanced option, use at your own peril'
+              .format(DEFAULT_WHEEL_VERSION))
 @handle_exceptions
 def wheel(ctx, universal, wheel_version):
 
@@ -124,7 +125,7 @@ def wheel(ctx, universal, wheel_version):
                                       wheel_version=wheel_version)
         log.echo('Wheel package created: {}'.format(package_path))
     except exceptions.FileExistException as e:
-        err = click.ClickException('Wheel already exists: {}'.format(e.path))
+        err = click.ClickException('Wheel already exists: {}'.format(str(e)))
         err.exit_code = 104
         err.cause = 'You probably forgot to move/delete the package you created last time'
         err.possible_solutions = [
@@ -166,8 +167,9 @@ def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
     """
     Create a windows executable installer.
 
-    This operation creates an windows installer from a binary executable. You can provide a pre-packaged binary
-    with the --binary-path option. If you do not provide it, PyCI will create one on the fly.
+    This operation creates an windows installer from a binary executable. You can provide a
+    pre-packaged binary with the --binary-path option. If you do not provide it, PyCI will create
+    one on the fly.
 
     Under the hood, PyCI uses NSIS to create it. Can only be executed on windows machines.
 
@@ -185,7 +187,7 @@ def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
                                           pyinstaller_version=pyinstaller_version,
                                           packager=ctx.parent.packager)
         except exceptions.DefaultEntrypointNotFoundException as e:
-            err = click.ClickException('Failed locating an entrypoint file')
+            err = click.ClickException(str(e))
             err.exit_code = 102
             err.cause = "You probably created the entrypoint in a different location than " \
                         "PyCI knows about.\nFor more details see " \
@@ -198,8 +200,7 @@ def exei(ctx, name, entrypoint, pyinstaller_version, binary_path,
             tb = sys.exc_info()[2]
             utils.raise_with_traceback(err, tb)
         except exceptions.EntrypointNotFoundException as e:
-            err = click.ClickException('The entrypoint path you specified does not exist: {}'
-                                       .format(e.entrypoint))
+            err = click.ClickException(str(e))
             err.exit_code = 103
             tb = sys.exc_info()[2]
             utils.raise_with_traceback(err, tb)

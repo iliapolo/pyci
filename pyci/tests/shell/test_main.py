@@ -69,7 +69,7 @@ def test_pack_target_dir_doesnt_exist(pyci, binary):
                       catch_exceptions=True,
                       binary=binary)
 
-    expected_output = 'The target directory you specified does not exist: doesnt-exist'
+    expected_output = 'Directory does not exist: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -81,7 +81,7 @@ def test_pack_sha_doesnt_exist(pyci, binary):
                       catch_exceptions=True,
                       binary=binary)
 
-    expected_output = 'Failed downloading repository content'
+    expected_output = 'Not Found'
 
     assert expected_output in result.std_out
 

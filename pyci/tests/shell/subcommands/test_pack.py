@@ -89,7 +89,7 @@ def test_binary_file_exists(pack, binary):
 
     result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), catch_exceptions=True, binary=binary)
 
-    expected_output = 'Binary already exists: {}'.format(expected_package_path)
+    expected_output = 'Binary already exists'
     expected_possible_solution = 'Delete/Move the binary and try again'
 
     assert expected_output in result.std_out
@@ -101,7 +101,7 @@ def test_binary_default_entrypoint_doesnt_exist(pack, binary):
 
     result = pack.run('binary', catch_exceptions=True, binary=binary)
 
-    expected_output = 'Failed locating an entrypoint file'
+    expected_output = 'No entrypoint found for repo'
     expected_possible_solutions = [
         'Create an entrypoint file in one of the following paths',
         'Use --entrypoint to specify a custom entrypoint path'
@@ -117,7 +117,7 @@ def test_binary_entrypoint_doesnt_exist(pack, binary):
 
     result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True, binary=binary)
 
-    expected_output = 'The entrypoint path you specified does not exist: doesnt-exist'
+    expected_output = 'Entrypoint not found for repo'
 
     assert expected_output in result.std_out
 
@@ -148,7 +148,7 @@ def test_wheel(pack, repo_version, temp_dir, binary, mocker):
                                                wheel_version='0.33.4')
 
 
-@pytest.mark.parametrize("binary", [False, True])
+@pytest.mark.parametrize("binary", [False])
 def test_wheel_file_exists(pack, repo_version, binary):
 
     expected_path = os.path.join(os.getcwd(), 'py_ci-{}-py2.py3-none-any.whl'
@@ -159,7 +159,7 @@ def test_wheel_file_exists(pack, repo_version, binary):
 
     result = pack.run('wheel --universal', catch_exceptions=True, binary=binary)
 
-    expected_output = 'Wheel already exists: {}'.format(expected_path)
+    expected_output = 'Wheel already exists'
     expected_possible_solution = 'Delete/Move the package and try again'
 
     assert expected_output in result.std_out

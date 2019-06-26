@@ -24,7 +24,7 @@ import click
 from pyci.api import exceptions, ci
 from pyci.api import utils
 from pyci.api import model
-from pyci.shell import BRANCH_HELP
+from pyci.shell import BRANCH_HELP, solutions
 from pyci.shell import MASTER_BRANCH_HELP
 from pyci.shell import RELEASE_BRANCH_HELP
 from pyci.shell import handle_exceptions
@@ -240,10 +240,7 @@ def create_release(ctx, sha, branch):
         log.echo('Release created: {}'.format(release.url))
     except exceptions.NotPythonProjectException as e:
         err = click.ClickException(str(e))
-        err.possible_solutions = [
-            'Please follow these instructions to create a standard '
-            'python project --> https://packaging.python.org/tutorials/distributing-packages/'
-        ]
+        err.possible_solutions = solutions.non_standard_project()
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
 

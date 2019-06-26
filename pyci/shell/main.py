@@ -29,7 +29,7 @@ from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.api import exceptions
 from pyci.api import utils
-from pyci.shell import REPO_HELP
+from pyci.shell import REPO_HELP, solutions
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import release
@@ -130,7 +130,7 @@ def pack(ctx, repo, sha, path, target_dir):
 
     ci_provider = ctx.parent.ci_provider
 
-    sha = ci_provider.sha if ci_provider else None
+    sha = sha if sha else (ci_provider.sha if ci_provider else None)
 
     if not path:
         repo = pyci.shell.detect_repo(ctx, ci_provider, repo)
@@ -147,24 +147,19 @@ def pack(ctx, repo, sha, path, target_dir):
     try:
         ctx.packager = Packager.create(repo=repo, path=path, sha=sha, target_dir=target_dir)
     except exceptions.DirectoryDoesntExistException as e:
-        err = click.ClickException('The target directory you specified does not exist: {}'
-                                   .format(e.path))
+        err = click.ClickException(str(e))
         err.possible_solutions = [
             'Create the directory and try again'
         ]
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
-    except exceptions.NotPythonProjectException:
-        err = click.ClickException('The project is not structured as a standard python '
-                                   'project.')
-        err.possible_solutions = [
-            'Please follow these instructions to create a standard '
-            'python project --> https://packaging.python.org/tutorials/distributing-packages/'
-        ]
+    except exceptions.NotPythonProjectException as e:
+        err = click.ClickException(str(e))
+        err.possible_solutions = solutions.non_standard_project()
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
     except exceptions.DownloadFailedException as e:
-        err = click.ClickException('Failed downloading repository content: {}'.format(e.err))
+        err = click.ClickException(str(e))
         if e.code == 404:
             err.cause = 'You either provided a non existing sha or a non existing repository'
         tb = sys.exc_info()[2]
