@@ -267,7 +267,7 @@ def test_exei_on_linux(pack):
 
 
 @pytest.mark.windows
-def test_exei(pack, runner, pyci):
+def test_exei(pack, pyci):
 
     basename = os.path.basename(pyci.binary_path)
     name = basename.replace('.exe', '')
@@ -276,8 +276,4 @@ def test_exei(pack, runner, pyci):
 
     expected = os.path.join(os.getcwd(), '{}-installer.exe'.format(name))
 
-    runner.run('{} /SD'.format(expected))
-
-    expected_installation = os.path.join('C:', 'Program Files (x86)', name, basename)
-
-    runner.run('{} --help'.format(expected_installation))
+    assert os.path.exists(expected)
