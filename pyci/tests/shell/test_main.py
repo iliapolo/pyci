@@ -33,7 +33,7 @@ def test_pack_sha_and_path(pyci, binary):
 @pytest.mark.parametrize("binary", [False, True])
 def test_pack_repo_no_sha(pyci, binary):
 
-    result = pyci.run('pack --repo repo wheel', catch_exceptions=True, binary=binary)
+    result = pyci.run('--no-ci pack --repo repo wheel', catch_exceptions=True, binary=binary)
 
     expected_output = 'Must specify --sha as well'
 
