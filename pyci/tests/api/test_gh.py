@@ -157,6 +157,44 @@ def test_generate_changelog_relative_to_release(github, request):
     assert expected_next_version == actual_next_version
 
 
+# pylint: disable=too-many-locals
+@pytest.mark.wet
+def test_generate_changelog_with_commit_linked_to_non_existing_issue(github):
+
+    # this is our commit
+    ours = github.api.commit_file(path='LICENSE', contents='dummy', message='Dummy commit linked to non-existing '
+                                                                            'issue #999')
+    # this should give us the changelog relative to the 0.0.2 release, not the latest.
+    changelog = github.api.generate_changelog(sha=ours.sha,
+                                              base='cf2d64132f00c849ae1bb62ffb2e32b719b6cbac')
+
+    actual_commits = {com.impl.sha for com in changelog.commits}
+
+    expected_commits = {ours.sha}
+
+    assert expected_commits == actual_commits
+
+
+def test_generate_changelog_relative_to_commit(github):
+
+    changelog = github.api.generate_changelog(sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6',
+                                              base='0596d82b4786a531b7370448e2b5d0de9922f01a')
+
+    expected_commits = {'6cadc14419e57549365ac4dabea59c4c08be581c',
+                        '703afd5a11e186167606a071a556f30174f741d5',
+                        '33526a9e0445541d96e027db2aeb93d07cdf8bd6'}
+    expected_next_version = None
+
+    actual_commits = {com.impl.sha for com in changelog.commits}
+    actual_next_version = changelog.next_version
+
+    assert len(changelog.features) == 0
+    assert len(changelog.bugs) == 0
+    assert len(changelog.issues) == 0
+    assert expected_commits == actual_commits
+    assert expected_next_version == actual_next_version
+
+
 def test_generate_changelog_no_release(github):
 
     changelog = github.api.generate_changelog(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')

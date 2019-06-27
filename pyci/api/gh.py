@@ -114,7 +114,7 @@ class GitHubRepository(object):
         branch = branch or self.default_branch_name
         self._get_or_create_branch(branch).validate_commit(sha=sha, hooks=hooks)
 
-    def generate_changelog(self, branch=None, sha=None, hooks=None):
+    def generate_changelog(self, branch=None, sha=None, base=None, hooks=None):
 
         """
         Generate a changelog for the given commit.
@@ -125,6 +125,8 @@ class GitHubRepository(object):
             hooks: dictionary of callable hooks to execute in various steps of this method.
             branch (:str, optional): For the last commit of this branch.
             sha (:str, optional): For a specific commit.
+            base: (:str, optional): Base sha to start from. Can also be a branch name.
+                Defaults to the last release prior to sha/branch.
 
         Returns:
             pyci.api.model.Changelog: A changelog instance.
@@ -137,7 +139,7 @@ class GitHubRepository(object):
             raise exceptions.InvalidArgumentsException('either branch or sha is required')
 
         branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).generate_changelog(sha=sha, hooks=hooks)
+        return self._get_or_create_branch(branch).generate_changelog(sha=sha, base=base, hooks=hooks)
 
     def create_release(self, branch=None, sha=None):
 
@@ -760,9 +762,9 @@ class _GitHubBranch(object):
         sha = sha or self.branch_name
         self._get_or_create_commit(sha=sha).validate_commit(hooks)
 
-    def generate_changelog(self, sha, hooks):
+    def generate_changelog(self, sha, base, hooks):
         sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).generate_changelog(hooks)
+        return self._get_or_create_commit(sha=sha).generate_changelog(base, hooks)
 
     def create_release(self, sha):
         sha = sha or self.branch_name
@@ -949,7 +951,7 @@ class _GitHubCommit(object):
             raise exceptions.ReleaseAlreadyExistsException(release=version)
 
     # pylint: disable=too-many-branches,too-many-locals,too-many-statements
-    def generate_changelog(self, hooks):
+    def generate_changelog(self, base, hooks):
 
         pre_commit = hooks.get('pre_commit') if hooks else None
         pre_collect = hooks.get('pre_collect') if hooks else None
@@ -959,43 +961,50 @@ class _GitHubCommit(object):
 
         self._debug('Generating changelog...')
 
-        releases = {}
-
         if pre_collect:
             pre_collect()
 
-        for release in self._branch.github.repo.get_releases():
-            commit = self._fetch_tag_commit(release.tag_name)
-            if commit.commit.author.date <= self.commit.commit.author.date:
-                releases[commit.sha] = {
-                    'date': commit.commit.author.date,
-                    'name': release.title,
-                    'sha': commit.sha
-                }
+        def _fetch_last_release():
+
+            last_release = None
+
+            # this relies on the fact github returns a descending order list.
+            # will this always be the case? couldn't find any docs about it...
+            # i really don't want to sort it myself because it might mean fetching a lot of releases,
+            # which takes time...
+            for release in self._branch.github.repo.get_releases():
+                tag_commit = self._fetch_tag_commit(release.tag_name)
+                if tag_commit.commit.author.date <= self.commit.commit.author.date:
+                    last_release = tag_commit.sha
+                    break
+
+            return last_release
+
+        base = base or _fetch_last_release()
+
+        if base:
+            # additional API call to support branch names as base
+            base = self._branch.github.repo.get_commit(sha=base).sha
 
         self._debug('Fetching commits...')
         all_commits = self._branch.github.repo.get_commits(sha=self.commit.sha)
 
         commits = []
-        previous_release = {}
 
         # this relies on the fact github returns a descending order list.
         # will this always be the case? couldn't find any docs about it...
         # i really don't want to sort it myself because it might mean fetching a lot of commits,
         # which takes time...
         for commit in all_commits:
-            if commit.sha not in releases.keys():
-                commits.append(commit)
-            else:
-                previous_release = releases[commit.sha]
+            if commit.sha == base:
                 break
+            else:
+                commits.append(commit)
 
         if not commits:
-            raise exceptions.EmptyChangelogException(sha=self.commit.sha,
-                                                     previous_release=previous_release['name'])
+            raise exceptions.EmptyChangelogException(sha=self.commit.sha, base=base)
 
-        self._debug('Fetched commits.', previous_release=previous_release.get('name'),
-                    commits=','''.join([commit.sha for commit in commits]))
+        self._debug('Fetched commits.', sha=self.commit.sha, base=base)
 
         changelog = model.Changelog(current_version=self.setup_py_version, sha=self.commit.sha)
 
@@ -1007,7 +1016,13 @@ class _GitHubCommit(object):
             if pre_commit:
                 pre_commit(commit)
 
-            issue = self._branch.github.detect_issue(commit_message=commit.commit.message)
+            issue = None
+            try:
+                issue = self._branch.github.detect_issue(commit_message=commit.commit.message)
+            except exceptions.IssueNotFoundException as e:
+                # This shouldn't stop us from creating a changelog
+                self._debug('Commit {} is linked to a non-existing issue/pr: {}. Ignoring...'
+                            .format(commit.sha, e.issue))
 
             if issue is None:
                 self._debug('Found commit.', sha=commit.sha, commit_message=commit.commit.message)

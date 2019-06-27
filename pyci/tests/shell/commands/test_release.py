@@ -168,3 +168,8 @@ def test_release_failed(release):
     expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out
+
+
+def test_release_q(pyci):
+
+    pyci.run('release --repo iliapolo/q --branch-name master --no-wheel --no-binary --force')

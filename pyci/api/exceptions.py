@@ -167,14 +167,13 @@ class InvalidArgumentsException(ApiException):
 
 class EmptyChangelogException(ApiException):
 
-    def __init__(self, sha, previous_release):
-        self.previous_release = previous_release
+    def __init__(self, sha, base):
+        self.base = base
         self.sha = sha
         super(EmptyChangelogException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Changelog from previous release ({}) for commit ({}) is empty'.format(
-            self.previous_release, self.sha)
+        return 'Changelog of commit {} relative to to commit {} is empty'.format(self.sha, self.base)
 
 
 class FileDoesntExistException(ApiException):

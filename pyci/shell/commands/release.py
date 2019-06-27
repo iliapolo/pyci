@@ -48,6 +48,8 @@ log = get_logger()
               help=REPO_HELP)
 @click.option('--branch-name', required=False,
               help=BRANCH_HELP)
+@click.option('--changelog-base', required=False,
+              help='Base commit for changelog generation.')
 @click.option('--master-branch-name', required=False, default='master',
               help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
@@ -89,6 +91,7 @@ def release(ctx,
             no_wheel,
             pyinstaller_version,
             wheel_version,
+            changelog_base,
             force):
 
     """
@@ -98,7 +101,7 @@ def release(ctx,
 
         1. Execute a github release on the specified branch. (see 'pyci github release --help')
 
-        2. Create and upload ad platform dependent binary executable to the release. (Optional)
+        2. Create and upload a platform dependent binary executable to the release. (Optional)
 
         3. Create and upload a wheel package to PyPI. (Optional)
 
@@ -135,7 +138,8 @@ def release(ctx,
             repo=repo,
             wheel_universal=wheel_universal,
             pyinstaller_version=pyinstaller_version,
-            wheel_version=wheel_version)
+            wheel_version=wheel_version,
+            changelog_base=changelog_base)
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
@@ -158,7 +162,8 @@ def release_internal(binary_entrypoint,
                      repo,
                      wheel_universal,
                      pyinstaller_version,
-                     wheel_version):
+                     wheel_version,
+                     changelog_base):
 
     gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
     github_release = github.release_branch_internal(
@@ -167,7 +172,8 @@ def release_internal(binary_entrypoint,
         release_branch_name=release_branch_name,
         force=force,
         gh=gh,
-        ci_provider=ci)
+        ci_provider=ci,
+        changelog_base=changelog_base)
 
     package_directory = tempfile.mkdtemp()
     packager = Packager.create(repo, sha=github_release.sha, target_dir=package_directory)

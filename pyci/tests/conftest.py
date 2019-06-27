@@ -39,7 +39,7 @@ from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
 from pyci.tests import utils as test_utils
 
-# logger.DEFAULT_LOG_LEVEL = logging.DEBUG
+logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
@@ -274,7 +274,7 @@ def _token(mode):
 @pytest.fixture(name='mode', scope='session')
 def _mode():
 
-    record = os.environ.get('PYGITHUB_RECORD', False)
+    record = os.environ.get('PYGITHUB_RECORD', True)
 
     if record:
         return 'RECORD'
