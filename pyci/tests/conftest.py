@@ -274,7 +274,7 @@ def _token(mode):
 @pytest.fixture(name='mode', scope='session')
 def _mode():
 
-    record = os.environ.get('PYGITHUB_RECORD', True)
+    record = os.environ.get('PYGITHUB_RECORD', False)
 
     if record:
         return 'RECORD'

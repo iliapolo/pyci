@@ -286,7 +286,7 @@ def test_generate_changelog_empty(github, request):
         github.api.generate_changelog(sha=expected_sha)
 
     assert expected_sha == e.value.sha
-    assert expected_release == e.value.previous_release
+    assert expected_sha == e.value.base
 
 
 def test_delete_release_no_name(github):

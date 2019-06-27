@@ -20,6 +20,16 @@ import platform
 
 import pytest
 
+try:
+    # python2
+    from mock import MagicMock
+    from mock import ANY
+except ImportError:
+    # python3
+    # noinspection PyUnresolvedReferences,PyCompatibility
+    from unittest.mock import MagicMock
+    from unittest.mock import ANY
+
 from pyci.tests.conftest import LAST_COMMIT
 
 
@@ -161,6 +171,26 @@ def test_release_validation_failed(release):
     assert expected_output in result.std_out
 
 
+def test_release_options(release, temp_dir, mocker):
+
+    mocker.patch(target='pyci.shell.subcommands.github.release_branch_internal', new=MagicMock())
+    mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock())
+
+    release.run('--branch-name release --no-binary --no-wheel --changelog-base base')
+
+    from pyci.shell.subcommands import github
+
+    # noinspection PyUnresolvedReferences
+    github.release_branch_internal.assert_called_once_with(  # pylint: disable=no-member
+        branch_name='release',
+        master_branch_name='master',
+        release_branch_name='release',
+        force=False,
+        gh=ANY,
+        ci_provider=ANY,
+        changelog_base='base')
+
+
 def test_release_failed(release):
 
     result = release.run('--branch-name doesnt-exist', catch_exceptions=True)
@@ -168,8 +198,3 @@ def test_release_failed(release):
     expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out
-
-
-def test_release_q(pyci):
-
-    pyci.run('release --repo iliapolo/q --branch-name master --no-wheel --no-binary --force')
