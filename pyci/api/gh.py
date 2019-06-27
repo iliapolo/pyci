@@ -125,7 +125,7 @@ class GitHubRepository(object):
             hooks: dictionary of callable hooks to execute in various steps of this method.
             branch (:str, optional): For the last commit of this branch.
             sha (:str, optional): For a specific commit.
-            base: (:str, optional): Base sha to start from. Can also be a branch name.
+            base: (:str, optional): Base sha to start from (exclusive). Can also be a branch name.
                 Defaults to the last release prior to sha/branch.
 
         Returns:

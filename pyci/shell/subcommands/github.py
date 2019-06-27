@@ -45,7 +45,7 @@ log = get_logger()
 @click.option('--release-branch-name', required=False, default='release',
               help=RELEASE_BRANCH_HELP)
 @click.option('--changelog-base', required=False,
-              help='Base commit for changelog generation.')
+              help='Base commit for changelog generation. (exclusive)')
 @click.option('--force', is_flag=True,
               help='Force release without any validations.')
 def release_branch(ctx, version, branch_name, master_branch_name, release_branch_name, changelog_base, force):
@@ -170,7 +170,7 @@ def validate_build(ctx, release_branch_name):
 @click.option('--branch', required=False,
               help='Generate for the last commit of this branch.')
 @click.option('--base', required=False,
-              help='Use this commit as the base. Can also be a branch name.')
+              help='Use this commit as the base (exclusive). Can also be a branch name.')
 @click.option('--sha', required=False,
               help='Generate for this specific commit.')
 @click.option('--target', required=False, type=click.Path(exists=False),

@@ -49,7 +49,7 @@ log = get_logger()
 @click.option('--branch-name', required=False,
               help=BRANCH_HELP)
 @click.option('--changelog-base', required=False,
-              help='Base commit for changelog generation.')
+              help='Base commit for changelog generation. (exclusive)')
 @click.option('--version', required=False,
               help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch-name', required=False, default='master',

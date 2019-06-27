@@ -173,7 +173,8 @@ class EmptyChangelogException(ApiException):
         super(EmptyChangelogException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Changelog of commit {} relative to to commit {} is empty'.format(self.sha, self.base)
+        return 'Changelog of commit {}, relative to commit {}, is empty'.format(self.sha,
+                                                                                self.base)
 
 
 class FileDoesntExistException(ApiException):
