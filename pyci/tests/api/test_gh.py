@@ -188,9 +188,9 @@ def test_generate_changelog_relative_to_commit(github):
     actual_commits = {com.impl.sha for com in changelog.commits}
     actual_next_version = changelog.next_version
 
-    assert len(changelog.features) == 0
-    assert len(changelog.bugs) == 0
-    assert len(changelog.issues) == 0
+    assert not changelog.features
+    assert not changelog.bugs
+    assert not changelog.issues
     assert expected_commits == actual_commits
     assert expected_next_version == actual_next_version
 

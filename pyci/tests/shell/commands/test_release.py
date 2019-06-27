@@ -171,7 +171,7 @@ def test_release_validation_failed(release):
     assert expected_output in result.std_out
 
 
-def test_release_options(release, temp_dir, mocker):
+def test_release_options(release, mocker):
 
     mocker.patch(target='pyci.shell.subcommands.github.release_branch_internal', new=MagicMock())
     mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock())
