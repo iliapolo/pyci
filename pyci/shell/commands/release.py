@@ -114,6 +114,9 @@ def release(ctx,
 
     branch_name = branch_name or (ci_provider.branch if ci_provider else None)
 
+    if not branch_name:
+        raise click.ClickException('Must provide --branch-name')
+
     repo = detect_repo(ctx, ci_provider, repo)
 
     if not no_binary and is_pyinstaller():
@@ -147,7 +150,10 @@ def release(ctx,
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
-        log.echo('PyPI: {}'.format(wheel_url))
+
+        if wheel_url:
+            log.echo('PyPI: {}'.format(wheel_url))
+
     except exceptions.ReleaseValidationFailedException as e:
         log.sub()
         log.echo("Not releasing: {}".format(str(e)))
