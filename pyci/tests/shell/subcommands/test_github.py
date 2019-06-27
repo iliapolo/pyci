@@ -123,6 +123,18 @@ def test_release_branch_force_with_changelog_base(github, request):
 
 
 @pytest.mark.wet
+def test_release_branch_with_version(github):
+
+    expected_release_title = '8.0.0'
+
+    github.run('release --branch-name release --version {}'.format(expected_release_title))
+
+    github_release = github.api.repo.get_release(id=expected_release_title)
+
+    assert github_release
+
+
+@pytest.mark.wet
 def test_release_branch_not_fast_forward(pyci, repo, mocker):
 
     ci_provider = ci.detect(environ={

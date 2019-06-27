@@ -50,6 +50,8 @@ log = get_logger()
               help=BRANCH_HELP)
 @click.option('--changelog-base', required=False,
               help='Base commit for changelog generation.')
+@click.option('--version', required=False,
+              help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch-name', required=False, default='master',
               help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
@@ -92,6 +94,7 @@ def release(ctx,
             pyinstaller_version,
             wheel_version,
             changelog_base,
+            version,
             force):
 
     """
@@ -139,7 +142,8 @@ def release(ctx,
             wheel_universal=wheel_universal,
             pyinstaller_version=pyinstaller_version,
             wheel_version=wheel_version,
-            changelog_base=changelog_base)
+            changelog_base=changelog_base,
+            version=version)
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
@@ -163,7 +167,8 @@ def release_internal(binary_entrypoint,
                      wheel_universal,
                      pyinstaller_version,
                      wheel_version,
-                     changelog_base):
+                     changelog_base,
+                     version):
 
     gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
     github_release = github.release_branch_internal(
@@ -173,7 +178,8 @@ def release_internal(binary_entrypoint,
         force=force,
         gh=gh,
         ci_provider=ci,
-        changelog_base=changelog_base)
+        changelog_base=changelog_base,
+        version=version)
 
     package_directory = tempfile.mkdtemp()
     packager = Packager.create(repo, sha=github_release.sha, target_dir=package_directory)

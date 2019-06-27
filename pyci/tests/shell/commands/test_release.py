@@ -176,7 +176,7 @@ def test_release_options(release, mocker):
     mocker.patch(target='pyci.shell.subcommands.github.release_branch_internal', new=MagicMock())
     mocker.patch(target='pyci.api.packager.Packager.create', new=MagicMock())
 
-    release.run('--branch-name release --no-binary --no-wheel --changelog-base base')
+    release.run('--branch-name release --no-binary --no-wheel --changelog-base base --version 1.2.3')
 
     from pyci.shell.subcommands import github
 
@@ -188,7 +188,8 @@ def test_release_options(release, mocker):
         force=False,
         gh=ANY,
         ci_provider=ANY,
-        changelog_base='base')
+        changelog_base='base',
+        version='1.2.3')
 
 
 def test_release_failed(release):

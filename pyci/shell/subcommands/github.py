@@ -38,6 +38,8 @@ log = get_logger()
 @click.pass_context
 @click.option('--branch-name',
               help=BRANCH_HELP)
+@click.option('--version', required=False,
+              help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch-name', required=False, default='master',
               help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
@@ -46,7 +48,7 @@ log = get_logger()
               help='Base commit for changelog generation.')
 @click.option('--force', is_flag=True,
               help='Force release without any validations.')
-def release_branch(ctx, branch_name, master_branch_name, release_branch_name, changelog_base, force):
+def release_branch(ctx, version, branch_name, master_branch_name, release_branch_name, changelog_base, force):
 
     """
     Release a branch.
@@ -98,7 +100,8 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, ch
             force=force,
             gh=ctx.parent.github,
             ci_provider=ci_provider,
-            changelog_base=changelog_base)
+            changelog_base=changelog_base,
+            version=version)
         log.echo('Successfully released: {}'.format(release.url))
     except exceptions.ReleaseValidationFailedException as e:
         log.sub()
@@ -790,6 +793,7 @@ def release_branch_internal(branch_name,
                             release_branch_name,
                             force,
                             changelog_base,
+                            version,
                             gh,
                             ci_provider):
 
@@ -807,7 +811,9 @@ def release_branch_internal(branch_name,
                                             sha=sha,
                                             base=changelog_base)
 
-    if not changelog.next_version:
+    next_version = version or changelog.next_version
+
+    if not next_version:
 
         err = click.ClickException('None of the commits in the changelog references an issue '
                                    'labeled with a release label. Cannot determine what the '
@@ -816,7 +822,8 @@ def release_branch_internal(branch_name,
                     'or forgot to reference the issue.'
         err.possible_solutions = [
             'Amend the message of one of the commits to reference a release issue',
-            'Push another commit that references a release issue'
+            'Push another commit that references a release issue',
+            'Use --version to specify a version manually'
         ]
 
         raise err
@@ -826,7 +833,8 @@ def release_branch_internal(branch_name,
                                   changelog=changelog,
                                   branch_name=branch_name,
                                   master_branch_name=master_branch_name,
-                                  sha=sha)
+                                  sha=sha,
+                                  version=version)
         _close_issues(gh=gh,
                       changelog=changelog,
                       release=release.title)
@@ -846,7 +854,9 @@ def release_branch_internal(branch_name,
         utils.raise_with_traceback(e, tb)
 
 
-def _create_release(gh, changelog, branch_name, master_branch_name, sha):
+def _create_release(gh, changelog, version, branch_name, master_branch_name, sha):
+
+    next_version = version or changelog.next_version
 
     try:
 
@@ -854,7 +864,7 @@ def _create_release(gh, changelog, branch_name, master_branch_name, sha):
         # exposing this doesn't seem like a good solution either.
         # noinspection PyProtectedMember
         # pylint: disable=protected-access
-        commit = gh._create_set_version_commit(value=changelog.next_version,
+        commit = gh._create_set_version_commit(value=next_version,
                                                branch=branch_name,
                                                sha=sha).impl
 
@@ -872,7 +882,7 @@ def _create_release(gh, changelog, branch_name, master_branch_name, sha):
         upload_changelog_internal(changelog=changelog_file, gh=gh, rel=release.title)
 
         try:
-            log.echo('Bumping version to {}'.format(changelog.next_version))
+            log.echo('Bumping version to {}'.format(next_version))
             reset_branch_internal(gh=gh, name=branch_name, sha=commit.sha, hard=False)
             if master_branch_name != branch_name:
                 reset_branch_internal(gh=gh, name=master_branch_name, sha=commit.sha, hard=False)
@@ -887,7 +897,7 @@ def _create_release(gh, changelog, branch_name, master_branch_name, sha):
     except exceptions.ReleaseAlreadyExistsException as e:
         log.echo('Release {} already exists'.format(e.release))
         ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.release))
-        rel = gh.repo.get_release(id=changelog.next_version)
+        rel = gh.repo.get_release(id=next_version)
         release = model.Release(impl=rel,
                                 title=rel.title,
                                 url=rel.html_url,
