@@ -4,6 +4,10 @@ stages:
   - integration
   - release
 
+env:
+  global:
+    - TOX_VERSION=3.0.0
+    - CACHE_NAME=${TRAVIS_JOB_NAME}
 
 jobs:
   include:
@@ -16,10 +20,9 @@ jobs:
       env:
         - PYTHON=2.7.14
         - PYENV_VERSION=2.7.14
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: source setup-pyenv.sh
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e lint -e test-unit
       after_success:
@@ -37,10 +40,9 @@ jobs:
       env:
         - PYTHON=3.6.4
         - PYENV_VERSION=3.6.4
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: source setup-pyenv.sh
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e lint -e test-unit
       after_success:
@@ -54,10 +56,8 @@ jobs:
       name: py27-linux
       language: python
       python: "2.7"
-      env:
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e lint -e test-unit
       after_success:
@@ -70,10 +70,8 @@ jobs:
       name: py36-linux
       language: python
       python: "3.6"
-      env:
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e lint -e test-unit
       after_success:
@@ -88,10 +86,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python27:/c/Python27/Scripts:$PATH
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: choco install python2
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e lint -e test-unit
       after_success:
@@ -107,10 +104,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: choco install python --version 3.6.7
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e lint -e test-unit
       after_success:
@@ -126,12 +122,10 @@ jobs:
       python: "3.6"
       services:
         - docker
-      env:
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
-        - tox -e test-cross-distro
+          - tox -e test-cross-distro
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -144,10 +138,9 @@ jobs:
       env:
         - PYTHON=3.6.4
         - PYENV_VERSION=3.6.4
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: source setup-pyenv.sh
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e release
       cache:
@@ -159,10 +152,8 @@ jobs:
       name: linux
       language: python
       python: "3.6"
-      env:
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e release
       cache:
@@ -175,10 +166,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
-        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: choco install python --version 3.6.7
       install:
-        - pip install tox==3.0.0
+        - pip install tox==${TOX_VERSION}
       script:
         - tox -e release
       cache:
