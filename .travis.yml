@@ -20,9 +20,10 @@ jobs:
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test -e codecov
+        - tox --notest -e lint -e test
       script:
-        - tox -e lint -e test -e codecov
+        - tox -e lint -e test
+        - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -40,9 +41,10 @@ jobs:
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test -e codecov
+        - tox --notest -e lint -e test
       script:
-        - tox -e lint -e test -e codecov
+        - tox -e lint -e test
+        - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -56,9 +58,10 @@ jobs:
         - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test -e codecov
+        - tox --notest -e lint -e test
       script:
-        - tox -e lint -e test -e codecov
+        - tox -e lint -e test
+        - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -71,9 +74,10 @@ jobs:
         - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test -e codecov
+        - tox --notest -e lint -e test
       script:
-        - tox -e lint -e test -e codecov
+        - tox -e lint -e test
+        - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -88,9 +92,10 @@ jobs:
       before_install: choco install python2
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test -e codecov
+        - tox --notest -e lint -e test
       script:
-        - tox -e lint -e test -e codecov
+        - tox -e lint -e test
+        - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -106,9 +111,10 @@ jobs:
       before_install: choco install python --version 3.6.7
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test -e codecov
+        - tox --notest -e lint -e test
       script:
-        - tox -e lint -e test -e codecov
+        - tox -e lint -e test
+        - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
