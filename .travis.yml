@@ -20,7 +20,6 @@ jobs:
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test
       script:
         - tox -e lint -e test
         - bash <(curl -s https://codecov.io/bash) -Z
@@ -41,7 +40,6 @@ jobs:
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test
       script:
         - tox -e lint -e test
         - bash <(curl -s https://codecov.io/bash) -Z
@@ -58,7 +56,6 @@ jobs:
         - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test
       script:
         - tox -e lint -e test
         - bash <(curl -s https://codecov.io/bash) -Z
@@ -74,7 +71,6 @@ jobs:
         - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test
       script:
         - tox -e lint -e test
         - bash <(curl -s https://codecov.io/bash) -Z
@@ -92,7 +88,6 @@ jobs:
       before_install: choco install python2
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test
       script:
         - tox -e lint -e test
         - bash <(curl -s https://codecov.io/bash) -Z
@@ -111,7 +106,6 @@ jobs:
       before_install: choco install python --version 3.6.7
       install:
         - pip install tox==3.0.0
-        - tox --notest -e lint -e test
       script:
         - tox -e lint -e test
         - bash <(curl -s https://codecov.io/bash) -Z
@@ -119,6 +113,22 @@ jobs:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
           - /c/Python36
+
+    - stage: integration
+      name: cross-distro
+      language: python
+      python: "3.6"
+      services:
+        - docker
+      env:
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
+      install:
+        - pip install tox==3.0.0
+      script:
+        - tox -e test-cross-distro
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: release
       name: macos
@@ -147,7 +157,6 @@ jobs:
         - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
-        - tox --notest -e release
       script:
         - tox -e release
       cache:
@@ -164,7 +173,6 @@ jobs:
       before_install: choco install python --version 3.6.7
       install:
         - pip install tox==3.0.0
-        - tox --notest -e release
       script:
         - tox -e release
       cache:
