@@ -94,7 +94,6 @@ jobs:
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
-          - /c/Python27
 
     - stage: integration
       name: py36-windows
@@ -112,7 +111,6 @@ jobs:
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
-          - /c/Python36
 
     - stage: release
       name: macos
@@ -164,7 +162,6 @@ jobs:
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
-          - /c/Python36
 
 branches:
   except:
