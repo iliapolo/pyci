@@ -58,8 +58,8 @@ jobs:
       name: py27-windows
       os: windows
       language: shell
-      before_install: choco install python
-      env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
+      before_install: choco install python2
+      env: PATH=/c/travis/AppData/Roaming/Python:/c/travis/AppData/Roaming/Python/Scripts:$PATH
       install:
         - pip install --user tox==3.0.0
       script:
@@ -69,8 +69,8 @@ jobs:
       name: py36-windows
       os: windows
       language: shell
-      before_install: choco install python2
-      env: PATH=/c/Python27:/c/Python27/Scripts:$PATH
+      before_install: choco install python
+      env: PATH=/c/travis/AppData/Roaming/Python37:/c/travis/AppData/Roaming/Python37/Scripts:$PATH
       install:
         - pip install --user tox==3.0.0
       script:
