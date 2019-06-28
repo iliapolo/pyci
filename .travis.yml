@@ -166,13 +166,6 @@ jobs:
           - ${TRAVIS_BUILD_DIR}/.tox
           - /c/Python36
 
-#cache:
-#  directories:
-#    - ${HOME}/.pyenv_cache
-#    - ${TRAVIS_BUILD_DIR}/.tox
-#    - /c/Python27
-#    - /c/Python36
-
 branches:
   except:
     - master
