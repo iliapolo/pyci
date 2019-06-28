@@ -58,6 +58,7 @@ jobs:
       name: py27-windows
       os: windows
       language: shell
+      env: PATH=/c/Python27:/c/Python27/Scripts:$PATH
       before_install: choco install python2
       install:
         - pip install tox==3.0.0
@@ -68,6 +69,7 @@ jobs:
       name: py36-windows
       os: windows
       language: shell
+      env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
       before_install: choco install python
       install:
         - pip install tox==3.0.0
