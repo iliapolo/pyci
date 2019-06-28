@@ -105,6 +105,36 @@ def test_release_branch_twice(github):
 
 
 @pytest.mark.wet
+def test_release_branch_force_with_changelog_base(github, request):
+
+    test_utils.create_release(github, request, 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac', '1.0.0')
+
+    github.api.set_version(value='1.0.0', branch='release')
+
+    # run another release with a changelog generated from a sha prior to existing release
+    # this should cause another major version bump
+    github.run('release --branch-name release --force --changelog-base 4772c5708ff25a69f1f6c8106c7fe863c6686459')
+
+    expected_release_title = '2.0.0'
+
+    github_release = github.api.repo.get_release(id=expected_release_title)
+
+    assert github_release
+
+
+@pytest.mark.wet
+def test_release_branch_with_version(github):
+
+    expected_release_title = '8.0.0'
+
+    github.run('release --branch-name release --version {}'.format(expected_release_title))
+
+    github_release = github.api.repo.get_release(id=expected_release_title)
+
+    assert github_release
+
+
+@pytest.mark.wet
 def test_release_branch_not_fast_forward(pyci, repo, mocker):
 
     ci_provider = ci.detect(environ={
@@ -266,6 +296,20 @@ def test_generate_changelog_sha(github, temp_dir):
     destination = os.path.join(temp_dir, 'changelog.md')
 
     result = github.run('generate-changelog --sha {} --target {}'.format(LAST_COMMIT, destination))
+
+    expected_output = 'Generated at {}'.format(destination)
+
+    assert os.path.exists(destination)
+    assert expected_output in result.std_out
+
+
+def test_generate_changelog_from_base(github, temp_dir):
+
+    destination = os.path.join(temp_dir, 'changelog.md')
+
+    base = '4772c5708ff25a69f1f6c8106c7fe863c6686459'
+
+    result = github.run('generate-changelog --base {} --sha {} --target {}'.format(base, LAST_COMMIT, destination))
 
     expected_output = 'Generated at {}'.format(destination)
 
