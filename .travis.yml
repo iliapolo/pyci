@@ -16,6 +16,7 @@ jobs:
       env:
         - PYTHON=2.7.14
         - PYENV_VERSION=2.7.14
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
@@ -31,6 +32,7 @@ jobs:
       env:
         - PYTHON=3.6.4
         - PYENV_VERSION=3.6.4
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
@@ -42,6 +44,8 @@ jobs:
       name: py27-linux
       language: python
       python: "3.6"
+      env:
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
         - tox --notest -e lint -e test -e codecov
@@ -52,6 +56,8 @@ jobs:
       name: py36-linux
       language: python
       python: "3.6"
+      env:
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
         - tox --notest -e lint -e test -e codecov
@@ -62,7 +68,9 @@ jobs:
       name: py27-windows
       os: windows
       language: shell
-      env: PATH=/c/Python27:/c/Python27/Scripts:$PATH
+      env:
+        - PATH=/c/Python27:/c/Python27/Scripts:$PATH
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: choco install python2
       install:
         - pip install tox==3.0.0
@@ -74,7 +82,9 @@ jobs:
       name: py36-windows
       os: windows
       language: shell
-      env: PATH=/c/Python36:/c/Python36/Scripts:$PATH
+      env:
+        - PATH=/c/Python36:/c/Python36/Scripts:$PATH
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: choco install python --version 3.6.7
       install:
         - pip install tox==3.0.0
@@ -90,6 +100,7 @@ jobs:
       env:
         - PYTHON=3.6.4
         - PYENV_VERSION=3.6.4
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
@@ -100,6 +111,8 @@ jobs:
       name: linux
       language: python
       python: "3.6"
+      env:
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       install:
         - pip install tox==3.0.0
         - tox --notest -e release
@@ -109,6 +122,8 @@ jobs:
     - stage: release
       name: windows
       language: shell
+      env:
+        - CACHE_NAME=${TRAVIS_JOB_NAME}
       before_install: choco install python
       install:
         - pip install tox==3.0.0
@@ -119,6 +134,7 @@ jobs:
 cache:
   directories:
     - ${HOME}/.pyenv_cache
+    - ${TRAVIS_BUILD_DIR}/README.md
 
 branches:
   except:
