@@ -91,6 +91,10 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
+          - /c/Python27
 
     - stage: integration
       name: py36-windows
