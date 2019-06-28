@@ -20,7 +20,7 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
+        - tox -e lint && tox -e test && tox -e codecov
 
     - stage: integration
       name: py36-macos
@@ -34,7 +34,7 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
+        - tox -e lint && tox -e test && tox -e codecov
 
     - stage: integration
       name: py27-linux
@@ -43,7 +43,7 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
+        - tox -e lint && tox -e test && tox -e codecov
 
     - stage: integration
       name: py36-linux
@@ -52,7 +52,7 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
+        - tox -e lint && tox -e test && tox -e codecov
 
     - stage: integration
       name: py27-windows
@@ -63,9 +63,7 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - which python2.7
-        - which python
-        - tox -e lint-py27
+        - tox -e lint
 
     - stage: integration
       name: py36-windows
@@ -76,9 +74,7 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - which python3.6
-        - which python
-        - tox -e lint-py36
+        - tox -e lint
 
     - stage: release
       name: macos
