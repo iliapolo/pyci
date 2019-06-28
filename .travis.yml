@@ -5,30 +5,55 @@ stages:
 #  - release
 
 
-matrix:
-
-  include:
-
-    - os: osx
-      language: generic
-      osx_image: xcode7.3
-      before_install: source setup-pyenv.sh
-
-    - language: python
-      python: "2.7"
-
 jobs:
   include:
 
     - stage: ci
-      name: ci-py27
+      name: ci-py27-macos
+      os: osx
+      language: generic
+      osx_image: xcode7.3
       env:
         - PYTHON=2.7.14
         - PYENV_VERSION=2.7.14
+      before_install: source setup-pyenv.sh
       install:
         - pip install tox==3.0.0
       script:
         - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
+
+    - stage: ci
+      name: ci-py36-macos
+      os: osx
+      language: generic
+      osx_image: xcode7.3
+      env:
+        - PYTHON=3.6.4
+        - PYENV_VERSION=3.6.4
+      before_install: source setup-pyenv.sh
+      install:
+        - pip install tox==3.0.0
+      script:
+        - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
+
+    - stage: ci
+      name: ci-py27-linux
+      language: python
+      python: "2.7"
+      install:
+        - pip install tox==3.0.0
+      script:
+        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
+
+
+    - stage: ci
+      name: ci-py36-linux
+      language: python
+      python: "3.6"
+      install:
+        - pip install tox==3.0.0
+      script:
+        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
 
 #    - stage: ci
 #      name: ci-py36
