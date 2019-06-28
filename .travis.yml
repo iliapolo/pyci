@@ -170,3 +170,4 @@ branches:
   except:
     - master
     - /\d*\.\d*\.\d*/
+
