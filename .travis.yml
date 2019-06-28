@@ -91,11 +91,6 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
-          - /c/Python27
-          - ${TRAVIS_BUILD_DIR}/REAMDE.md
 
     - stage: integration
       name: py36-windows
@@ -114,7 +109,6 @@ jobs:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
           - /c/Python36
-          - ${TRAVIS_BUILD_DIR}/REAMDE.md
 
     - stage: release
       name: macos
@@ -167,7 +161,6 @@ jobs:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
           - /c/Python36
-          - ${TRAVIS_BUILD_DIR}/REAMDE.md
 
 branches:
   except:
