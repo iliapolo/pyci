@@ -1,3 +1,5 @@
+# coding=utf-8
+
 #############################################################################
 # Copyright (c) 2018 Eli Polonsky. All rights reserved
 #
@@ -32,10 +34,10 @@ except NameError:
     _unicode = False
 
 
-# UTF-8 encoded
-RIGHT_ARROW = '\xe2\x86\x92'
-CHECK_MARK = '\xe2\x9c\x93'
-X_MARK = '\xe2\x9c\x97'
+# UTF-8 chars
+RIGHT_ARROW = '→'
+CHECK_MARK = '✓'
+X_MARK = '✗'
 
 ASTRIX = '*'
 

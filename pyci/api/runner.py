@@ -103,12 +103,12 @@ class LocalCommandRunner(object):
             epipe.close()
 
         with open(opipe.name) as stream:
-            out = stream.read().strip().encode('utf-8')
+            out = stream.read().strip()
 
         os.remove(opipe.name)
 
         with open(epipe.name) as stream:
-            err = stream.read().strip().encode('utf-8')
+            err = stream.read().strip()
 
         os.remove(epipe.name)
 
