@@ -23,6 +23,10 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${HOME}/.pyenv_cache
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py36-macos
@@ -39,6 +43,10 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${HOME}/.pyenv_cache
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py27-linux
@@ -51,6 +59,9 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py36-linux
@@ -63,6 +74,9 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py27-windows
@@ -77,6 +91,10 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
+          - /c/Python27
 
     - stage: integration
       name: py36-windows
@@ -91,6 +109,10 @@ jobs:
         - tox --notest -e lint -e test -e codecov
       script:
         - tox -e lint -e test -e codecov
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
+          - /c/Python36
 
     - stage: release
       name: macos
@@ -106,6 +128,10 @@ jobs:
         - pip install tox==3.0.0
       script:
         - tox -e release
+      cache:
+        directories:
+          - ${HOME}/.pyenv_cache
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: release
       name: linux
@@ -118,6 +144,9 @@ jobs:
         - tox --notest -e release
       script:
         - tox -e release
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: release
       name: windows
@@ -132,13 +161,17 @@ jobs:
         - tox --notest -e release
       script:
         - tox -e release
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
+          - /c/Python36
 
-cache:
-  directories:
-    - ${HOME}/.pyenv_cache
-    - ${TRAVIS_BUILD_DIR}/.tox
-    - /c/Python27
-    - /c/Python36
+#cache:
+#  directories:
+#    - ${HOME}/.pyenv_cache
+#    - ${TRAVIS_BUILD_DIR}/.tox
+#    - /c/Python27
+#    - /c/Python36
 
 branches:
   except:
