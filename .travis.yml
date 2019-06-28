@@ -21,7 +21,8 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint -e test
+        - tox -e lint -e test-unit
+      after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
@@ -41,7 +42,8 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint -e test
+        - tox -e lint -e test-unit
+      after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
@@ -57,7 +59,8 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint -e test
+        - tox -e lint -e test-unit
+      after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
@@ -72,7 +75,8 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint -e test
+        - tox -e lint -e test-unit
+      after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
@@ -89,7 +93,8 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint -e test
+        - tox -e lint -e test-unit
+      after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
@@ -107,7 +112,8 @@ jobs:
       install:
         - pip install tox==3.0.0
       script:
-        - tox -e lint -e test
+        - tox -e lint -e test-unit
+      after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
         directories:
