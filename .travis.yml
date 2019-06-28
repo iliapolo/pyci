@@ -1,39 +1,59 @@
 sudo: false
 
-os: osx
-language: generic
-osx_image: xcode7.3
-
 stages:
   - ci
-  - release
+#  - release
 
 jobs:
   include:
 
     - stage: ci
-      name: ci-py27
+      name: ci-py27-macos
+      os: osx
+      language: generic
+      osx_image: xcode7.3
       env:
         - PYTHON=2.7.14
         - PYENV_VERSION=2.7.14
+      before_install: source setup-pyenv.sh
+      install:
+        - pip install tox==3.0.0
       script:
         - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
 
     - stage: ci
-      name: ci-py36
-      env:
-        - PYTHON=3.6.4
-        - PYENV_VERSION=3.6.4
+      name: ci-py27-linux
+      language: python
+      python: "2.7"
+      install:
+        - pip install tox==3.0.0
       script:
-        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
+        - tox -e lint-py27 && tox -e test-py27 && tox -e codecov
 
-    - stage: release
-      name: release
-      env:
-        - PYTHON=3.6.4
-        - PYENV_VERSION=3.6.4
-      script:
-        - tox -e release
+#    - stage: ci
+#      name: ci-py36
+#      env:
+#        - PYTHON=3.6.4
+#        - PYENV_VERSION=3.6.4
+#      script:
+#        - tox -e lint-py36 && tox -e test-py36 && tox -e codecov
+#
+#    - stage: release
+#      name: release-macos
+#      env:
+#        - PYTHON=3.6.4
+#        - PYENV_VERSION=3.6.4
+#      script:
+#        - tox -e release
+#
+#    - stage: release
+#      name: release-linux
+#      env:
+#        - PYTHON=3.6.4
+#        - PYENV_VERSION=3.6.4
+#      script:
+#        - tox -e release
+
 
 cache:
   directories:
@@ -44,9 +64,3 @@ branches:
     - master
     - /\d*\.\d*\.\d*/
 
-install:
-  - pip install tox==3.0.0
-
-before_install: |
-
-  source setup-pyenv.sh
