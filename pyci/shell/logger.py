@@ -21,17 +21,9 @@ import os
 import logging
 
 import click
-import six
 
+from pyci.api import utils
 from pyci.api.logger import Logger as ApiLogger
-
-try:
-    # noinspection PyStatementEffect
-    # pylint: disable=pointless-statement
-    unicode
-    _unicode = True
-except NameError:
-    _unicode = False
 
 
 # UTF-8 chars
@@ -136,7 +128,7 @@ class _Logger(object):
         return self._logger.logger.isEnabledFor(logging.DEBUG)
 
     def _unicode(self, char, fg=None, break_line=True):
-        if self._is_debug():
+        if self._is_debug() or utils.is_windows():
             pass
         else:
             try:
@@ -144,36 +136,6 @@ class _Logger(object):
             except BaseException as e:
                 self.debug('Cant print a Unicode character: {}'.format(str(e)))
                 click.echo('', nl=break_line)
-
-
-class NoLineBreakStreamHandler(logging.StreamHandler):
-
-    def emit(self, record):
-
-        try:
-            msg = self.format(record)
-            stream = self.stream
-            fs = "%s"
-            if not _unicode:
-                stream.write(fs % msg)
-            else:
-                try:
-                    if isinstance(msg, six.text_type) and getattr(stream, 'encoding', None):
-                        ufs = u'%s'
-                        try:
-                            stream.write(ufs % msg)
-                        except UnicodeEncodeError:
-                            stream.write((ufs % msg).encode(stream.encoding))
-                    else:
-                        stream.write(fs % msg)
-                except UnicodeError:
-                    stream.write(fs % msg.encode("UTF-8"))
-            self.flush()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except BaseException as e:
-            log.error(str(e))
-            self.handleError(record)
 
 
 log = _Logger()
