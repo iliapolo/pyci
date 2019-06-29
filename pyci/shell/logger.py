@@ -24,7 +24,6 @@ import click
 
 from pyci.api.logger import Logger as ApiLogger
 
-
 # UTF-8 chars
 RIGHT_ARROW = '→'
 CHECK_MARK = '✓'
@@ -130,11 +129,7 @@ class _Logger(object):
         if self._is_debug():
             pass
         else:
-            try:
-                click.secho(char, nl=break_line, fg=fg)
-            except BaseException as e:
-                self.debug('Cant print a Unicode character: {}'.format(str(e)))
-                click.echo('', nl=break_line)
+            click.secho(char, nl=break_line, fg=fg)
 
 
 log = _Logger()

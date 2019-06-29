@@ -108,9 +108,7 @@ class CommandExecutionException(ApiException):
         # In Python3 string literals are encoded with UTF-8 by default, and the 'u' operator
         # actually does nothing. Its just there for backwards comparability.
         # This still feels kind of funky though, need to check for a better solution.
-
-        # We only do this hack here because its is the only place that formats raw output in the form of bytes.
-        # This output comes from buffering the external commands output in memory.
+        # Does this mean I have to fix every '.format' usage I have...?
 
         return u"Command '{0}' executed with an error." \
                u"\ncode: {1}" \
