@@ -26,7 +26,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z
+        - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -46,7 +46,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z
+        - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -61,7 +61,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z
+        - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -75,7 +75,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z
+        - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -106,7 +106,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z
+        - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
@@ -124,7 +124,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z
+        - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox

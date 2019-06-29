@@ -127,10 +127,14 @@ class _Logger(object):
         return self._logger.logger.isEnabledFor(logging.DEBUG)
 
     def _unicode(self, char, fg=None, break_line=True):
-        # I have no idea why, but on windows, unicode characters breaks shit.
-        # Lets avoid it for now.
-        if self._is_debug() or utils.is_windows():
+        if self._is_debug():
+            # When we are in debug mode - the entire output changes
+            # and this whole unicode pretty chars thing is un-necessary.
             pass
+        elif utils.is_windows():
+            # I have no idea why, but on windows, unicode characters breaks shit.
+            # Lets avoid it for now.
+            click.echo('', nl=break_line)
         else:
             click.secho(char, nl=break_line, fg=fg)
 
