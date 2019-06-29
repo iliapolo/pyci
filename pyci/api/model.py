@@ -127,7 +127,7 @@ class Changelog(object):
         try:
             semver.parse(current_version)
         except (TypeError, ValueError):
-            raise exceptions.InvalidArgumentsException('current_version is not a legal semantic '
+            raise exceptions.InvalidArgumentsException('Version is not a legal semantic '
                                                        'version string')
 
         self._current_version = current_version

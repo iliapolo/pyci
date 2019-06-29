@@ -48,6 +48,10 @@ log = get_logger()
               help=REPO_HELP)
 @click.option('--branch-name', required=False,
               help=BRANCH_HELP)
+@click.option('--changelog-base', required=False,
+              help='Base commit for changelog generation. (exclusive)')
+@click.option('--version', required=False,
+              help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch-name', required=False, default='master',
               help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
@@ -68,6 +72,8 @@ log = get_logger()
 @click.option('--no-wheel', is_flag=True,
               help='Do not create and upload a wheel package to PyPI as part of the release '
                    'process.')
+@click.option('--no-wheel-publish', is_flag=True,
+              help='Do not upload the wheel to PyPI. (Will still upload to the GitHub release)')
 @click.option('--no-binary', is_flag=True,
               help='Do not create and upload a binary executable as part of the release process.')
 @click.option('--pyinstaller-version', required=False,
@@ -89,6 +95,9 @@ def release(ctx,
             no_wheel,
             pyinstaller_version,
             wheel_version,
+            changelog_base,
+            version,
+            no_wheel_publish,
             force):
 
     """
@@ -98,7 +107,7 @@ def release(ctx,
 
         1. Execute a github release on the specified branch. (see 'pyci github release --help')
 
-        2. Create and upload ad platform dependent binary executable to the release. (Optional)
+        2. Create and upload a platform dependent binary executable to the release. (Optional)
 
         3. Create and upload a wheel package to PyPI. (Optional)
 
@@ -107,6 +116,9 @@ def release(ctx,
     ci_provider = ctx.parent.ci_provider
 
     branch_name = branch_name or (ci_provider.branch if ci_provider else None)
+
+    if not branch_name:
+        raise click.ClickException('Must provide --branch-name')
 
     repo = detect_repo(ctx, ci_provider, repo)
 
@@ -135,11 +147,17 @@ def release(ctx,
             repo=repo,
             wheel_universal=wheel_universal,
             pyinstaller_version=pyinstaller_version,
-            wheel_version=wheel_version)
+            wheel_version=wheel_version,
+            changelog_base=changelog_base,
+            version=version,
+            no_wheel_publish=no_wheel_publish)
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
-        log.echo('PyPI: {}'.format(wheel_url))
+
+        if wheel_url:
+            log.echo('PyPI: {}'.format(wheel_url))
+
     except exceptions.ReleaseValidationFailedException as e:
         log.sub()
         log.echo("Not releasing: {}".format(str(e)))
@@ -158,7 +176,10 @@ def release_internal(binary_entrypoint,
                      repo,
                      wheel_universal,
                      pyinstaller_version,
-                     wheel_version):
+                     wheel_version,
+                     changelog_base,
+                     no_wheel_publish,
+                     version):
 
     gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
     github_release = github.release_branch_internal(
@@ -167,7 +188,9 @@ def release_internal(binary_entrypoint,
         release_branch_name=release_branch_name,
         force=force,
         gh=gh,
-        ci_provider=ci)
+        ci_provider=ci,
+        changelog_base=changelog_base,
+        version=version)
 
     package_directory = tempfile.mkdtemp()
     packager = Packager.create(repo, sha=github_release.sha, target_dir=package_directory)
@@ -176,25 +199,39 @@ def release_internal(binary_entrypoint,
 
     try:
 
-        log.echo('Creating and uploading packages', add=True)
+        binary_path = None
+        wheel_path = None
+
+        log.echo('Creating packages', add=True)
 
         if not no_binary:
-            log.echo('Binary', add=True)
-            _upload_binary(binary_entrypoint=binary_entrypoint,
-                           gh=gh,
-                           packager=packager,
-                           github_release=github_release,
-                           pyinstaller_version=pyinstaller_version)
-            log.sub()
+            binary_path = _pack_binary(binary_entrypoint=binary_entrypoint,
+                                       packager=packager,
+                                       pyinstaller_version=pyinstaller_version)
 
         if not no_wheel:
-            log.echo('Wheel', add=True)
-            wheel_url = _upload_wheel(packager=packager,
-                                      pypi_test=pypi_test,
-                                      pypi_url=pypi_url,
-                                      wheel_universal=wheel_universal,
-                                      wheel_version=wheel_version)
-            log.sub()
+            wheel_path = _pack_wheel(packager=packager,
+                                     wheel_universal=wheel_universal,
+                                     wheel_version=wheel_version)
+
+        log.sub()
+
+        log.echo('Uploading packages', add=True)
+
+        if binary_path:
+            _upload_asset(asset_path=binary_path,
+                          github_release=github_release,
+                          gh=gh)
+
+        if wheel_path:
+            _upload_asset(asset_path=wheel_path,
+                          github_release=github_release,
+                          gh=gh)
+
+            if not no_wheel_publish:
+                _upload_pypi(pypi_url=pypi_url,
+                             pypi_test=pypi_test,
+                             wheel_path=wheel_path)
 
         log.sub()
 
@@ -208,28 +245,16 @@ def release_internal(binary_entrypoint,
     return github_release, wheel_url
 
 
-def _upload_wheel(packager, pypi_test, pypi_url, wheel_universal, wheel_version):
-
-    pypi_api = PyPI.create(username=secrets.twine_username(),
-                           password=secrets.twine_password(),
-                           test=pypi_test,
-                           repository_url=pypi_url)
+def _pack_wheel(packager, wheel_universal, wheel_version):
 
     wheel_path = pack.wheel_internal(universal=wheel_universal,
                                      packager=packager,
                                      wheel_version=wheel_version)
-    try:
-        wheel_url = pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
-    except exceptions.WheelAlreadyPublishedException as e:
-        # hmm, this is ok when running concurrently but not
-        # so much otherwise...ho can we tell?
-        wheel_url = e.url
-        log.echo('Wheel {} already published.'.format(e.wheel))
 
-    return wheel_url
+    return wheel_path
 
 
-def _upload_binary(binary_entrypoint, gh, packager, github_release, pyinstaller_version):
+def _pack_binary(binary_entrypoint, packager, pyinstaller_version):
 
     binary_package_path = None
 
@@ -239,19 +264,6 @@ def _upload_binary(binary_entrypoint, gh, packager, github_release, pyinstaller_
                                                    name=None,
                                                    packager=packager,
                                                    pyinstaller_version=pyinstaller_version)
-
-        github.upload_asset_internal(asset=binary_package_path,
-                                     release=github_release.title,
-                                     gh=gh)
-    except IOError:
-        # this is really weird, but for some reason this might
-        # happen when the asset already exists...
-        # see https://github.com/sigmavirus24/github3.py/issues/779
-        log.echo('Asset {} already published.'.format(binary_package_path))
-    except exceptions.AssetAlreadyPublishedException as e:
-        # hmm, this is ok when running concurrently but not
-        # so much otherwise...ho can we tell?
-        log.echo('Asset {} already published.'.format(e.asset))
     except exceptions.DefaultEntrypointNotFoundException as e:
         # this is ok, just means that the project is not an executable
         # according to our assumptions.
@@ -261,3 +273,37 @@ def _upload_binary(binary_entrypoint, gh, packager, github_release, pyinstaller_
                  'If your package is not meant to be an executable binary, '
                  'use the "--no-binary" flag to avoid seeing this message'
                  .format(e.expected_paths))
+
+    return binary_package_path
+
+
+def _upload_asset(asset_path, gh, github_release):
+
+    try:
+
+        github.upload_asset_internal(asset=asset_path,
+                                     release=github_release.title,
+                                     gh=gh)
+    except IOError:
+        # this is really weird, but for some reason this might
+        # happen when the asset already exists...
+        # see https://github.com/sigmavirus24/github3.py/issues/779
+        log.echo('Asset {} already published.'.format(asset_path))
+    except exceptions.AssetAlreadyPublishedException as e:
+        # hmm, this is ok when running concurrently but not
+        # so much otherwise...ho can we tell?
+        log.echo('Asset {} already published.'.format(e.asset))
+
+
+def _upload_pypi(pypi_url, wheel_path, pypi_test):
+
+    pypi_api = PyPI.create(username=secrets.twine_username(),
+                           password=secrets.twine_password(),
+                           test=pypi_test,
+                           repository_url=pypi_url)
+    try:
+        pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
+    except exceptions.WheelAlreadyPublishedException as e:
+        # hmm, this is ok when running concurrently but not
+        # so much otherwise...ho can we tell?
+        log.echo('Wheel {} already published.'.format(e.wheel))

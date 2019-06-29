@@ -36,15 +36,19 @@ log = get_logger()
 @click.command('release')
 @handle_exceptions
 @click.pass_context
-@click.option('--branch-name', required=False,
+@click.option('--branch-name',
               help=BRANCH_HELP)
+@click.option('--version', required=False,
+              help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch-name', required=False, default='master',
               help=MASTER_BRANCH_HELP)
 @click.option('--release-branch-name', required=False, default='release',
               help=RELEASE_BRANCH_HELP)
+@click.option('--changelog-base', required=False,
+              help='Base commit for changelog generation. (exclusive)')
 @click.option('--force', is_flag=True,
               help='Force release without any validations.')
-def release_branch(ctx, branch_name, master_branch_name, release_branch_name, force):
+def release_branch(ctx, version, branch_name, master_branch_name, release_branch_name, changelog_base, force):
 
     """
     Release a branch.
@@ -95,7 +99,9 @@ def release_branch(ctx, branch_name, master_branch_name, release_branch_name, fo
             release_branch_name=release_branch_name,
             force=force,
             gh=ctx.parent.github,
-            ci_provider=ci_provider)
+            ci_provider=ci_provider,
+            changelog_base=changelog_base,
+            version=version)
         log.echo('Successfully released: {}'.format(release.url))
     except exceptions.ReleaseValidationFailedException as e:
         log.sub()
@@ -163,11 +169,13 @@ def validate_build(ctx, release_branch_name):
 @click.pass_context
 @click.option('--branch', required=False,
               help='Generate for the last commit of this branch.')
+@click.option('--base', required=False,
+              help='Use this commit as the base (exclusive). Can also be a branch name.')
 @click.option('--sha', required=False,
               help='Generate for this specific commit.')
 @click.option('--target', required=False, type=click.Path(exists=False),
               help='Path to the destination file. Defaults to ./<sha/branch>-changelog.md')
-def generate_changelog(ctx, sha, branch, target):
+def generate_changelog(ctx, base, sha, branch, target):
 
     """
     Generate a changelog file of a specific commit.
@@ -200,7 +208,7 @@ def generate_changelog(ctx, sha, branch, target):
     utils.validate_directory_exists(os.path.abspath(os.path.join(destination, os.pardir)))
     utils.validate_file_does_not_exist(destination)
 
-    changelog = generate_changelog_internal(branch=branch, sha=sha, gh=ctx.parent.github)
+    changelog = generate_changelog_internal(branch=branch, base=base, sha=sha, gh=ctx.parent.github)
 
     log.echo('Writing changelog file')
 
@@ -315,7 +323,7 @@ def detect_issue(ctx, sha, message):
             log.echo('Issue detected: {}'.format(issue.url))
         else:
             log.echo('The commit is not related ot any issue.')
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -375,7 +383,7 @@ def bump_version(ctx, branch, semantic):
         bump = ctx.parent.github.bump_version(branch=branch, semantic=semantic)
         log.checkmark()
         log.echo('Bumped version from {} to {}'.format(bump.prev_version, bump.next_version))
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -443,7 +451,7 @@ def reset_tag(ctx, name, sha):
         ctx.parent.github.reset_tag(name=name, sha=sha)
         log.checkmark()
         log.echo('Tag {} is now at {}'.format(name, sha))
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -509,7 +517,7 @@ def commit_file(ctx, branch, path, contents, message):
             branch=branch)
         log.checkmark()
         log.echo('Created commit: {}'.format(commit.url))
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -543,7 +551,7 @@ def create_commit(ctx, branch, path, contents, message):
                                                  branch=branch)
         log.checkmark()
         log.echo('Created commit: {}'.format(commit.url))
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -572,7 +580,7 @@ def delete_release_internal(gh, name):
         log.echo('Deleting release...', break_line=False)
         gh.delete_release(name=name)
         log.checkmark()
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -582,7 +590,7 @@ def delete_tag_internal(gh, name):
         log.echo('Deleting tag...', break_line=False)
         gh.delete_tag(name=name)
         log.checkmark()
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -593,12 +601,12 @@ def close_issue_internal(number, release, gh):
         log.echo('Closing issue number {}...'.format(number), break_line=False)
         gh.close_issue(num=number, release=release)
         log.checkmark()
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
 
-def generate_changelog_internal(branch, sha, gh):
+def generate_changelog_internal(branch, base, sha, gh):
 
     def _pre_commit(commit):
         log.echo('{}'.format(commit.commit.message), break_line=False)
@@ -616,7 +624,7 @@ def generate_changelog_internal(branch, sha, gh):
         log.sub()
 
     log.echo('Generating changelog', add=True)
-    changelog = gh.generate_changelog(branch=branch, sha=sha,
+    changelog = gh.generate_changelog(branch=branch, base=base, sha=sha,
                                       hooks={
                                           'pre_commit': _pre_commit,
                                           'pre_collect': _pre_collect,
@@ -635,7 +643,7 @@ def set_version_internal(branch, value, gh):
         bump = gh.set_version(branch=branch, value=value)
         log.checkmark()
         return bump
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -648,7 +656,7 @@ def upload_changelog_internal(changelog, rel, gh):
         with open(changelog) as stream:
             gh.upload_changelog(changelog=stream.read(), release=rel)
         log.checkmark()
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -666,7 +674,7 @@ def create_branch_internal(name, sha, gh):
         branch = gh.create_branch(name=name, sha=sha)
         log.checkmark()
         return branch
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -678,7 +686,7 @@ def delete_branch_internal(name, gh):
         branch = gh.delete_branch(name=name)
         log.checkmark()
         return branch
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -689,7 +697,7 @@ def reset_branch_internal(name, sha, hard, gh):
         log.echo("Updating {} branch...".format(name), break_line=False)
         gh.reset_branch(name=name, sha=sha, hard=hard)
         log.checkmark()
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -759,7 +767,7 @@ def validate_build_internal(release_branch_name, ci_provider):
                                   'post_branch': _post_branch
                               })
             log.sub()
-        except:
+        except BaseException as _:
             log.xmark()
             log.sub()
             raise
@@ -768,11 +776,12 @@ def validate_build_internal(release_branch_name, ci_provider):
 def upload_asset_internal(asset, release, gh):
 
     try:
-        log.echo('Uploading {}...'.format(os.path.basename(asset)), break_line=False)
+        log.echo('Uploading {} to release {}...'
+                 .format(os.path.basename(asset), release), break_line=False)
         asset_url = gh.upload_asset(asset=asset, release=release)
         log.checkmark()
         return asset_url
-    except:
+    except BaseException as _:
         log.xmark()
         raise
 
@@ -781,6 +790,8 @@ def release_branch_internal(branch_name,
                             master_branch_name,
                             release_branch_name,
                             force,
+                            changelog_base,
+                            version,
                             gh,
                             ci_provider):
 
@@ -795,9 +806,12 @@ def release_branch_internal(branch_name,
 
     changelog = generate_changelog_internal(gh=gh,
                                             branch=None if sha else branch_name,
-                                            sha=sha)
+                                            sha=sha,
+                                            base=changelog_base)
 
-    if not changelog.next_version:
+    next_version = version or changelog.next_version
+
+    if not next_version:
 
         err = click.ClickException('None of the commits in the changelog references an issue '
                                    'labeled with a release label. Cannot determine what the '
@@ -805,8 +819,9 @@ def release_branch_internal(branch_name,
         err.cause = 'You probably only committed internal issues since the last release, ' \
                     'or forgot to reference the issue.'
         err.possible_solutions = [
-            'Amend the message of one the commits to reference a release issue',
-            'Push another commit that references a release issue'
+            'Amend the message of one of the commits to reference a release issue',
+            'Push another commit that references a release issue',
+            'Use --version to specify a version manually'
         ]
 
         raise err
@@ -816,7 +831,8 @@ def release_branch_internal(branch_name,
                                   changelog=changelog,
                                   branch_name=branch_name,
                                   master_branch_name=master_branch_name,
-                                  sha=sha)
+                                  sha=sha,
+                                  version=version)
         _close_issues(gh=gh,
                       changelog=changelog,
                       release=release.title)
@@ -836,7 +852,9 @@ def release_branch_internal(branch_name,
         utils.raise_with_traceback(e, tb)
 
 
-def _create_release(gh, changelog, branch_name, master_branch_name, sha):
+def _create_release(gh, changelog, version, branch_name, master_branch_name, sha):
+
+    next_version = version or changelog.next_version
 
     try:
 
@@ -844,7 +862,7 @@ def _create_release(gh, changelog, branch_name, master_branch_name, sha):
         # exposing this doesn't seem like a good solution either.
         # noinspection PyProtectedMember
         # pylint: disable=protected-access
-        commit = gh._create_set_version_commit(value=changelog.next_version,
+        commit = gh._create_set_version_commit(value=next_version,
                                                branch=branch_name,
                                                sha=sha).impl
 
@@ -862,7 +880,7 @@ def _create_release(gh, changelog, branch_name, master_branch_name, sha):
         upload_changelog_internal(changelog=changelog_file, gh=gh, rel=release.title)
 
         try:
-            log.echo('Bumping version to {}'.format(changelog.next_version))
+            log.echo('Bumping version to {}'.format(next_version))
             reset_branch_internal(gh=gh, name=branch_name, sha=commit.sha, hard=False)
             if master_branch_name != branch_name:
                 reset_branch_internal(gh=gh, name=master_branch_name, sha=commit.sha, hard=False)
@@ -877,7 +895,7 @@ def _create_release(gh, changelog, branch_name, master_branch_name, sha):
     except exceptions.ReleaseAlreadyExistsException as e:
         log.echo('Release {} already exists'.format(e.release))
         ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.release))
-        rel = gh.repo.get_release(id=changelog.next_version)
+        rel = gh.repo.get_release(id=next_version)
         release = model.Release(impl=rel,
                                 title=rel.title,
                                 url=rel.html_url,
