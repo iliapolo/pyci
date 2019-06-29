@@ -16,6 +16,7 @@
 #############################################################################
 
 import os
+import six
 
 
 class ApiException(BaseException):
@@ -100,13 +101,33 @@ class CommandExecutionException(ApiException):
         super(CommandExecutionException, self).__init__(self.__str__())
 
     def __str__(self):
+
+        error = self.error
+        output = self.output
+
+        if six.PY2:
+
+            # In Python2, string literals are encoded with ASCII by default.
+            # This means that formatting with a unicode type can produce a UnicodeEncodeError
+            # (because it would require encoding it using the default encoding)
+            # We detect such a situation and force encoding with UTF-8.
+            # This seems awfully strange, do I have to do this every time I use .format?
+            # pylint: disable=fixme
+            # TODO see if there is a better solution for this...
+
+            # pylint: disable=undefined-variable
+            if isinstance(error, unicode):
+                error = error.encode('utf-8')
+
+            # pylint: disable=undefined-variable
+            if isinstance(output, unicode):
+                output = output.encode('utf-8')
+
         return "Command '{0}' executed with an error." \
                "\ncode: {1}" \
                "\nerror: {2}" \
                "\noutput: {3}" \
-            .format(self.command, self.code,
-                    self.error or None,
-                    self.output or None)
+            .format(self.command, self.code, error, output)
 
 
 class DefaultEntrypointNotFoundException(ApiException):

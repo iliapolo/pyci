@@ -1,3 +1,5 @@
+# coding=utf-8
+
 #############################################################################
 # Copyright (c) 2018 Eli Polonsky. All rights reserved
 #
@@ -19,23 +21,14 @@ import os
 import logging
 
 import click
-import six
 
+from pyci.api import utils
 from pyci.api.logger import Logger as ApiLogger
 
-try:
-    # noinspection PyStatementEffect
-    # pylint: disable=pointless-statement
-    unicode
-    _unicode = True
-except NameError:
-    _unicode = False
-
-
-# UTF-8 encoded
-RIGHT_ARROW = '\xe2\x86\x92'
-CHECK_MARK = '\xe2\x9c\x93'
-X_MARK = '\xe2\x9c\x97'
+# UTF-8 chars
+RIGHT_ARROW = '→'
+CHECK_MARK = '✓'
+X_MARK = '✗'
 
 ASTRIX = '*'
 
@@ -134,44 +127,12 @@ class _Logger(object):
         return self._logger.logger.isEnabledFor(logging.DEBUG)
 
     def _unicode(self, char, fg=None, break_line=True):
-        if self._is_debug():
+        # I have no idea why, but on windows, unicode characters breaks shit.
+        # Lets avoid it for now.
+        if self._is_debug() or utils.is_windows():
             pass
         else:
-            try:
-                click.secho(char, nl=break_line, fg=fg)
-            except BaseException as e:
-                self.debug('Cant print a Unicode character: {}'.format(str(e)))
-                click.echo('', nl=break_line)
-
-
-class NoLineBreakStreamHandler(logging.StreamHandler):
-
-    def emit(self, record):
-
-        try:
-            msg = self.format(record)
-            stream = self.stream
-            fs = "%s"
-            if not _unicode:
-                stream.write(fs % msg)
-            else:
-                try:
-                    if isinstance(msg, six.text_type) and getattr(stream, 'encoding', None):
-                        ufs = u'%s'
-                        try:
-                            stream.write(ufs % msg)
-                        except UnicodeEncodeError:
-                            stream.write((ufs % msg).encode(stream.encoding))
-                    else:
-                        stream.write(fs % msg)
-                except UnicodeError:
-                    stream.write(fs % msg.encode("UTF-8"))
-            self.flush()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except BaseException as e:
-            log.error(str(e))
-            self.handleError(record)
+            click.secho(char, nl=break_line, fg=fg)
 
 
 log = _Logger()
