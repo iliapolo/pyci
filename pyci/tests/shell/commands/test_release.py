@@ -40,12 +40,19 @@ def test_release(release, temp_dir, mocker):
 
     expected_binary_name = 'pyci-guinea-pig.binary'
     expected_wheel_name = 'pyci-guinea-pig.whl'
+    expected_exei_name = 'pyci-guinea-pig.whl'
 
     binary_path = os.path.join(temp_dir, expected_binary_name)
     wheel_path = os.path.join(temp_dir, expected_wheel_name)
+    exei_path = os.path.join(temp_dir, expected_exei_name)
 
-    # This mock has to create a file with the proper name
-    # since the file is actually uploaded to the release.
+    def _exei(*_, **__):
+
+        with open(exei_path, 'w') as f:
+            f.write('exei')
+
+        return binary_path
+
     def _binary(*_, **__):
 
         with open(binary_path, 'w') as f:
@@ -53,8 +60,6 @@ def test_release(release, temp_dir, mocker):
 
         return binary_path
 
-    # This mock can create whatever file it wants since it not
-    # being uploaded anywhere, nor is it being asserted on.
     def _wheel(*_, **__):
 
         with open(wheel_path, 'w') as f:
@@ -62,13 +67,16 @@ def test_release(release, temp_dir, mocker):
 
         return wheel_path
 
-    # This mock can return anything it wants since this URL is not being
-    # asserted upon.
     def _upload(*_, **__):
         return 'http://this-is-an-upload-url'
 
+    def _is_windows():
+        return True
+
+    mocker.patch(target='pyci.api.utils.is_windows', side_effect=_is_windows)
     mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
     mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.api.packager.Packager.exei', side_effect=_exei)
     mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch-name release {}'.format(release_options))
@@ -78,6 +86,7 @@ def test_release(release, temp_dir, mocker):
     assets = [asset.name for asset in github_release.get_assets()]
     assert expected_binary_name in assets
     assert expected_wheel_name in assets
+    assert expected_exei_name in assets
 
     from pyci.api.pypi import PyPI
 
@@ -88,7 +97,7 @@ def test_release(release, temp_dir, mocker):
 @pytest.mark.wet
 def test_release_no_wheel_publish(release, temp_dir, mocker):
 
-    release_options = '--no-wheel-publish --binary-entrypoint {}'.format(
+    release_options = '--no-wheel-publish --no-installer --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
 
     expected_binary_name = 'pyci-guinea-pig.binary'
@@ -141,7 +150,7 @@ def test_release_no_wheel_publish(release, temp_dir, mocker):
 @pytest.mark.wet
 def test_release_twice(release, mocker, temp_dir):
 
-    release_options = '--pypi-test --binary-entrypoint {}'.format(
+    release_options = '--pypi-test --no-installer --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
 
     expected_binary_name = 'pyci-guinea-pig.binary'
@@ -236,6 +245,7 @@ def test_release_options(release, mocker):
                 '--no-wheel '
                 '--changelog-base base '
                 '--version 1.2.3 '
+                '--no-installer '
                 '--no-wheel-publish')
 
     from pyci.shell.commands import release
@@ -259,7 +269,8 @@ def test_release_options(release, mocker):
         wheel_version=ANY,
         changelog_base='base',
         no_wheel_publish=True,
-        version='1.2.3')
+        version='1.2.3',
+        no_installer=True)
 
 
 def test_release_failed(release):
