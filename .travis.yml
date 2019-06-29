@@ -6,7 +6,6 @@ stages:
 
 env:
   global:
-    - TOX_VERSION=3.0.0
     - CACHE_NAME=${TRAVIS_JOB_NAME}
 
 jobs:
@@ -21,15 +20,15 @@ jobs:
         - PYENV_VERSION=2.7.14
       before_install: source setup-pyenv.sh
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e lint && tox -e test-unit
+        - pylint --rcfile pylint.ini pyci && py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
       cache:
         directories:
           - ${HOME}/.pyenv_cache
-          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py36-macos
@@ -40,43 +39,39 @@ jobs:
         - PYENV_VERSION=3.6.4
       before_install: source setup-pyenv.sh
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e lint && tox -e test-unit
+        - pylint --rcfile pylint.ini pyci && py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
       cache:
         directories:
           - ${HOME}/.pyenv_cache
-          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py27-linux
       language: python
       python: "2.7"
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e lint && tox -e test-unit
+        - pylint --rcfile pylint.ini pyci && py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: py36-linux
       language: python
       python: "3.6"
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e lint && tox -e test-unit
+        - pylint --rcfile pylint.ini pyci && py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
       name: binary-cross-distro-linux
@@ -85,12 +80,10 @@ jobs:
       services:
         - docker
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e test-cross-distro
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir .
 
     - stage: integration
       name: py27-windows
@@ -106,9 +99,10 @@ jobs:
         - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
         - choco install python2
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e lint && tox -e test-unit
+        - pylint --rcfile pylint.ini pyci && py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
 
@@ -126,9 +120,10 @@ jobs:
         - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
         - choco install python --version 3.6.7
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -r test-requirements.txt
+        - pip install -e .
       script:
-        - tox -e lint && tox -e test-unit
+        - pylint --rcfile pylint.ini pyci && py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
 
@@ -141,25 +136,21 @@ jobs:
         - PYENV_VERSION=3.6.4
       before_install: source setup-pyenv.sh
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -e .
       script:
-        - tox -e release
+        - pyci release --wheel-universal --binary-entrypoint pyci.spec
       cache:
         directories:
           - ${HOME}/.pyenv_cache
-          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: release
       name: linux
       language: python
       python: "3.6"
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -e .
       script:
-        - tox -e release
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
+        - pyci release --wheel-universal --binary-entrypoint pyci.spec
 
     - stage: release
       name: windows
@@ -175,9 +166,9 @@ jobs:
         - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
         - choco install python --version 3.6.7
       install:
-        - pip install tox==${TOX_VERSION}
+        - pip install -e .
       script:
-        - tox -e release
+        - pyci release --wheel-universal --binary-entrypoint pyci.spec
 
 branches:
   except:
