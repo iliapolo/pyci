@@ -214,7 +214,7 @@ def _pypi(pyci):
 
 
 @pytest.fixture(name='temp_dir')
-def _temp_dir(request):
+def _temp_dir(request, log):
 
     name = request.node.originalname or request.node.name
 
@@ -223,7 +223,17 @@ def _temp_dir(request):
     try:
         yield dir_path
     finally:
-        utils.rmf(dir_path)
+        try:
+            utils.rmf(dir_path)
+        except BaseException as e:
+            if utils.is_windows():
+                # The temp_dir was populated with files written by a different process (pip install)
+                # On windows, this causes a [Error 5] Access is denied error.
+                # Eventually I will have to fix this - until then, sorry windows users...
+                log.debug("Failed cleaning up temporary test directory {}: {} - "
+                          "You might have some leftovers because of this...".format(dir_path, str(e)))
+            else:
+                raise
 
 
 @pytest.fixture(name='repo', scope='session')
@@ -321,7 +331,17 @@ def _global_repo_path(log):
     try:
         yield target_repo_path
     finally:
-        utils.rmf(target_repo_path)
+        try:
+            utils.rmf(target_repo_path)
+        except BaseException as e:
+            if utils.is_windows():
+                # The temp_dir was populated with files written by a different process (pip install)
+                # On windows, this causes a [Error 5] Access is denied error.
+                # Eventually I will have to fix this - until then, sorry windows users...
+                log.debug("Failed deleting temporary repo directory {}: {} - "
+                          "You might have some leftovers because of this...".format(target_repo_path, str(e)))
+            else:
+                raise
 
 
 @contextlib.contextmanager

@@ -424,8 +424,8 @@ class Packager(object):
                     # The temp_dir was populated with files written by a different process (pip install)
                     # On windows, this causes a [Error 5] Access is denied error.
                     # Eventually I will have to fix this - until then, sorry windows users...
-                    self._debug("Failed cleaning up temporary directory {}: {} - You might have "
-                                "some leftovers because of this...".format(temp_dir, str(e)))
+                    self._debug("Failed cleaning up temporary directory after creating virtualenv {}: {} - "
+                                "You might have some leftovers because of this...".format(temp_dir, str(e)))
                 else:
                     raise
 
