@@ -117,7 +117,7 @@ jobs:
           - /c/Python36
 
     - stage: integration
-      name: cross-distro
+      name: binary-cross-distro-linux
       language: python
       python: "3.6"
       services:
