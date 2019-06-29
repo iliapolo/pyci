@@ -34,7 +34,6 @@ from pyci.tests.conftest import LAST_COMMIT
 
 
 @pytest.mark.wet
-@pytest.mark.record(platform=True)
 def test_release(release, temp_dir, mocker):
 
     release_options = '--pypi-test --binary-entrypoint {}'.format(
@@ -88,7 +87,6 @@ def test_release(release, temp_dir, mocker):
 
 
 @pytest.mark.wet
-@pytest.mark.record(platform=True)
 def test_release_no_wheel_publish(release, temp_dir, mocker):
 
     release_options = '--no-wheel-publish --binary-entrypoint {}'.format(
@@ -142,21 +140,20 @@ def test_release_no_wheel_publish(release, temp_dir, mocker):
 
 
 @pytest.mark.wet
-@pytest.mark.record(platform=True)
 def test_release_twice(release, mocker, temp_dir):
 
     release_options = '--pypi-test --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
 
-    expected_binary_name = 'pyci-guinea-pig-{}-{}'.format(platform.machine(), platform.system())
-    if platform.system().lower() == 'windows':
-        expected_binary_name = '{0}.exe'.format(expected_binary_name)
+    expected_binary_name = 'pyci-guinea-pig.binary'
+    expected_wheel_name = 'pyci-guinea-pig.whl'
+
+    binary_path = os.path.join(temp_dir, expected_binary_name)
+    wheel_path = os.path.join(temp_dir, expected_wheel_name)
 
     # This mock has to create a file with the proper name
     # since the file is actually uploaded to the release.
     def _binary(*_, **__):
-
-        binary_path = os.path.join(temp_dir, expected_binary_name)
 
         with open(binary_path, 'w') as f:
             f.write('binary')
@@ -167,9 +164,7 @@ def test_release_twice(release, mocker, temp_dir):
     # being uploaded anywhere, nor is it being asserted on.
     def _wheel(*_, **__):
 
-        binary_path = os.path.join(temp_dir, 'pyci-guinea-pig.whl')
-
-        with open(binary_path, 'w') as f:
+        with open(wheel_path, 'w') as f:
             f.write('wheel')
 
         return binary_path
