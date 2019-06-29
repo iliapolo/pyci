@@ -22,7 +22,6 @@ import logging
 
 import click
 
-from pyci.api import utils
 from pyci.api.logger import Logger as ApiLogger
 
 
@@ -128,7 +127,7 @@ class _Logger(object):
         return self._logger.logger.isEnabledFor(logging.DEBUG)
 
     def _unicode(self, char, fg=None, break_line=True):
-        if self._is_debug() or utils.is_windows():
+        if self._is_debug():
             pass
         else:
             try:

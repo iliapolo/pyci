@@ -101,7 +101,8 @@ def _mock_log(mocker, log):
             # environment, So we add this to buffer regular log messages as well
             # in order to capture the entire execution output.
             # TODO this feels super hacky - rethink.
-            click.echo(message)
+            if log.isEnabledFor(level):
+                click.echo(message)
 
         # This prints the messages in real time while the test is running
         log.log(level, '{}{}'.format(message.strip(), logger.Logger.format_key_values(**kwargs)))

@@ -100,10 +100,22 @@ class CommandExecutionException(ApiException):
         super(CommandExecutionException, self).__init__(self.__str__())
 
     def __str__(self):
-        return "Command '{0}' executed with an error." \
-               "\ncode: {1}" \
-               "\nerror: {2}" \
-               "\noutput: {3}" \
+
+        # In Python2, string literals are encoded with ASCII be default.
+        # This means that formatting with a possible UTF-8 only character will
+        # produce a UnicodeEncodeError. Prepending the 'u' causes the string literal
+        # to use UTF-8 for encoding upon format, thus avoiding the problem.
+        # In Python3 string literals are encoded with UTF-8 by default, and the 'u' operator
+        # actually does nothing. Its just there for backwards comparability.
+        # This still feels kind of funky though, need to check for a better solution.
+
+        # We only do this hack here because its is the only place that formats raw output in the form of bytes.
+        # This output comes from buffering the external commands output in memory.
+
+        return u"Command '{0}' executed with an error." \
+               u"\ncode: {1}" \
+               u"\nerror: {2}" \
+               u"\noutput: {3}" \
             .format(self.command, self.code,
                     self.error or None,
                     self.output or None)
