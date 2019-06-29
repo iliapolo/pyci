@@ -292,7 +292,7 @@ def binary_internal(entrypoint, name, pyinstaller_version, packager):
 def exei_internal(binary_path, version, output, author, website, copyr, license_path, packager):
 
     try:
-        log.echo('Packaging exei...', break_line=False)
+        log.echo('Packaging installer...', break_line=False)
         package_path = packager.exei(binary_path,
                                      version=version,
                                      output=output,

@@ -52,7 +52,8 @@ if __name__ == '__main__':
     six.print_('It works!')        
 ''')
 
-    pack.run('binary --name {} --entrypoint {} --pyinstaller-version 3.4'.format(name, custom_main), binary=binary)
+    pack.run('binary --name {} --entrypoint {} --pyinstaller-version 3.4'
+             .format(name, custom_main), binary=binary)
 
     if binary:
 
@@ -87,7 +88,8 @@ def test_binary_file_exists(pack, binary):
     with open(expected_package_path, 'w') as stream:
         stream.write('package')
 
-    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), catch_exceptions=True, binary=binary)
+    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE),
+                      catch_exceptions=True, binary=binary)
 
     expected_output = 'Binary already exists'
     expected_possible_solution = 'Delete/Move the binary and try again'
@@ -134,7 +136,8 @@ def test_wheel(pack, repo_version, temp_dir, binary, mocker):
 
     if binary:
 
-        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(repo_version))
+        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'
+                                     .format(repo_version))
 
         expected_output = 'Wheel package created: {}'.format(expected_path)
 
@@ -232,7 +235,8 @@ def test_binary_cross_distribution_wheel(log, repo_version, repo_path, test_name
                     locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
 
                 result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
-                                        .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
+                                        .format(remote_binary_path, locale_setup,
+                                                remote_binary_path, remote_repo_path),
                                         exit_on_failure=False)
 
                 assert expected_output in result.std_out

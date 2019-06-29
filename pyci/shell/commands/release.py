@@ -76,12 +76,16 @@ log = get_logger()
               help='Do not upload the wheel to PyPI. (Will still upload to the GitHub release)')
 @click.option('--no-binary', is_flag=True,
               help='Do not create and upload a binary executable as part of the release process.')
+@click.option('--no-installer', is_flag=True,
+              help='Do not create and upload an installer package.')
 @click.option('--pyinstaller-version', required=False,
-              help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
+              help='Which version of PyInstaller to use. Note that PyCI is tested only against '
+                   'version {}, this is an advanced option, use at your own peril'
+              .format(DEFAULT_PY_INSTALLER_VERSION))
 @click.option('--wheel-version', required=False,
-              help='Which version of wheel to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION))
+              help='Which version of wheel to use. Note that PyCI is tested only against '
+                   'version {}, this is an advanced option, use at your own peril'
+              .format(DEFAULT_WHEEL_VERSION))
 def release(ctx,
             repo,
             branch_name,
@@ -98,6 +102,7 @@ def release(ctx,
             changelog_base,
             version,
             no_wheel_publish,
+            no_installer,
             force):
 
     """
@@ -150,7 +155,8 @@ def release(ctx,
             wheel_version=wheel_version,
             changelog_base=changelog_base,
             version=version,
-            no_wheel_publish=no_wheel_publish)
+            no_wheel_publish=no_wheel_publish,
+            no_installer=no_installer)
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
@@ -179,6 +185,7 @@ def release_internal(binary_entrypoint,
                      wheel_version,
                      changelog_base,
                      no_wheel_publish,
+                     no_installer,
                      version):
 
     gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
@@ -201,6 +208,7 @@ def release_internal(binary_entrypoint,
 
         binary_path = None
         wheel_path = None
+        installer_path = None
 
         log.echo('Creating packages', add=True)
 
@@ -214,12 +222,21 @@ def release_internal(binary_entrypoint,
                                      wheel_universal=wheel_universal,
                                      wheel_version=wheel_version)
 
+        if not no_installer:
+            installer_path = _pack_installer(packager=packager,
+                                             binary_path=binary_path)
+
         log.sub()
 
         log.echo('Uploading packages', add=True)
 
         if binary_path:
             _upload_asset(asset_path=binary_path,
+                          github_release=github_release,
+                          gh=gh)
+
+        if installer_path:
+            _upload_asset(asset_path=installer_path,
                           github_release=github_release,
                           gh=gh)
 
@@ -243,6 +260,25 @@ def release_internal(binary_entrypoint,
                      .format(package_directory, str(e)))
 
     return github_release, wheel_url
+
+
+def _pack_installer(binary_path, packager):
+
+    if not utils.is_windows():
+        # Currently installers are only supported for windows.
+        # Rpm and Deb are in the works.
+        return None
+
+    exei_path = pack.exei_internal(binary_path=binary_path,
+                                   version=None,
+                                   output=None,
+                                   author=None,
+                                   website=None,
+                                   copyr=None,
+                                   license_path=None,
+                                   packager=packager)
+
+    return exei_path
 
 
 def _pack_wheel(packager, wheel_universal, wheel_version):
