@@ -98,8 +98,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python27:/c/Python27/Scripts:$PATH
-      before_install:
+      before_cache:
         - powershell Set-MpPreference -DisableRealtimeMonitoring $true
+      before_install:
         - choco install python2
       install:
         - pip install tox==${TOX_VERSION}
