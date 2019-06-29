@@ -98,7 +98,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python27:/c/Python27/Scripts:$PATH
-      before_install: choco install python2
+      before_install:
+        - powershell Set-MpPreference -DisableRealtimeMonitoring $true
+        - choco install python2
       install:
         - pip install tox==${TOX_VERSION}
       script:
@@ -116,7 +118,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
-      before_install: choco install python --version 3.6.7
+      before_install:
+        - powershell Set-MpPreference -DisableRealtimeMonitoring $true
+        - choco install python --version 3.6.7
       install:
         - pip install tox==${TOX_VERSION}
       script:
@@ -163,7 +167,9 @@ jobs:
       language: shell
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
-      before_install: choco install python --version 3.6.7
+      before_install:
+        - powershell Set-MpPreference -DisableRealtimeMonitoring $true
+        - choco install python --version 3.6.7
       install:
         - pip install tox==${TOX_VERSION}
       script:
