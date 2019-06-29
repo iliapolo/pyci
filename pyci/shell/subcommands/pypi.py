@@ -54,7 +54,7 @@ def upload(ctx, wheel):
 def upload_internal(wheel, pypi):
 
     try:
-        log.echo('Uploading {}...'.format(os.path.basename(wheel)), break_line=False)
+        log.echo('Uploading {} to PyPI...'.format(os.path.basename(wheel)), break_line=False)
         wheel_url = pypi.upload(wheel=wheel)
         log.checkmark()
         return wheel_url

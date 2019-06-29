@@ -779,7 +779,8 @@ def validate_build_internal(release_branch_name, ci_provider):
 def upload_asset_internal(asset, release, gh):
 
     try:
-        log.echo('Uploading {}...'.format(os.path.basename(asset)), break_line=False)
+        log.echo('Uploading {} to release {}...'
+                 .format(os.path.basename(asset), release), break_line=False)
         asset_url = gh.upload_asset(asset=asset, release=release)
         log.checkmark()
         return asset_url
