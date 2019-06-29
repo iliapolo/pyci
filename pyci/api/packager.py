@@ -322,6 +322,7 @@ class Packager(object):
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
+    # pylint: disable=too-many-branches
     @contextlib.contextmanager
     def _create_virtualenv(self, name, python=None):
 
