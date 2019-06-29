@@ -111,10 +111,6 @@ jobs:
         - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
-          - /c/Python27
 
     - stage: integration
       name: py36-windows
@@ -135,10 +131,6 @@ jobs:
         - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
-          - /c/Python36
 
     - stage: release
       name: macos
