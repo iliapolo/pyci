@@ -26,6 +26,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
+        - cp reports/coverage/coverage.xml coverage.xml
         - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
@@ -46,6 +47,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
+        - cp reports/coverage/coverage.xml coverage.xml
         - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
@@ -61,6 +63,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
+        - cp reports/coverage/coverage.xml coverage.xml
         - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
@@ -75,6 +78,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
+        - cp reports/coverage/coverage.xml coverage.xml
         - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
@@ -106,6 +110,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
+        - cp reports/coverage/coverage.xml coverage.xml
         - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
@@ -124,6 +129,7 @@ jobs:
       script:
         - tox -e lint && tox -e test-unit
       after_success:
+        - cp reports/coverage/coverage.xml coverage.xml
         - bash <(curl -s https://codecov.io/bash) -Z -f reports/coverage/coverage.xml
       cache:
         directories:
