@@ -612,7 +612,7 @@ def close_issue_internal(number, release, gh):
 def generate_changelog_internal(branch, base, sha, gh):
 
     def _pre_commit(commit):
-        log.echo('{} ({})'.format(commit.commit.message, commit.commit.sha), break_line=False)
+        log.echo('{}'.format(commit.commit.message), break_line=False)
 
     def _pre_collect():
         log.echo('Collecting commits')
