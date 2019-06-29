@@ -322,6 +322,7 @@ class Packager(object):
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
+    # pylint: disable=too-many-branches
     @contextlib.contextmanager
     def _create_virtualenv(self, name, python=None):
 
@@ -416,7 +417,17 @@ class Packager(object):
         try:
             yield virtualenv_path
         finally:
-            utils.rmf(temp_dir)
+            try:
+                utils.rmf(temp_dir)
+            except BaseException as e:
+                if utils.is_windows():
+                    # The temp_dir was populated with files written by a different process (pip install)
+                    # On windows, this causes a [Error 5] Access is denied error.
+                    # Eventually I will have to fix this - until then, sorry windows users...
+                    self._debug("Failed cleaning up temporary directory after creating virtualenv {}: {} - "
+                                "You might have some leftovers because of this...".format(temp_dir, str(e)))
+                else:
+                    raise
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
