@@ -72,6 +72,8 @@ log = get_logger()
 @click.option('--no-wheel', is_flag=True,
               help='Do not create and upload a wheel package to PyPI as part of the release '
                    'process.')
+@click.option('--no-wheel-publish', is_flag=True,
+              help='Do not upload the wheel to PyPI. (Will still upload to the GitHub release)')
 @click.option('--no-binary', is_flag=True,
               help='Do not create and upload a binary executable as part of the release process.')
 @click.option('--pyinstaller-version', required=False,
@@ -95,6 +97,7 @@ def release(ctx,
             wheel_version,
             changelog_base,
             version,
+            no_wheel_publish,
             force):
 
     """
@@ -146,7 +149,8 @@ def release(ctx,
             pyinstaller_version=pyinstaller_version,
             wheel_version=wheel_version,
             changelog_base=changelog_base,
-            version=version)
+            version=version,
+            no_wheel_publish=no_wheel_publish)
 
         log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
         log.echo('Github: {}'.format(github_release.url))
@@ -174,6 +178,7 @@ def release_internal(binary_entrypoint,
                      pyinstaller_version,
                      wheel_version,
                      changelog_base,
+                     no_wheel_publish,
                      version):
 
     gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
@@ -283,7 +288,7 @@ def _upload_asset(asset_path, gh, github_release):
         # this is really weird, but for some reason this might
         # happen when the asset already exists...
         # see https://github.com/sigmavirus24/github3.py/issues/779
-        log.echo('Asset {} already published.'.format(binary_package_path))
+        log.echo('Asset {} already published.'.format(asset_path))
     except exceptions.AssetAlreadyPublishedException as e:
         # hmm, this is ok when running concurrently but not
         # so much otherwise...ho can we tell?
