@@ -112,7 +112,7 @@ class CommandExecutionException(ApiException):
             # (because it would require encoding it using the default encoding)
             # We detect such a situation and force encoding with UTF-8.
             # This seems awfully strange, do I have to do this every time I use .format?
-            # pylint: disable=fix-me
+            # pylint: disable=fixme
             # TODO see if there is a better solution for this...
 
             if isinstance(error, unicode):

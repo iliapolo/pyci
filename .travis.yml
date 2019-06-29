@@ -81,6 +81,20 @@ jobs:
           - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: integration
+      name: binary-cross-distro-linux
+      language: python
+      python: "3.6"
+      services:
+        - docker
+      install:
+        - pip install tox==${TOX_VERSION}
+      script:
+        - tox -e test-cross-distro
+      cache:
+        directories:
+          - ${TRAVIS_BUILD_DIR}/.tox
+
+    - stage: integration
       name: py27-windows
       os: windows
       language: shell
@@ -115,20 +129,6 @@ jobs:
         directories:
           - ${TRAVIS_BUILD_DIR}/.tox
           - /c/Python36
-
-    - stage: integration
-      name: binary-cross-distro-linux
-      language: python
-      python: "3.6"
-      services:
-        - docker
-      install:
-        - pip install tox==${TOX_VERSION}
-      script:
-          - tox -e test-cross-distro
-      cache:
-        directories:
-          - ${TRAVIS_BUILD_DIR}/.tox
 
     - stage: release
       name: macos
