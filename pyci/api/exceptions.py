@@ -115,9 +115,11 @@ class CommandExecutionException(ApiException):
             # pylint: disable=fixme
             # TODO see if there is a better solution for this...
 
+            # pylint: disable=undefined-variable
             if isinstance(error, unicode):
                 error = error.encode('utf-8')
 
+            # pylint: disable=undefined-variable
             if isinstance(output, unicode):
                 output = output.encode('utf-8')
 

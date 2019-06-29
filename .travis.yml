@@ -24,7 +24,7 @@ jobs:
       install:
         - pip install tox==${TOX_VERSION}
       script:
-        - tox -e lint -e test-unit
+        - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
@@ -44,7 +44,7 @@ jobs:
       install:
         - pip install tox==${TOX_VERSION}
       script:
-        - tox -e lint -e test-unit
+        - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
@@ -59,7 +59,7 @@ jobs:
       install:
         - pip install tox==${TOX_VERSION}
       script:
-        - tox -e lint -e test-unit
+        - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
@@ -73,7 +73,7 @@ jobs:
       install:
         - pip install tox==${TOX_VERSION}
       script:
-        - tox -e lint -e test-unit
+        - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
@@ -104,7 +104,7 @@ jobs:
       install:
         - pip install tox==${TOX_VERSION}
       script:
-        - tox -e lint -e test-unit
+        - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
@@ -122,7 +122,7 @@ jobs:
       install:
         - pip install tox==${TOX_VERSION}
       script:
-        - tox -e lint -e test-unit
+        - tox -e lint && tox -e test-unit
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z
       cache:
