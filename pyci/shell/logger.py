@@ -22,6 +22,7 @@ import logging
 
 import click
 
+from pyci.api import utils
 from pyci.api.logger import Logger as ApiLogger
 
 # UTF-8 chars
@@ -126,7 +127,9 @@ class _Logger(object):
         return self._logger.logger.isEnabledFor(logging.DEBUG)
 
     def _unicode(self, char, fg=None, break_line=True):
-        if self._is_debug():
+        # I have no idea why, but on windows, unicode characters breaks shit.
+        # Lets avoid it for now.
+        if self._is_debug() or utils.is_windows():
             pass
         else:
             click.secho(char, nl=break_line, fg=fg)
