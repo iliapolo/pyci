@@ -67,7 +67,7 @@ jobs:
         - pip install -r test-requirements.txt
         - pip install -e .
       before_script:
-        - *_lint
+        - pylint --rcfile pylint.ini pyci
       script:
         - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
