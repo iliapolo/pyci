@@ -9,31 +9,49 @@ env:
     - CACHE_NAME=${TRAVIS_JOB_NAME}
 
 _commands_provider:
-  _test-unit: &_test-unit "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m \"not cross_distro\" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests/api/test_ci.py --rootdir ."
-  _test-cross-distro: &_test-cross-distro "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir ."
-  _lint: &_lint "pylint --rcfile pylint.ini pyci"
-  _release: &_release "pyci release --wheel-universal --binary-entrypoint pyci.spec"
-  _codecov: &_codecov "bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml"
-  _install: &_install "pip install -r test-requirements.txt && pip install -e ."
+
+  _test_unit: &_test_unit make test-unit
+
+  _test_cross_distro: &_test_cross_distro make test-cross-distro
+
+  _lint: &_lint make lint
+
+  _release: &_release make release
+
+  _codecov: &_codecov make codecov
+
+  _install_test_requirements: &_install_test_requirements make dep-test
+
+  _install_requirements: &_install_requirements make dep-project
 
   # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
-  # https://travis-ci.community/t/yarn-network-troubles/333/7
-
   _disable_windows_compression: &_disable_windows_compression "powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure"
+
+  # https://travis-ci.community/t/yarn-network-troubles/333/7
   _disable_windows_defender: &_disable_windows_defender "powershell Set-MpPreference -DisableRealtimeMonitoring \\$true"
 
 
-_stage_provider:
-  _stage-test-unit: &_stage-test-unit
-    install: *_install
+_steps_provider:
+
+  _test_unit: &_step_test_unit
+
+    install:
+      - *_install_test_requirements
+      - *_install_requirements
     before_script: *_lint
-    script: *_test-unit
+    script: *_test_unit
     after_success: *_codecov
-  _stage-test-cross-distro: &_stage-test-cross-distro
-    install: *_install
-    script: *_test-cross-distro
-  _stage-release: &_stage-release
-    install: *_install
+
+  _test_cross_distro: &_step_test_cross_distro
+
+    install:
+      - *_install_test_requirements
+      - *_install_requirements
+    script: *_test_cross_distro
+
+  _release: &_step_release
+
+    install: *_install_requirements
     script: *_release
 
 
@@ -48,7 +66,7 @@ jobs:
       env:
         - PYENV_VERSION=2.7.14
       before_install: source setup-pyenv.sh
-      <<: *_stage-test-unit
+      <<: *_step_test_unit
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -61,7 +79,7 @@ jobs:
       env:
         - PYENV_VERSION=3.6.4
       before_install: source setup-pyenv.sh
-      <<: *_stage-test-unit
+      <<: *_step_test_unit
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -70,13 +88,13 @@ jobs:
       name: py27-linux
       language: python
       python: "2.7"
-      <<: *_stage-test-unit
+      <<: *_step_test_unit
 
     - stage: integration
       name: py36-linux
       language: python
       python: "3.6"
-      <<: *_stage-test-unit
+      <<: *_step_test_unit
 
     - stage: integration
       name: binary-cross-distro-linux
@@ -84,7 +102,7 @@ jobs:
       python: "3.6"
       services:
         - docker
-      <<: *_stage-test-cross-distro
+      <<: *_step_test_cross_distro
 
     - stage: integration
       name: py27-windows
@@ -95,8 +113,9 @@ jobs:
       before_install:
         - *_disable_windows_compression
         - *_disable_windows_defender
+        - choco install make
         - choco install python2
-      <<: *_stage-test-unit
+      <<: *_step_test_unit
 
     - stage: integration
       name: py36-windows
@@ -107,8 +126,9 @@ jobs:
       before_install:
         - *_disable_windows_compression
         - *_disable_windows_defender
+        - choco install make
         - choco install python --version 3.6.7
-      <<: *_stage-test-unit
+      <<: *_step_test_unit
 
     - stage: release
       name: macos
@@ -118,7 +138,7 @@ jobs:
       env:
         - PYENV_VERSION=3.6.4
       before_install: source setup-pyenv.sh
-      <<: *_stage-release
+      <<: *_step_release
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -127,7 +147,7 @@ jobs:
       name: linux
       language: python
       python: "3.6"
-      <<: *_stage-release
+      <<: *_step_release
 
     - stage: release
       name: windows
@@ -138,8 +158,9 @@ jobs:
       before_install:
         - *_disable_windows_compression
         - *_disable_windows_defender
+        - choco install make
         - choco install python --version 3.6.7
-      <<: *_stage-release
+      <<: *_step_release
 
 branches:
   except:
