@@ -25,7 +25,7 @@ jobs:
       before_script:
         - pylint --rcfile pylint.ini pyci
       script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
       cache:
@@ -46,7 +46,7 @@ jobs:
       before_script:
         - pylint --rcfile pylint.ini pyci
       script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
       cache:
@@ -63,7 +63,7 @@ jobs:
       before_script:
         - pylint --rcfile pylint.ini pyci
       script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
 
@@ -77,7 +77,7 @@ jobs:
       before_script:
         - pylint --rcfile pylint.ini pyci
       script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
 
@@ -112,7 +112,7 @@ jobs:
       before_script:
         - pylint --rcfile pylint.ini pyci
       script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
 
@@ -135,7 +135,7 @@ jobs:
       before_script:
         - pylint --rcfile pylint.ini pyci
       script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini --cov-report=xml --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
         - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
 
