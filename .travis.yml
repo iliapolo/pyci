@@ -9,19 +9,18 @@ env:
     - CACHE_NAME=${TRAVIS_JOB_NAME}
 
 _commands_provider:
-  _test-unit: &_test-unit "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m \"not cross_distro\" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir ."
+  _test-unit: &_test-unit "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m \"not cross_distro\" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests/api/test_ci.py --rootdir ."
   _test-cross-distro: &_test-cross-distro "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir ."
   _lint: &_lint "pylint --rcfile pylint.ini pyci"
   _release: &_release "pyci release --wheel-universal --binary-entrypoint pyci.spec"
   _codecov: &_codecov "bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml"
   _install: &_install "pip install -r test-requirements.txt && pip install -e ."
-  _disable_windows_features: &_disable_windows_features |
 
-    # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
-    - powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure
+  # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
+  # https://travis-ci.community/t/yarn-network-troubles/333/7
 
-    # https://travis-ci.community/t/yarn-network-troubles/333/7
-    - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
+  _disable_windows_compression: &_disable_windows_compression "powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure"
+  _disable_windows_defender: &_disable_windows_defender "powershell Set-MpPreference -DisableRealtimeMonitoring \\$true"
 
 
 _stage_provider:
@@ -94,7 +93,8 @@ jobs:
       env:
         - PATH=/c/Python27:/c/Python27/Scripts:$PATH
       before_install:
-        *_disable_windows_features
+        - *_disable_windows_compression
+        - *_disable_windows_defender
         - choco install python2
       <<: *_stage-test-unit
 
@@ -105,7 +105,8 @@ jobs:
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
       before_install:
-        *_disable_windows_features
+        - *_disable_windows_compression
+        - *_disable_windows_defender
         - choco install python --version 3.6.7
       <<: *_stage-test-unit
 
@@ -135,7 +136,8 @@ jobs:
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
       before_install:
-        *_disable_windows_features
+        - *_disable_windows_compression
+        - *_disable_windows_defender
         - choco install python --version 3.6.7
       <<: *_stage-release
 
