@@ -13,6 +13,30 @@ _commands_provider:
   _test-cross-distro: &_test-cross-distro "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir ."
   _lint: &_lint "pylint --rcfile pylint.ini pyci"
   _release: &_release "pyci release --wheel-universal --binary-entrypoint pyci.spec"
+  _codecov: &_codecov "bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml"
+  _install: &_install "pip install -r test-requirements.txt && pip install -e ."
+  _disable_windows_features: &_disable_windows_features |
+
+    # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
+    - powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure
+
+    # https://travis-ci.community/t/yarn-network-troubles/333/7
+    - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
+
+
+_stage_provider:
+  _stage-test-unit: &_stage-test-unit
+    install: *_install
+    before_script: *_lint
+    script: *_test-unit
+    after_success: *_codecov
+  _stage-test-cross-distro: &_stage-test-cross-distro
+    install: *_install
+    script: *_test-cross-distro
+  _stage-release: &_stage-release
+    install: *_install
+    script: *_release
+
 
 jobs:
   include:
@@ -25,15 +49,7 @@ jobs:
       env:
         - PYENV_VERSION=2.7.14
       before_install: source setup-pyenv.sh
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      before_script:
-        - pylint --rcfile pylint.ini pyci
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
+      <<: *_stage-test-unit
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -46,15 +62,7 @@ jobs:
       env:
         - PYENV_VERSION=3.6.4
       before_install: source setup-pyenv.sh
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      before_script:
-        - pylint --rcfile pylint.ini pyci
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
+      <<: *_stage-test-unit
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -63,29 +71,13 @@ jobs:
       name: py27-linux
       language: python
       python: "2.7"
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      before_script:
-        - *_lint
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
+      <<: *_stage-test-unit
 
     - stage: integration
       name: py36-linux
       language: python
       python: "3.6"
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      before_script:
-        - pylint --rcfile pylint.ini pyci
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
+      <<: *_stage-test-unit
 
     - stage: integration
       name: binary-cross-distro-linux
@@ -93,11 +85,7 @@ jobs:
       python: "3.6"
       services:
         - docker
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir .
+      <<: *_stage-test-cross-distro
 
     - stage: integration
       name: py27-windows
@@ -106,21 +94,9 @@ jobs:
       env:
         - PATH=/c/Python27:/c/Python27/Scripts:$PATH
       before_install:
-        # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
-        - powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure
-
-        # https://travis-ci.community/t/yarn-network-troubles/333/7
-        - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
+        *_disable_windows_features
         - choco install python2
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      before_script:
-        - pylint --rcfile pylint.ini pyci
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
+      <<: *_stage-test-unit
 
     - stage: integration
       name: py36-windows
@@ -129,21 +105,9 @@ jobs:
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
       before_install:
-        # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
-        - powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure
-
-        # https://travis-ci.community/t/yarn-network-troubles/333/7
-        - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
+        *_disable_windows_features
         - choco install python --version 3.6.7
-      install:
-        - pip install -r test-requirements.txt
-        - pip install -e .
-      before_script:
-        - pylint --rcfile pylint.ini pyci
-      script:
-        - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash) -Z -f coverage.xml
+      <<: *_stage-test-unit
 
     - stage: release
       name: macos
@@ -153,10 +117,7 @@ jobs:
       env:
         - PYENV_VERSION=3.6.4
       before_install: source setup-pyenv.sh
-      install:
-        - pip install -e .
-      script:
-        - pyci release --wheel-universal --binary-entrypoint pyci.spec
+      <<: *_stage-release
       cache:
         directories:
           - ${HOME}/.pyenv_cache
@@ -165,10 +126,7 @@ jobs:
       name: linux
       language: python
       python: "3.6"
-      install:
-        - pip install -e .
-      script:
-        - pyci release --wheel-universal --binary-entrypoint pyci.spec
+      <<: *_stage-release
 
     - stage: release
       name: windows
@@ -177,16 +135,9 @@ jobs:
       env:
         - PATH=/c/Python36:/c/Python36/Scripts:$PATH
       before_install:
-        # https://ttcshelbyville.wordpress.com/2012/12/19/disable-remote-differential-compression-form-the-command-line/
-        - powershell Disable-WindowsOptionalFeature -Online -FeatureName MSRDC-Infrastructure
-
-        # https://travis-ci.community/t/yarn-network-troubles/333/7
-        - powershell Set-MpPreference -DisableRealtimeMonitoring \$true
+        *_disable_windows_features
         - choco install python --version 3.6.7
-      install:
-        - pip install -e .
-      script:
-        - pyci release --wheel-universal --binary-entrypoint pyci.spec
+      <<: *_stage-release
 
 branches:
   except:
