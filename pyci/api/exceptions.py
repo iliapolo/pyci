@@ -229,6 +229,26 @@ class FileExistException(ApiException):
         return 'File exists: {0}'.format(self.path)
 
 
+class BinaryExistsException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(BinaryExistsException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Binary exists: {0}'.format(self.path)
+
+
+class WheelExistsException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(WheelExistsException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Binary exists: {0}'.format(self.path)
+
+
 class FileIsADirectoryException(ApiException):
 
     def __init__(self, path):

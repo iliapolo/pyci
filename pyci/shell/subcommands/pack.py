@@ -32,15 +32,14 @@ log = logger.get()
 @click.command()
 @click.pass_context
 @click.option('--name', required=False,
-              help='The base name of the binary executable to be created. Defaults to the top '
-                   'most python package of your project. Note that the full '
-                   'name will be a suffixed with platform specific info. This corresponds to '
-                   'the --name option used by '
-                   'PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+              help="The base name of the created file. Defaults to the name specified in setup.py (if exists). "
+                   "Note that the full name will be suffixed with platform specific info. "
+                   "For example, on a 64-bit MacOS machine, given the name 'pyci', the file will be "
+                   "'pyci-x86_64-Darwin'")
 @click.option('--entrypoint', required=False,
-              help='Path (relative to the repository root) of the file to be used as the '
-                   'executable entry point. This corresponds to the positional script argument '
-                   'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+              help='A relative path to a file that serves as the entry point to your application '
+                   '(i.e the main script). If not specified, PyCI applies some heuristics for automatically '
+                   'detecting this. See https://github.com/iliapolo/pyci#cli-detection')
 @click.option('--pyinstaller-version', required=False,
               help='Which version of PyInstaller to use. Note that PyCI is tested only against '
                    'version {}, this is an advanced option, use at your own peril'
@@ -52,13 +51,19 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
     Create a binary executable.
 
     This command creates a self-contained binary executable for your project.
-    The binary is platform dependent (architecture, os). For example, on a 64bit MacOS the name
+    The binary is platform dependent (architecture, os). For example, on a 64-bit MacOS the name
     will be: pyci-x86_64-Darwin
 
-    The cool thing is that users can even run the executable on environments without python
-    installed, since the binary packs a python version inside.
+    Note that the executable also packs the Python distribution inside it. Which means the created file
+    can even be executed on machines without python installed.
 
-    Under the hood, pyci uses PyInstaller to create binary packages.
+    However, running this command (i.e packaging a binary) does require a python installation.
+    The python interpreter used is detected by running a python equivalent of the linux `which python` command.
+    Make sure the python version you want is the first available `python` in your PATH.
+
+    Future versions of PyCI will allow specifying the python interpreter directly in the command line.
+
+    Under the hood, PyCI uses PyInstaller to create binary packages.
 
     see https://pythonhosted.org/PyInstaller/
 
@@ -70,8 +75,8 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
                                        packager=ctx.parent.packager,
                                        pyinstaller_version=pyinstaller_version)
         log.echo('Binary package created: {}'.format(package_path))
-    except exceptions.FileExistException as e:
-        err = click.ClickException('Binary already exists: {}'.format(str(e)))
+    except exceptions.BinaryExistsException as e:
+        err = click.ClickException(str(e))
         err.exit_code = 101
         err.cause = 'You probably forgot to move/delete the package you created last time'
         err.possible_solutions = [
@@ -106,7 +111,7 @@ def binary(ctx, name, entrypoint, pyinstaller_version):
                    'corresponds to the --universal option of bdis_wheel '
                    '(https://wheel.readthedocs.io/en/stable/)')
 @click.option('--wheel-version', required=False,
-              help='Which version of wheel to use. Note that PyCI is tested only against '
+              help='Which version of wheel to use for packaging. Note that PyCI is tested only against '
                    'version {}, this is an advanced option, use at your own peril'
               .format(DEFAULT_WHEEL_VERSION))
 @handle_exceptions
@@ -114,6 +119,12 @@ def wheel(ctx, universal, wheel_version):
 
     """
     Create a python wheel.
+
+    Running this command requires a python installation.
+    The python interpreter used is detected by running a python equivalent of the linux `which python` command.
+    Make sure the python version you want is the first available `python` in your PATH.
+
+    Note that you can only create wheels for project that follow standard python packaging.
 
     see https://pythonwheels.com/
 
@@ -124,8 +135,8 @@ def wheel(ctx, universal, wheel_version):
                                       packager=ctx.parent.packager,
                                       wheel_version=wheel_version)
         log.echo('Wheel package created: {}'.format(package_path))
-    except exceptions.FileExistException as e:
-        err = click.ClickException('Wheel already exists: {}'.format(str(e)))
+    except exceptions.WheelExistsException as e:
+        err = click.ClickException(str(e))
         err.exit_code = 104
         err.cause = 'You probably forgot to move/delete the package you created last time'
         err.possible_solutions = [

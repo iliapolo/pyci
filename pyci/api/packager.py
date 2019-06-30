@@ -168,7 +168,10 @@ class Packager(object):
             if platform.system().lower() == 'windows':
                 destination = '{0}.exe'.format(destination)
 
-            utils.validate_file_does_not_exist(path=destination)
+            try:
+                utils.validate_file_does_not_exist(path=destination)
+            except exceptions.FileExistException as e:
+                raise exceptions.BinaryExistsException(path=e.path)
 
             dist_dir = os.path.join(temp_dir, 'dist')
             build_dir = os.path.join(temp_dir, 'build')
@@ -283,7 +286,10 @@ class Packager(object):
 
             destination = os.path.join(self.target_dir, actual_name)
 
-            utils.validate_file_does_not_exist(path=destination)
+            try:
+                utils.validate_file_does_not_exist(path=destination)
+            except exceptions.FileExistException as e:
+                raise exceptions.WheelExistsException(path=e.path)
 
             shutil.copy(os.path.join(dist_dir, actual_name), destination)
             self._debug('Packaged successfully.', package=destination)
