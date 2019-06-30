@@ -9,10 +9,10 @@ env:
     - CACHE_NAME=${TRAVIS_JOB_NAME}
 
 _commands_provider:
-  test-unit: &_test-unit - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
-  test-cross-distro: &_test-cross-distro: py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir .
-  lint: &_lint pylint --rcfile pylint.ini pyci
-  release: &_release pyci release --wheel-universal --binary-entrypoint pyci.spec
+  _test-unit: &_test-unit "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m \"not cross_distro\" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir ."
+  _test-cross-distro: &_test-cross-distro "py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir ."
+  _lint: &_lint "pylint --rcfile pylint.ini pyci"
+  _release: &_release "pyci release --wheel-universal --binary-entrypoint pyci.spec"
 
 jobs:
   include:
@@ -67,7 +67,7 @@ jobs:
         - pip install -r test-requirements.txt
         - pip install -e .
       before_script:
-        - pylint --rcfile pylint.ini pyci
+        - *_lint
       script:
         - py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
       after_success:
