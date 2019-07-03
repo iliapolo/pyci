@@ -428,7 +428,7 @@ def test_delete_release(github, request):
 
     release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
-    result = github.run('delete-release --name {}'.format(release.title))
+    github.run('delete-release --name {}'.format(release.title))
 
     with pytest.raises(UnknownObjectException):
         github.api.repo.get_release(id=release.title)
@@ -448,7 +448,7 @@ def test_delete_tag(github, request):
 
     release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
-    result = github.run('delete-tag --name {}'.format(release.title))
+    github.run('delete-tag --name {}'.format(release.title))
 
     with pytest.raises(UnknownObjectException):
         github.api.repo.get_git_ref('tags/{}'.format(release.title))
