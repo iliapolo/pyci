@@ -50,6 +50,7 @@ log = get_logger()
               help='Base commit for changelog generation. (exclusive)')
 @click.option('--force', is_flag=True,
               help='Force release without any validations.')
+# pylint: disable=inconsistent-return-statements
 def release_(ctx, version, branch, master_branch, release_branch, changelog_base, force):
 
     """
@@ -106,8 +107,9 @@ def release_(ctx, version, branch, master_branch, release_branch, changelog_base
             if isinstance(e.cause, exceptions.ReleaseValidationFailedException):
                 log.sub()
                 log.echo("Not releasing: {}".format(str(e)))
-            else:
-                raise
+                return
+
+            raise
 
     log.echo("Releasing branch '{}'".format(branch), add=True)
 
@@ -403,7 +405,6 @@ def delete_release(ctx, name):
         log.echo('Deleting release...', break_line=False)
         gh.delete_release(name=name)
         log.checkmark()
-        log.echo('Done')
     except BaseException as _:
         log.xmark()
         raise
@@ -427,7 +428,6 @@ def delete_tag(ctx, name):
 
         log.echo('Deleting tag...', break_line=False)
         gh.delete_tag(name=name)
-        log.echo('Done')
         log.checkmark()
     except BaseException as _:
         log.xmark()
@@ -668,17 +668,6 @@ def _create_release(ctx, changelog, version, branch, master_branch, sha):
 
     except TerminationException as e:
 
-        if isinstance(e.cause, exceptions.UpdateNotFastForwardException):
-            e.cause.cause = 'You probably merged another PR to the {} branch before this execution ' \
-                            'ended. This means you wont be able to release this commit. However, ' \
-                            'the second PR will be released soon enough and contain this commit.' \
-                .format(branch)
-
-            log.error('{}. Cleaning up...'.format(str(e)))
-            ctx.invoke(delete_release, name=next_version)
-            ctx.invoke(delete_tag, name=next_version)
-            raise
-
         if isinstance(e.cause, exceptions.ReleaseAlreadyExistsException):
             log.echo('Release {} already exists'.format(e.cause.release))
             ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.cause.release))
@@ -688,6 +677,18 @@ def _create_release(ctx, changelog, version, branch, master_branch, sha):
                                     url=rel.html_url,
                                     sha=ref.object.sha)
             return release
+
+        if isinstance(e.cause, exceptions.UpdateNotFastForwardException):
+            e.cause.cause = 'You probably merged another PR to the {} branch before this execution ' \
+                            'ended. This means you wont be able to release this commit. However, ' \
+                            'the second PR will be released soon enough and contain this commit.' \
+                .format(branch)
+
+            log.echo(str(e))
+            log.echo('Cleaning up...', add=True)
+            ctx.invoke(delete_release, name=next_version)
+            ctx.invoke(delete_tag, name=next_version)
+            log.sub()
 
         raise
 

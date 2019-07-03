@@ -219,7 +219,9 @@ def test_release_validation_failed(release):
 
     expected_output = 'Not releasing: Commit {} does not reference any issue'.format(sha)
 
+    assert not list(release.github.api.repo.get_releases())
     assert expected_output in result.std_out
+    assert result.return_code == 0
 
 
 def test_release_failed(release):

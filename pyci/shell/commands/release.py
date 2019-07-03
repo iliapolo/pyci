@@ -122,103 +122,94 @@ def release(ctx,
     branch = branch or (ci_provider.branch if ci_provider else None)
 
     if not branch:
-        raise click.BadOptionUsage(option_name='branch-name', message='Must provide --branch-name when '
-                                                                      'running outside CI')
+        raise click.BadOptionUsage(option_name='branch', message='Must provide --branch when running outside CI')
+
+    # No other way unfortunately, importing it normally would cause
+    # an actual runtime cyclic-import problem.
+    # pylint: disable=cyclic-import
+    from pyci.shell import main
+
+    ctx.invoke(main.github, repo=repo)
+    ctx.invoke(main.pypi, test=pypi_test, repository_url=pypi_url)
+
+    github_release = ctx.invoke(github.release_,
+                                version=version,
+                                branch=branch,
+                                master_branch=master_branch,
+                                release_branch=release_branch,
+                                changelog_base=changelog_base,
+                                force=force)
+
+    if github_release is None:
+        # This is our way of knowing that github.release_
+        # decided this commit shouldn't be silently ignored, not released.
+        return
+
+    ctx.invoke(main.pack, repo=repo, sha=github_release.sha)
+
+    package_directory = tempfile.mkdtemp()
+
+    wheel_url = None
 
     try:
 
-        # No other way unfortunately, importing it normally would cause
-        # an actual runtime cyclic-import problem.
-        # pylint: disable=cyclic-import
-        from pyci.shell import main
+        binary_path = None
+        wheel_path = None
+        installer_path = None
 
-        ctx.invoke(main.github, repo=repo)
-        ctx.invoke(main.pypi, test=pypi_test, repository_url=pypi_url)
+        log.echo('Creating packages', add=True)
 
-        github_release = ctx.invoke(github.release_,
-                                    version=version,
-                                    branch=branch,
-                                    master_branch=master_branch,
-                                    release_branch=release_branch,
-                                    changelog_base=changelog_base,
-                                    force=force)
+        if not no_binary:
+            binary_path = _pack_binary(ctx=ctx,
+                                       base_name=binary_base_name,
+                                       entrypoint=binary_entrypoint,
+                                       pyinstaller_version=pyinstaller_version)
 
-        ctx.invoke(main.pack, repo=repo, sha=github_release.sha)
+        if not no_wheel:
+            wheel_path = _pack_wheel(ctx=ctx,
+                                     wheel_universal=wheel_universal,
+                                     wheel_version=wheel_version)
 
-        package_directory = tempfile.mkdtemp()
+        if not no_installer:
+            installer_path = _pack_installer(ctx=ctx, binary_path=binary_path)
 
-        wheel_url = None
+        log.sub()
 
+        log.echo('Uploading packages', add=True)
+
+        if binary_path:
+            _upload_asset(ctx=ctx,
+                          asset_path=binary_path,
+                          github_release=github_release)
+
+        if installer_path:
+            _upload_asset(ctx=ctx,
+                          asset_path=installer_path,
+                          github_release=github_release)
+
+        if wheel_path:
+            _upload_asset(ctx=ctx,
+                          asset_path=wheel_path,
+                          github_release=github_release)
+
+            if not no_wheel_publish:
+                _upload_pypi(ctx=ctx,
+                             wheel_path=wheel_path)
+
+        log.sub()
+
+    finally:
         try:
+            utils.rmf(package_directory)
+        except BaseException as e:
+            log.warn('Failed cleaning up packager directory ({}): {}'
+                     .format(package_directory, str(e)))
 
-            binary_path = None
-            wheel_path = None
-            installer_path = None
+    log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
+    log.echo('Github: {}'.format(github_release.url))
 
-            log.echo('Creating packages', add=True)
-
-            if not no_binary:
-                binary_path = _pack_binary(ctx=ctx,
-                                           base_name=binary_base_name,
-                                           entrypoint=binary_entrypoint,
-                                           pyinstaller_version=pyinstaller_version)
-
-            if not no_wheel:
-                wheel_path = _pack_wheel(ctx=ctx,
-                                         wheel_universal=wheel_universal,
-                                         wheel_version=wheel_version)
-
-            if not no_installer:
-                installer_path = _pack_installer(ctx=ctx, binary_path=binary_path)
-
-            log.sub()
-
-            log.echo('Uploading packages', add=True)
-
-            if binary_path:
-                _upload_asset(ctx=ctx,
-                              asset_path=binary_path,
-                              github_release=github_release)
-
-            if installer_path:
-                _upload_asset(ctx=ctx,
-                              asset_path=installer_path,
-                              github_release=github_release)
-
-            if wheel_path:
-                _upload_asset(ctx=ctx,
-                              asset_path=wheel_path,
-                              github_release=github_release)
-
-                if not no_wheel_publish:
-                    _upload_pypi(ctx=ctx,
-                                 wheel_path=wheel_path)
-
-            log.sub()
-
-        finally:
-            try:
-                utils.rmf(package_directory)
-            except BaseException as e:
-                log.warn('Failed cleaning up packager directory ({}): {}'
-                         .format(package_directory, str(e)))
-
-        log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
-        log.echo('Github: {}'.format(github_release.url))
-
-        if wheel_url:
-            log.echo('PyPI: {}'.format(wheel_url))
-
-        return github_release, wheel_url
-
-    except TerminationException as e:
-
-        if isinstance(e.cause, exceptions.ReleaseValidationFailedException):
-            log.sub()
-            log.echo("Not releasing: {}".format(str(e)))
-            return None, None
-
-        raise
+    if wheel_url:
+        log.echo('PyPI: {}'.format(wheel_url))
 
 
 def _pack_installer(ctx, binary_path):

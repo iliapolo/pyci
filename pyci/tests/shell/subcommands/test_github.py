@@ -190,7 +190,9 @@ def test_release_validation_failed(github):
     expected_output = 'Not releasing: Commit 33526a9e0445541d96e027db2aeb93d07cdf8bd6 does ' \
                       'not reference any issue'
 
+    assert not list(github.api.repo.get_releases())
     assert expected_output in result.std_out
+    assert result.return_code == 0
 
 
 def test_validate_commit_sha(github):
