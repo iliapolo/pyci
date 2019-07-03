@@ -430,12 +430,8 @@ def test_delete_release(github, request):
 
     result = github.run('delete-release --name {}'.format(release.title))
 
-    expected_output = 'Done'
-
     with pytest.raises(UnknownObjectException):
         github.api.repo.get_release(id=release.title)
-
-    assert expected_output in result.std_out
 
 
 def test_delete_release_failed(github):
@@ -454,12 +450,8 @@ def test_delete_tag(github, request):
 
     result = github.run('delete-tag --name {}'.format(release.title))
 
-    expected_output = 'Done'
-
     with pytest.raises(UnknownObjectException):
         github.api.repo.get_git_ref('tags/{}'.format(release.title))
-
-    assert expected_output in result.std_out
 
 
 def test_delete_tag_failed(github):
