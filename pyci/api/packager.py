@@ -367,7 +367,8 @@ class Packager(object):
 
         try:
             name = self._default_name
-        except exceptions.FailedReadingSetupPyNameException:
+        except BaseException as e:
+            self._debug('Unable to extract default name from setup.py: {}. Using binary base name...'.format(str(e)))
             name = os.path.basename(binary_path).replace('.exe', '')
 
         installer_name = '{}-installer'.format(name)
