@@ -365,13 +365,14 @@ class Packager(object):
             except exceptions.InvalidNSISVersionException:
                 utils.raise_with_traceback(err, tb)
 
+        installer_base_name = os.path.basename(binary_path).replace('.exe', '')
         try:
             name = self._default_name
         except BaseException as e:
             self._debug('Unable to extract default name from setup.py: {}. Using binary base name...'.format(str(e)))
-            name = os.path.basename(binary_path).replace('.exe', '')
+            name = installer_base_name
 
-        installer_name = '{}-installer'.format(name)
+        installer_name = '{}-installer'.format(installer_base_name)
         copyr = copyr or ''
 
         destination = os.path.abspath(output or '{}.exe'.format(
