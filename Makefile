@@ -24,15 +24,15 @@ dep-project: ## Install the dependent libraries needed for the project to run.
 
 lint: dep ## Run lint validations.
 
-	pylint --rcfile pylint.ini pyci
+	pylint --rcfile configs/pylint.ini pyci
 
 test-unit: dep ## Run the unit tests.
 
-	py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
+	py.test -s --durations=10 -v -m "not cross_distro" -rs -c configs/pytest.ini  --cov-config=configs/coverage.ini --cov=pyci pyci/tests --rootdir .
 
 test-cross-distro: dep ## Run the cross-distro tests.
 
-	py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m cross_distro -rs -c pytest.ini pyci/tests --rootdir .
+	py.test -s --durations=10 -v -m cross_distro -rs -c configs/pytest.ini --cov-config=configs/coverage.ini --cov=pyci pyci/tests --rootdir .
 
 test: test-unit test-cross-distro ## Equivelant to 'make test-unit test-cross-distro'
 
@@ -40,6 +40,6 @@ release: dep-project ## Run release
 
 	pyci release --wheel-universal --binary-entrypoint pyci.spec
 
-codecov: ## Report coverage to codecov.io
+codecov: dep-test ## Report coverage to codecov.io
 
-	bash <(curl -s https://codecov.io/bash) -Z
+	codecov

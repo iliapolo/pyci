@@ -103,7 +103,7 @@ def test_release_no_wheel_publish(release, temp_dir, mocker):
         with open(binary_path, 'w') as f:
             f.write('binary')
 
-        return wheel_path
+        return binary_path
 
     # This mock can create whatever file it wants since it not
     # being uploaded anywhere, nor is it being asserted on.
