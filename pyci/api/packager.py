@@ -365,7 +365,11 @@ class Packager(object):
             except exceptions.InvalidNSISVersionException:
                 utils.raise_with_traceback(err, tb)
 
-        name = os.path.basename(binary_path).replace('.exe', '')
+        try:
+            name = self._default_name
+        except exceptions.FailedReadingSetupPyNameException:
+            name = os.path.basename(binary_path).replace('.exe', '')
+
         installer_name = '{}-installer'.format(name)
         copyr = copyr or ''
 
