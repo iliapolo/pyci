@@ -246,7 +246,7 @@ class WheelExistsException(ApiException):
         super(WheelExistsException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Binary exists: {0}'.format(self.path)
+        return 'Wheel exists: {0}'.format(self.path)
 
 
 class FileIsADirectoryException(ApiException):

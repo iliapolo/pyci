@@ -129,7 +129,7 @@ def test_wheel_file_exists(pack, repo_version):
     with open(expected, 'w') as stream:
         stream.write('package')
 
-    with pytest.raises(exceptions.FileExistException):
+    with pytest.raises(exceptions.WheelExistsException):
         pack.api.wheel()
 
 
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     if platform.system() == 'Windows':
         expected = '{}.exe'.format(expected)
 
-    actual = pack.api.binary(name=name,
+    actual = pack.api.binary(base_name=name,
                              entrypoint=custom_main)
 
     assert expected == actual
@@ -182,7 +182,7 @@ def test_binary_only_requirements_txt(runner, temp_dir):
 
     packager = Packager.create(path=repo_path, target_dir=temp_dir)
 
-    binary_path = packager.binary(name='only-requirements', entrypoint='main.py')
+    binary_path = packager.binary(base_name='only-requirements', entrypoint='main.py')
 
     # lets make sure the binary actually works
     assert runner.run(binary_path).std_out == 'Hello from requirements'
@@ -194,7 +194,7 @@ def test_binary_no_requirements(runner, temp_dir):
 
     packager = Packager.create(path=repo_path, target_dir=temp_dir)
 
-    binary_path = packager.binary(name='no-requirements', entrypoint='main.py')
+    binary_path = packager.binary(base_name='no-requirements', entrypoint='main.py')
 
     result = runner.run(binary_path, exit_on_failure=False)
 
@@ -213,7 +213,7 @@ def test_binary_file_exists(pack):
     with open(expected, 'w') as stream:
         stream.write('package')
 
-    with pytest.raises(exceptions.FileExistException):
+    with pytest.raises(exceptions.BinaryExistsException):
         pack.api.binary(entrypoint=conftest.SPEC_FILE)
 
 

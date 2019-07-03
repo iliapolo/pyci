@@ -62,7 +62,7 @@ setup(
         ]
     },
     install_requires=[
-        'click==6.7',
+        'click==7.0',
         'semver==2.8.0',
         'PyGithub==1.40',
         'requests==2.22.0',

@@ -18,6 +18,7 @@
 import pytest
 
 from pyci.shell import handle_exceptions
+from pyci.shell.exceptions import TerminationException
 
 
 def test_handle_unexpected_exception():
@@ -26,5 +27,7 @@ def test_handle_unexpected_exception():
     def command():
         raise RuntimeError('error')
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(TerminationException) as e:
         command()
+
+    assert 'If you see this message, you probably encountered a bug' in str(e.value)

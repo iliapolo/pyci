@@ -122,7 +122,7 @@ class Packager(object):
                         target_dir=target_dir,
                         log=log)
 
-    def binary(self, name=None, entrypoint=None, pyinstaller_version=None):
+    def binary(self, base_name=None, entrypoint=None, pyinstaller_version=None):
 
         """
         Create a binary executable.
@@ -136,7 +136,7 @@ class Packager(object):
         For more information please visit https://www.pyinstaller.org/
 
         Args:
-            name (str): The base name of the target file. The final name will be in the
+            base_name (str): The base name of the target file. The final name will be in the
                form of: <name>-<platform-machine>-<platform-system> (e.g pyci-x86_64-Darwin).
                Defaults to the 'name' specified in your setup.py file.
             entrypoint (:`str`, optional): Path to a script file from which the executable
@@ -159,11 +159,11 @@ class Packager(object):
         temp_dir = tempfile.mkdtemp()
         try:
 
-            name = name or self._default_name
-            entrypoint = entrypoint or self._default_entrypoint(name)
+            base_name = base_name or self._default_name
+            entrypoint = entrypoint or self._default_entrypoint(base_name)
 
             destination = os.path.join(self.target_dir, '{0}-{1}-{2}'
-                                       .format(name, platform.machine(), platform.system()))
+                                       .format(base_name, platform.machine(), platform.system()))
 
             if platform.system().lower() == 'windows':
                 destination = '{0}.exe'.format(destination)
@@ -182,7 +182,7 @@ class Packager(object):
                 raise exceptions.EntrypointNotFoundException(repo=self._repo,
                                                              entrypoint=entrypoint)
 
-            with self._create_virtualenv(name) as virtualenv:
+            with self._create_virtualenv(base_name) as virtualenv:
 
                 self._logger.debug('Installing pyinstaller...')
 

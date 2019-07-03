@@ -28,7 +28,7 @@ lint: dep ## Run lint validations.
 
 test-unit: dep ## Run the unit tests.
 
-	py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests/api/test_ci.py --rootdir .
+	py.test --junitxml=reports/test/pytest/junit.xml -s --durations=10 -v -m "not cross_distro" -rs -c pytest.ini  --cov-config=coverage.ini --cov=pyci pyci/tests --rootdir .
 
 test-cross-distro: dep ## Run the cross-distro tests.
 

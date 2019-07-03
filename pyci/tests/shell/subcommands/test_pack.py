@@ -52,7 +52,7 @@ if __name__ == '__main__':
     six.print_('It works!')        
 ''')
 
-    pack.run('binary --name {} --entrypoint {} --pyinstaller-version 3.4'
+    pack.run('binary --base-name {} --entrypoint {} --pyinstaller-version 3.4'
              .format(name, custom_main), binary=binary)
 
     if binary:
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     else:
 
         # noinspection PyUnresolvedReferences
-        Packager.binary.assert_called_once_with(name=name,  # pylint: disable=no-member
+        Packager.binary.assert_called_once_with(base_name=name,  # pylint: disable=no-member
                                                 entrypoint=custom_main,
                                                 pyinstaller_version='3.4')
 
@@ -91,7 +91,7 @@ def test_binary_file_exists(pack, binary):
     result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE),
                       catch_exceptions=True, binary=binary)
 
-    expected_output = 'Binary already exists'
+    expected_output = 'Binary exists'
     expected_possible_solution = 'Delete/Move the binary and try again'
 
     assert expected_output in result.std_out
@@ -162,7 +162,7 @@ def test_wheel_file_exists(pack, repo_version, binary):
 
     result = pack.run('wheel --universal', catch_exceptions=True, binary=binary)
 
-    expected_output = 'Wheel already exists'
+    expected_output = 'Wheel exists'
     expected_possible_solution = 'Delete/Move the package and try again'
 
     assert expected_output in result.std_out

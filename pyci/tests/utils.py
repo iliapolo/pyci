@@ -22,11 +22,11 @@ import time
 from pyci.api.utils import generate_setup_py
 
 
-def create_release(github, request, sha, name=None):
+def create_release(gh, request, sha, name=None):
 
     release_name = name or request.node.name
 
-    return github.api.repo.create_git_release(
+    return gh.repo.create_git_release(
         tag=release_name,
         target_commitish=sha,
         name=release_name,

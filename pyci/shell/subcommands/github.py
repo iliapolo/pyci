@@ -21,14 +21,16 @@ import tempfile
 
 import click
 
-from pyci.api import exceptions, ci
+from pyci.api import exceptions
 from pyci.api import utils
 from pyci.api import model
-from pyci.shell import BRANCH_HELP, solutions
-from pyci.shell import MASTER_BRANCH_HELP
-from pyci.shell import RELEASE_BRANCH_HELP
+from pyci.shell import solutions
 from pyci.shell import handle_exceptions
 from pyci.shell.logger import get as get_logger
+from pyci.shell.exceptions import ShellException
+from pyci.shell.exceptions import TerminationException
+from pyci.shell import help
+from pyci.shell.subcommands import ci
 
 log = get_logger()
 
@@ -36,32 +38,34 @@ log = get_logger()
 @click.command('release')
 @handle_exceptions
 @click.pass_context
-@click.option('--branch-name',
-              help=BRANCH_HELP)
+@click.option('--branch',
+              help=help.BRANCH)
+@click.option('--master-branch', required=False, default='master',
+              help=help.MASTER_BRANCH)
+@click.option('--release-branch', required=False, default='release',
+              help=help.RELEASE_BRANCH)
 @click.option('--version', required=False,
               help='Use this version instead of the automatic, changelog based, generated version.')
-@click.option('--master-branch-name', required=False, default='master',
-              help=MASTER_BRANCH_HELP)
-@click.option('--release-branch-name', required=False, default='release',
-              help=RELEASE_BRANCH_HELP)
 @click.option('--changelog-base', required=False,
               help='Base commit for changelog generation. (exclusive)')
 @click.option('--force', is_flag=True,
               help='Force release without any validations.')
-def release_branch(ctx, version, branch_name, master_branch_name, release_branch_name, changelog_base, force):
+def release_(ctx, version, branch, master_branch, release_branch, changelog_base, force):
 
     """
     Release a branch.
 
-    This command will do the following:
+    Note that this differs from the create-release command:
 
-        1. Create a Github release with the version as its title. (With changelog)
+        1. Create a Github release with the version as its title.
 
         2. Create a commit bumping the version of setup.py on top of the branch.
 
-        3. Update the master branch to point to the release commit.
+        3. Generated and upload changelog of the head of the branch, relative to the latest release.
 
-        4. Close any issues related included in the changelog.
+        4. Update the master branch to point to the release commit.
+
+        4. Close any related issues with a comment specifying the release title.
 
     The version is calculated automatically according to the changelog. Note that the release tag
     will point to the above mentioned commit.
@@ -82,40 +86,75 @@ def release_branch(ctx, version, branch_name, master_branch_name, release_branch
     commits that shouldn't be released.
 
     This command is idempotent, given that the tip of your branch hasn't changed between
-    executions. You can also safely run this command in parallel, this is important when running
+    executions. You can safely run this command in parallel, this is important when running
     your CI process on multiple systems concurrently.
 
     """
 
-    ci_provider = ctx.parent.parent.ci_provider
+    ci_provider = ctx.obj.ci_provider
+    gh = ctx.obj.github
 
-    branch_name = branch_name or (ci_provider.branch if ci_provider else None)
+    branch = branch or (ci_provider.branch if ci_provider else None)
+    sha = ci_provider.sha if ci_provider else branch
 
-    try:
+    if not force:
 
-        release = release_branch_internal(
-            branch_name=branch_name,
-            master_branch_name=master_branch_name,
-            release_branch_name=release_branch_name,
-            force=force,
-            gh=ctx.parent.github,
-            ci_provider=ci_provider,
-            changelog_base=changelog_base,
-            version=version)
-        log.echo('Successfully released: {}'.format(release.url))
-    except exceptions.ReleaseValidationFailedException as e:
-        log.sub()
-        log.echo("Not releasing: {}".format(str(e)))
+        try:
+            ctx.invoke(ci.validate_build, release_branch=release_branch)
+            ctx.invoke(validate_commit, sha=sha)
+        except TerminationException as e:
+            if isinstance(e.cause, exceptions.ReleaseValidationFailedException):
+                log.sub()
+                log.echo("Not releasing: {}".format(str(e)))
+                return
+            raise
+
+    log.echo("Releasing branch '{}'".format(branch), add=True)
+
+    changelog = _generate_changelog(gh=gh, sha=sha, base=changelog_base)
+
+    next_version = version or changelog.next_version
+
+    if not next_version:
+
+        err = ShellException('None of the commits in the changelog references an issue '
+                             'labeled with a release label. Cannot determine what the '
+                             'version number should be.')
+        err.cause = 'You probably only committed internal issues since the last release, ' \
+                    'or forgot to reference the issue.'
+        err.possible_solutions = [
+            'Amend the message of one of the commits to reference a release issue',
+            'Push another commit that references a release issue',
+            'Use --version to specify a version manually'
+        ]
+
+        raise err
+
+    release = _create_release(ctx=ctx,
+                              changelog=changelog,
+                              branch=branch,
+                              master_branch=master_branch,
+                              version=next_version,
+                              sha=sha)
+
+    log.echo('Closing issues', add=True)
+    for issue in changelog.all_issues:
+        ctx.invoke(close_issue, number=issue.impl.number, release=release.title)
+    log.sub()
+
+    log.sub()
+
+    log.echo('Successfully released: {}'.format(release.url))
+
+    return release
 
 
-@click.command('validate-commit')
+@click.command(context_settings=dict(ignore_unknown_options=True,))
 @handle_exceptions
 @click.pass_context
-@click.option('--branch', required=False,
-              help='Validate the last commit of this branch.')
 @click.option('--sha', required=False,
               help='Validate this specific commit.')
-def validate_commit(ctx, branch, sha):
+def validate_commit(ctx, sha, **_):
 
     """
     Validate that a commit should be released.
@@ -128,54 +167,53 @@ def validate_commit(ctx, branch, sha):
 
     """
 
-    if sha and branch:
-        raise click.BadOptionUsage('Use either --sha or --branch, not both.')
+    gh = ctx.obj.github
+    ci_provider = ctx.obj.ci_provider
 
-    if not sha and not branch:
-        raise click.BadOptionUsage('Must specify either --sha or --branch.')
+    sha = sha or (ci_provider.sha if ci_provider else None)
 
-    validate_commit_internal(branch=branch, sha=sha, gh=ctx.parent.github)
+    def _pre_issue():
+        log.echo('Commit references an issue...', break_line=False)
+
+    def _post_issue():
+        log.checkmark()
+
+    def _pre_label():
+        log.echo('Issue is labeled with a release label...', break_line=False)
+
+    def _post_label():
+        log.checkmark()
+
+    log.echo('Validating commit', add=True)
+
+    try:
+        gh.validate_commit(sha=sha,
+                           hooks={
+                               'pre_issue': _pre_issue,
+                               'pre_label': _pre_label,
+                               'post_issue': _post_issue,
+                               'post_label': _post_label
+                           })
+    except exceptions.ReleaseValidationFailedException as e:
+        log.xmark()
+        log.sub()
+        tb = sys.exc_info()[2]
+        utils.raise_with_traceback(e, tb)
+    log.sub()
+
     log.echo('Validation passed')
 
 
-@click.command('validate-build')
+@click.command()
 @handle_exceptions
 @click.pass_context
-@click.option('--release-branch-name', required=True,
-              help=RELEASE_BRANCH_HELP)
-def validate_build(ctx, release_branch_name):
-
-    """
-    Validate the current build should be released.
-
-    The conditions for release are:
-
-        1. The current build is not a PR build.
-
-        2. The current build is not a TAG build.
-
-        3. The current build is running on the release branch.
-
-    """
-
-    ci_provider = ctx.parent.parent.ci_provider
-
-    validate_build_internal(release_branch_name=release_branch_name, ci_provider=ci_provider)
-    log.echo('Validation passed')
-
-
-@click.command('generate-changelog')
-@handle_exceptions
-@click.pass_context
-@click.option('--branch', required=False,
-              help='Generate for the last commit of this branch.')
 @click.option('--base', required=False,
               help='Use this commit as the base (exclusive). Can also be a branch name.')
 @click.option('--sha', required=False,
               help='Generate for this specific commit.')
 @click.option('--target', required=False, type=click.Path(exists=False),
               help='Path to the destination file. Defaults to ./<sha/branch>-changelog.md')
-def generate_changelog(ctx, base, sha, branch, target):
+def generate_changelog(ctx, base, sha, target):
 
     """
     Generate a changelog file of a specific commit.
@@ -195,38 +233,32 @@ def generate_changelog(ctx, base, sha, branch, target):
 
     """
 
-    if sha and branch:
-        raise click.BadOptionUsage('Use either --sha or --branch, not both.')
+    gh = ctx.obj.github
 
-    if not sha and not branch:
-        raise click.BadOptionUsage('Must specify either --sha or --branch.')
-
-    default_destination = os.path.join(os.getcwd(), '{}-changelog.md'.format(sha or branch))
+    default_destination = os.path.join(os.getcwd(), '{}-changelog.md'.format(sha))
     target = target or default_destination
     destination = os.path.abspath(target)
 
     utils.validate_directory_exists(os.path.abspath(os.path.join(destination, os.pardir)))
     utils.validate_file_does_not_exist(destination)
 
-    changelog = generate_changelog_internal(branch=branch, base=base, sha=sha, gh=ctx.parent.github)
-
-    log.echo('Writing changelog file')
+    changelog = _generate_changelog(gh=gh, base=base, sha=sha)
 
     with open(destination, 'w') as stream:
         rendered = changelog.render()
         stream.write(rendered)
 
-    log.echo('Generated at {}'.format(destination))
+    log.echo('Changelog written to: {}'.format(destination))
+
+    return changelog
 
 
-@click.command('create-release')
+@click.command()
 @handle_exceptions
 @click.pass_context
-@click.option('--branch', required=False,
-              help='Release the last commit of this branch.')
 @click.option('--sha', required=False,
               help='Release this specific commit.')
-def create_release(ctx, sha, branch):
+def create_release(ctx, sha):
 
     """
     Create a release from a commit.
@@ -237,23 +269,23 @@ def create_release(ctx, sha, branch):
 
     """
 
-    if sha and branch:
-        raise click.BadOptionUsage('Use either --sha or --branch, not both.')
-
-    if not sha and not branch:
-        raise click.BadOptionUsage('Must specify either --sha or --branch.')
-
     try:
-        release = create_release_internal(branch=branch, sha=sha, gh=ctx.parent.github)
+
+        gh = ctx.obj.github
+
+        log.echo('Creating a GitHub release')
+        release = gh.create_release(sha=sha)
         log.echo('Release created: {}'.format(release.url))
+        return release
+
     except exceptions.NotPythonProjectException as e:
-        err = click.ClickException(str(e))
+        err = ShellException(str(e))
         err.possible_solutions = solutions.non_standard_project()
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
 
 
-@click.command('upload-asset')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--asset', required=True,
@@ -269,11 +301,22 @@ def upload_asset(ctx, asset, release):
 
     """
 
-    url = upload_asset_internal(asset=asset, release=release, gh=ctx.parent.github)
-    log.echo('Uploaded asset: {}'.format(url))
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Uploading {} to release {}...'
+                 .format(os.path.basename(asset), release), break_line=False)
+        asset_url = gh.upload_asset(asset=asset, release=release)
+        log.checkmark()
+        log.echo('Uploaded asset: {}'.format(asset_url))
+        return asset_url
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('upload-changelog')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--changelog', required=True,
@@ -289,11 +332,22 @@ def upload_changelog(ctx, changelog, release):
 
     """
 
-    upload_changelog_internal(changelog=changelog, rel=release, gh=ctx.parent.github)
-    log.echo('Uploaded changelog to release {}'.format(release))
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Uploading changelog...', break_line=False)
+        utils.validate_file_exists(changelog)
+        with open(changelog) as stream:
+            gh.upload_changelog(changelog=stream.read(), release=release)
+        log.checkmark()
+        log.echo('Uploaded changelog to release {}'.format(release))
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('detect-issue')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--sha', required=False,
@@ -310,14 +364,14 @@ def detect_issue(ctx, sha, message):
     """
 
     if sha and message:
-        raise click.BadOptionUsage('Use either --sha or --message, not both.')
+        raise click.UsageError('Use either --sha or --message, not both.')
 
     if not sha and not message:
-        raise click.BadOptionUsage('Must specify either --sha or --message.')
+        raise click.UsageError('Must specify either --sha or --message.')
 
     try:
         log.echo('Detecting issue...', break_line=False)
-        issue = ctx.parent.github.detect_issue(sha=sha, commit_message=message)
+        issue = ctx.obj.github.detect_issue(sha=sha, commit_message=message)
         log.checkmark()
         if issue:
             log.echo('Issue detected: {}'.format(issue.url))
@@ -328,7 +382,7 @@ def detect_issue(ctx, sha, message):
         raise
 
 
-@click.command('delete-release')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--name', required=True,
@@ -342,11 +396,20 @@ def delete_release(ctx, name):
     To delete the tag as well, use the 'delete-tag' command.
     """
 
-    delete_release_internal(gh=ctx.parent.github, name=name)
-    log.echo('Done')
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Deleting release...', break_line=False)
+        gh.delete_release(name=name)
+        log.checkmark()
+        log.echo('Done')
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('delete-tag')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--name', required=True,
@@ -358,11 +421,20 @@ def delete_tag(ctx, name):
 
     """
 
-    delete_tag_internal(gh=ctx.parent.github, name=name)
-    log.echo('Done')
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Deleting tag...', break_line=False)
+        gh.delete_tag(name=name)
+        log.echo('Done')
+        log.checkmark()
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('bump-version')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--branch', required=True,
@@ -380,7 +452,7 @@ def bump_version(ctx, branch, semantic):
 
     try:
         log.echo('Bumping version...', break_line=False)
-        bump = ctx.parent.github.bump_version(branch=branch, semantic=semantic)
+        bump = ctx.obj.github.bump_version(branch=branch, semantic=semantic)
         log.checkmark()
         log.echo('Bumped version from {} to {}'.format(bump.prev_version, bump.next_version))
     except BaseException as _:
@@ -388,7 +460,7 @@ def bump_version(ctx, branch, semantic):
         raise
 
 
-@click.command('set-version')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--branch', required=True,
@@ -404,11 +476,21 @@ def set_version(ctx, branch, value):
 
     """
 
-    bump = set_version_internal(branch=branch, value=value, gh=ctx.parent.github)
-    log.echo('Version is now {} (was {})'.format(bump.next_version, bump.prev_version))
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Setting version...', break_line=False)
+        bump = gh.set_version(branch=branch, value=value)
+        log.checkmark()
+        log.echo('Version is now {} (was {})'.format(bump.next_version, bump.prev_version))
+        return bump
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('reset-branch')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--name', required=True,
@@ -426,37 +508,20 @@ def reset_branch(ctx, name, sha, hard):
 
     """
 
-    reset_branch_internal(name=name, sha=sha, hard=hard, gh=ctx.parent.github)
-    log.echo('Branch {} is now at {}'.format(name, sha))
-
-
-@click.command('reset-tag')
-@handle_exceptions
-@click.pass_context
-@click.option('--name', required=True,
-              help='The tag name')
-@click.option('--sha', required=True,
-              help='The sha to reset the tag to.')
-def reset_tag(ctx, name, sha):
-
-    """
-    Reset the specified branch to the given sha.
-
-    This is equivalent to 'git reset'
-
-    """
-
     try:
-        log.echo('Updating tag...', break_line=False)
-        ctx.parent.github.reset_tag(name=name, sha=sha)
+
+        gh = ctx.obj.github
+
+        log.echo("Updating {} branch...".format(name), break_line=False)
+        gh.reset_branch(name=name, sha=sha, hard=hard)
+        log.echo('Branch {} is now at {} '.format(name, sha), break_line=False)
         log.checkmark()
-        log.echo('Tag {} is now at {}'.format(name, sha))
     except BaseException as _:
         log.xmark()
         raise
 
 
-@click.command('create-branch')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--name', required=True,
@@ -470,11 +535,21 @@ def create_branch(ctx, name, sha):
 
     """
 
-    create_branch_internal(name=name, sha=sha, gh=ctx.parent.github)
-    log.echo('Branch {} created at {}'.format(name, sha))
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Creating branch...', break_line=False)
+        branch = gh.create_branch(name=name, sha=sha)
+        log.checkmark()
+        log.echo('Branch {} created at {}'.format(name, sha))
+        return branch
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('delete-branch')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--name', required=True,
@@ -486,11 +561,21 @@ def delete_branch(ctx, name):
 
     """
 
-    delete_branch_internal(name=name, gh=ctx.parent.github)
-    log.echo('Done')
+    try:
+
+        gh = ctx.obj.github
+
+        log.echo('Deleting branch...', break_line=False)
+        branch = gh.delete_branch(name=name)
+        log.checkmark()
+        log.echo('Done')
+        return branch
+    except BaseException as _:
+        log.xmark()
+        raise
 
 
-@click.command('commit-file')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--branch', required=True,
@@ -501,7 +586,7 @@ def delete_branch(ctx, name):
               help='The new file contents.')
 @click.option('--message', required=True,
               help='The commit message.')
-def commit_file(ctx, branch, path, contents, message):
+def commit(ctx, branch, path, contents, message):
 
     """
     Commit a file remotely.
@@ -510,53 +595,19 @@ def commit_file(ctx, branch, path, contents, message):
 
     try:
         log.echo('Committing file...', break_line=False)
-        commit = ctx.parent.github.commit_file(
+        the_commit = ctx.obj.github.commit(
             path=path,
             contents=contents,
             message=message,
             branch=branch)
         log.checkmark()
-        log.echo('Created commit: {}'.format(commit.url))
+        log.echo('Created commit: {}'.format(the_commit.url))
     except BaseException as _:
         log.xmark()
         raise
 
 
-@click.command('create-commit')
-@handle_exceptions
-@click.pass_context
-@click.option('--branch', required=True,
-              help='The last commit of this branch will be the parent of the created commit.')
-@click.option('--path', required=True,
-              help='Path to the file, relative to the repository root.')
-@click.option('--contents', required=True,
-              help='The new file contents.')
-@click.option('--message', required=True,
-              help='The commit message.')
-def create_commit(ctx, branch, path, contents, message):
-
-    """
-    Create a commit in the repository.
-
-    Note, this command does not actually update any reference to point to this commit.
-    The created commit will be floating until you reset some reference to it.
-
-    """
-
-    try:
-        log.echo('Creating commit...', break_line=False)
-        commit = ctx.parent.github.create_commit(path=path,
-                                                 contents=contents,
-                                                 message=message,
-                                                 branch=branch)
-        log.checkmark()
-        log.echo('Created commit: {}'.format(commit.url))
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-@click.command('close-issue')
+@click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--number', required=True, type=int,
@@ -571,33 +622,10 @@ def close_issue(ctx, number, release):
 
     """
 
-    close_issue_internal(number=number, release=release, gh=ctx.parent.github)
-    log.echo('Done')
-
-
-def delete_release_internal(gh, name):
     try:
-        log.echo('Deleting release...', break_line=False)
-        gh.delete_release(name=name)
-        log.checkmark()
-    except BaseException as _:
-        log.xmark()
-        raise
 
+        gh = ctx.obj.github
 
-def delete_tag_internal(gh, name):
-    try:
-        log.echo('Deleting tag...', break_line=False)
-        gh.delete_tag(name=name)
-        log.checkmark()
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def close_issue_internal(number, release, gh):
-
-    try:
         log.echo('Closing issue number {}...'.format(number), break_line=False)
         gh.close_issue(num=number, release=release)
         log.checkmark()
@@ -606,10 +634,70 @@ def close_issue_internal(number, release, gh):
         raise
 
 
-def generate_changelog_internal(branch, base, sha, gh):
+def _create_release(ctx, changelog, version, branch, master_branch, sha):
 
-    def _pre_commit(commit):
-        log.echo('{}'.format(commit.commit.message), break_line=False)
+    gh = ctx.obj.github
+
+    next_version = version or changelog.next_version
+
+    try:
+
+        # figure out how to avoid calling private api here...
+        # exposing this doesn't seem like a good solution either.
+        # noinspection PyProtectedMember
+        # pylint: disable=protected-access
+        set_version_commit = gh._create_set_version_commit(value=next_version, sha=sha).impl
+
+        release = ctx.invoke(create_release, sha=set_version_commit.sha)
+
+        bump = model.ChangelogCommit(title=set_version_commit.message,
+                                     url=set_version_commit.html_url,
+                                     timestamp=set_version_commit.author.date,
+                                     impl=set_version_commit)
+        changelog.add(bump)
+
+        changelog_file = os.path.join(tempfile.mkdtemp(), 'changelog.md')
+        with open(changelog_file, 'w') as stream:
+            stream.write(changelog.render())
+        ctx.invoke(upload_changelog, changelog=changelog_file, release=release.title)
+
+        log.echo('Bumping version to {}'.format(next_version))
+        ctx.invoke(reset_branch, name=branch, sha=set_version_commit.sha, hard=False)
+        if master_branch != branch:
+            ctx.invoke(reset_branch, name=master_branch, sha=set_version_commit.sha, hard=False)
+
+    except TerminationException as e:
+
+        if isinstance(e.cause, exceptions.UpdateNotFastForwardException):
+            e.cause.cause = 'You probably merged another PR to the {} branch before this execution ' \
+                            'ended. This means you wont be able to release this commit. However, ' \
+                            'the second PR will be released soon enough and contain this commit.' \
+                .format(branch)
+
+            log.error('{}. Cleaning up...'.format(str(e)))
+            ctx.invoke(delete_release, name=next_version)
+            ctx.invoke(delete_tag, name=next_version)
+            raise
+
+        if isinstance(e.cause, exceptions.ReleaseAlreadyExistsException):
+            log.echo('Release {} already exists'.format(e.cause.release))
+            ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.cause.release))
+            rel = gh.repo.get_release(id=next_version)
+            release = model.Release(impl=rel,
+                                    title=rel.title,
+                                    url=rel.html_url,
+                                    sha=ref.object.sha)
+            return release
+
+        raise
+
+    return release
+
+
+def _generate_changelog(gh, base, sha):
+
+    def _pre_commit(_commit):
+        log.echo('{}'.format(_commit.commit.message), break_line=False)
 
     def _pre_collect():
         log.echo('Collecting commits')
@@ -624,7 +712,7 @@ def generate_changelog_internal(branch, base, sha, gh):
         log.sub()
 
     log.echo('Generating changelog', add=True)
-    changelog = gh.generate_changelog(branch=branch, base=base, sha=sha,
+    changelog = gh.generate_changelog(base=base, sha=sha,
                                       hooks={
                                           'pre_commit': _pre_commit,
                                           'pre_collect': _pre_collect,
@@ -632,280 +720,9 @@ def generate_changelog_internal(branch, base, sha, gh):
                                           'post_analyze': _post_analyze,
                                           'post_commit': _post_commit
                                       })
+
     log.sub()
+
+    log.echo('Changelog generation completed')
+
     return changelog
-
-
-def set_version_internal(branch, value, gh):
-
-    try:
-        log.echo('Setting version...', break_line=False)
-        bump = gh.set_version(branch=branch, value=value)
-        log.checkmark()
-        return bump
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def upload_changelog_internal(changelog, rel, gh):
-
-    try:
-        log.echo('Uploading changelog...', break_line=False)
-        utils.validate_file_exists(changelog)
-        with open(changelog) as stream:
-            gh.upload_changelog(changelog=stream.read(), release=rel)
-        log.checkmark()
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def create_release_internal(branch, sha, gh):
-    log.echo('Creating a GitHub release')
-    release = gh.create_release(sha=sha, branch=branch)
-    return release
-
-
-def create_branch_internal(name, sha, gh):
-
-    try:
-        log.echo('Creating branch...', break_line=False)
-        branch = gh.create_branch(name=name, sha=sha)
-        log.checkmark()
-        return branch
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def delete_branch_internal(name, gh):
-
-    try:
-        log.echo('Deleting branch...', break_line=False)
-        branch = gh.delete_branch(name=name)
-        log.checkmark()
-        return branch
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def reset_branch_internal(name, sha, hard, gh):
-
-    try:
-        log.echo("Updating {} branch...".format(name), break_line=False)
-        gh.reset_branch(name=name, sha=sha, hard=hard)
-        log.checkmark()
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def validate_commit_internal(branch, sha, gh):
-
-    def _pre_issue():
-        log.echo('Commit references an issue...', break_line=False)
-
-    def _post_issue():
-        log.checkmark()
-
-    def _pre_label():
-        log.echo('Issue is labeled with a release label...', break_line=False)
-
-    def _post_label():
-        log.checkmark()
-
-    log.echo('Validating commit', add=True)
-
-    try:
-        gh.validate_commit(branch=branch, sha=sha,
-                           hooks={
-                               'pre_issue': _pre_issue,
-                               'pre_label': _pre_label,
-                               'post_issue': _post_issue,
-                               'post_label': _post_label
-                           })
-    except exceptions.ReleaseValidationFailedException as e:
-        log.xmark()
-        log.sub()
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(e, tb)
-    log.sub()
-
-
-def validate_build_internal(release_branch_name, ci_provider):
-
-    def _pre_pr():
-        log.echo('Build is not a PR...', break_line=False)
-
-    def _post_pr():
-        log.checkmark()
-
-    def _pre_tag():
-        log.echo('Build is not a TAG...', break_line=False)
-
-    def _post_tag():
-        log.checkmark()
-
-    def _pre_branch():
-        log.echo("Build branch is '{}'...".format(release_branch_name), break_line=False)
-
-    def _post_branch():
-        log.checkmark()
-
-    if ci_provider:
-        log.echo('Validating build {}'.format(ci_provider.build_url), add=True)
-        try:
-            ci.validate_build(ci_provider=ci_provider, release_branch=release_branch_name,
-                              hooks={
-                                  'pre_pr': _pre_pr,
-                                  'pre_tag': _pre_tag,
-                                  'pre_branch': _pre_branch,
-                                  'post_pr': _post_pr,
-                                  'post_tag': _post_tag,
-                                  'post_branch': _post_branch
-                              })
-            log.sub()
-        except BaseException as _:
-            log.xmark()
-            log.sub()
-            raise
-
-
-def upload_asset_internal(asset, release, gh):
-
-    try:
-        log.echo('Uploading {} to release {}...'
-                 .format(os.path.basename(asset), release), break_line=False)
-        asset_url = gh.upload_asset(asset=asset, release=release)
-        log.checkmark()
-        return asset_url
-    except BaseException as _:
-        log.xmark()
-        raise
-
-
-def release_branch_internal(branch_name,
-                            master_branch_name,
-                            release_branch_name,
-                            force,
-                            changelog_base,
-                            version,
-                            gh,
-                            ci_provider):
-
-    sha = ci_provider.sha if ci_provider else None
-
-    log.echo("Releasing branch '{}'".format(branch_name), add=True)
-
-    if not force:
-
-        validate_build_internal(ci_provider=ci_provider, release_branch_name=release_branch_name)
-        validate_commit_internal(branch=None if sha else branch_name, gh=gh, sha=sha)
-
-    changelog = generate_changelog_internal(gh=gh,
-                                            branch=None if sha else branch_name,
-                                            sha=sha,
-                                            base=changelog_base)
-
-    next_version = version or changelog.next_version
-
-    if not next_version:
-
-        err = click.ClickException('None of the commits in the changelog references an issue '
-                                   'labeled with a release label. Cannot determine what the '
-                                   'version number should be.')
-        err.cause = 'You probably only committed internal issues since the last release, ' \
-                    'or forgot to reference the issue.'
-        err.possible_solutions = [
-            'Amend the message of one of the commits to reference a release issue',
-            'Push another commit that references a release issue',
-            'Use --version to specify a version manually'
-        ]
-
-        raise err
-
-    try:
-        release = _create_release(gh=gh,
-                                  changelog=changelog,
-                                  branch_name=branch_name,
-                                  master_branch_name=master_branch_name,
-                                  sha=sha,
-                                  version=version)
-        _close_issues(gh=gh,
-                      changelog=changelog,
-                      release=release.title)
-
-        log.sub()
-
-        return release
-
-    except exceptions.UpdateNotFastForwardException as e:
-
-        e.cause = 'You probably merged another PR to the {} branch before this execution ' \
-                  'ended. This means you wont be able to release this commit. However, ' \
-                  'the second PR will be released soon enough and contain this commit.' \
-                  ''.format(release_branch_name)
-
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(e, tb)
-
-
-def _create_release(gh, changelog, version, branch_name, master_branch_name, sha):
-
-    next_version = version or changelog.next_version
-
-    try:
-
-        # figure out how to avoid calling private api here...
-        # exposing this doesn't seem like a good solution either.
-        # noinspection PyProtectedMember
-        # pylint: disable=protected-access
-        commit = gh._create_set_version_commit(value=next_version,
-                                               branch=branch_name,
-                                               sha=sha).impl
-
-        release = create_release_internal(branch=None, gh=gh, sha=commit.sha)
-
-        bump = model.ChangelogCommit(title=commit.message,
-                                     url=commit.html_url,
-                                     timestamp=commit.author.date,
-                                     impl=commit)
-        changelog.add(bump)
-
-        changelog_file = os.path.join(tempfile.mkdtemp(), 'changelog.md')
-        with open(changelog_file, 'w') as stream:
-            stream.write(changelog.render())
-        upload_changelog_internal(changelog=changelog_file, gh=gh, rel=release.title)
-
-        try:
-            log.echo('Bumping version to {}'.format(next_version))
-            reset_branch_internal(gh=gh, name=branch_name, sha=commit.sha, hard=False)
-            if master_branch_name != branch_name:
-                reset_branch_internal(gh=gh, name=master_branch_name, sha=commit.sha, hard=False)
-        except exceptions.UpdateNotFastForwardException as e:
-            log.echo(str(e))
-            log.echo('Cleaning up', add=True)
-            delete_release_internal(gh=gh, name=release.title)
-            delete_tag_internal(gh=gh, name=release.title)
-            log.sub()
-            raise
-
-    except exceptions.ReleaseAlreadyExistsException as e:
-        log.echo('Release {} already exists'.format(e.release))
-        ref = gh.repo.get_git_ref(ref='tags/{}'.format(e.release))
-        rel = gh.repo.get_release(id=next_version)
-        release = model.Release(impl=rel,
-                                title=rel.title,
-                                url=rel.html_url,
-                                sha=ref.object.sha)
-
-    return release
-
-
-def _close_issues(gh, changelog, release):
-    log.echo('Closing issues', add=True)
-    for issue in changelog.all_issues:
-        close_issue_internal(number=issue.impl.number, release=release, gh=gh)
-    log.sub()

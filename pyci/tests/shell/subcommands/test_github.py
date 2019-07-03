@@ -38,7 +38,7 @@ def _create_commit(github, request, message=None):
 
     message = message or request.node.name
 
-    return github.api.commit_file(
+    return github.api.commit(
         path='README.md',
         contents=request.node.name,
         message=message,
@@ -53,9 +53,9 @@ def _create_branch(github, request, sha, name=None):
 
 
 @pytest.mark.wet
-def test_release_branch(github):
+def test_release(github):
 
-    github.run('release --branch-name release')
+    github.run('release --branch release')
 
     expected_release_title = '1.0.0'
     repo = github.api.repo
@@ -90,14 +90,14 @@ def test_release_branch(github):
 
 
 @pytest.mark.wet
-def test_release_branch_twice(github):
+def test_release_twice(github):
 
-    github.run('release --force --branch-name release')
+    github.run('release --force --branch release')
 
     github.api.reset_branch(name='release', sha=LAST_COMMIT, hard=True)
     github.api.reset_branch(name='master', sha=LAST_COMMIT, hard=True)
 
-    github.run('release --force --branch-name release')
+    github.run('release --force --branch release')
 
     expected_number_of_releases = 1
 
@@ -105,15 +105,15 @@ def test_release_branch_twice(github):
 
 
 @pytest.mark.wet
-def test_release_branch_force_with_changelog_base(github, request):
+def test_release_force_with_changelog_base(github, request):
 
-    test_utils.create_release(github, request, 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac', '1.0.0')
+    test_utils.create_release(github.api, request, 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac', '1.0.0')
 
     github.api.set_version(value='1.0.0', branch='release')
 
     # run another release with a changelog generated from a sha prior to existing release
     # this should cause another major version bump
-    github.run('release --branch-name release --force --changelog-base 4772c5708ff25a69f1f6c8106c7fe863c6686459')
+    github.run('release --branch release --force --changelog-base 4772c5708ff25a69f1f6c8106c7fe863c6686459')
 
     expected_release_title = '2.0.0'
 
@@ -123,11 +123,11 @@ def test_release_branch_force_with_changelog_base(github, request):
 
 
 @pytest.mark.wet
-def test_release_branch_with_version(github):
+def test_release_with_version(github):
 
     expected_release_title = '8.0.0'
 
-    github.run('release --branch-name release --version {}'.format(expected_release_title))
+    github.run('release --branch release --version {}'.format(expected_release_title))
 
     github_release = github.api.repo.get_release(id=expected_release_title)
 
@@ -135,7 +135,7 @@ def test_release_branch_with_version(github):
 
 
 @pytest.mark.wet
-def test_release_branch_not_fast_forward(pyci, repo, mocker):
+def test_release_not_fast_forward(pyci, repo, mocker):
 
     ci_provider = ci.detect(environ={
         'TRAVIS': 'True',
@@ -150,7 +150,7 @@ def test_release_branch_not_fast_forward(pyci, repo, mocker):
 
     mocker.patch(target='pyci.api.ci.detect', new=detect)
 
-    result = pyci.run('github --repo {} release --force --branch-name release'
+    result = pyci.run('github --repo {} release --force --branch release'
                       .format(REPO_UNDER_TEST),
                       catch_exceptions=True)
 
@@ -174,7 +174,7 @@ def test_release_branch_cannot_determine_next_version(github):
     expected_cause = 'None of the commits in the changelog references an issue labeled with a ' \
                      'release label. Cannot determine what the version number should be'
 
-    result = github.run('release --force --branch-name release', catch_exceptions=True)
+    result = github.run('release --force --branch release', catch_exceptions=True)
 
     assert expected_cause in result.std_out
 
@@ -185,72 +185,10 @@ def test_release_validation_failed(github):
     github.api.reset_branch(name='release', sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6',
                             hard=True)
 
-    result = github.run('release --branch-name release', catch_exceptions=True)
+    result = github.run('release --branch release', catch_exceptions=True)
 
     expected_output = 'Not releasing: Commit 33526a9e0445541d96e027db2aeb93d07cdf8bd6 does ' \
                       'not reference any issue'
-
-    assert expected_output in result.std_out
-
-
-def test_validate_build(pyci, mocker):
-
-    ci_provider = ci.detect(environ={
-        'TRAVIS': 'True',
-        'TRAVIS_REPO_SLUG': REPO_UNDER_TEST,
-        'TRAVIS_BRANCH': 'release',
-        'TRAVIS_COMMIT': None,
-        'TRAVIS_TAG': None,
-        'TRAVIS_PULL_REQUEST': 'false'
-    })
-
-    detect = MagicMock(return_value=ci_provider)
-
-    mocker.patch(target='pyci.api.ci.detect', new=detect)
-
-    result = pyci.run('github validate-build --release-branch-name release')
-
-    expected_output = 'Validation passed'
-
-    assert expected_output in result.std_out
-
-
-def test_validate_build_failed(pyci, mocker):
-
-    ci_provider = ci.detect(environ={
-        'TRAVIS': 'True',
-        'TRAVIS_REPO_SLUG': REPO_UNDER_TEST,
-        'TRAVIS_BRANCH': 'release',
-        'TRAVIS_COMMIT': None,
-        'TRAVIS_TAG': '0.0.1',
-        'TRAVIS_PULL_REQUEST': 'false'
-    })
-
-    detect = MagicMock(return_value=ci_provider)
-
-    mocker.patch(target='pyci.api.ci.detect', new=detect)
-
-    result = pyci.run('github validate-build --release-branch-name release', catch_exceptions=True)
-
-    expected_output = 'Build running on TAG number 0.0.1'
-
-    assert expected_output in result.std_out
-
-
-def test_validate_commit_no_sha_no_branch(github):
-
-    result = github.run('validate-commit', catch_exceptions=True)
-
-    expected_output = 'Must specify either --sha or --branch.'
-
-    assert expected_output in result.std_out
-
-
-def test_validate_commit_sha_and_branch(github):
-
-    result = github.run('validate-commit --sha sha --branch branch', catch_exceptions=True)
-
-    expected_output = 'Use either --sha or --branch, not both.'
 
     assert expected_output in result.std_out
 
@@ -264,29 +202,11 @@ def test_validate_commit_sha(github):
     assert expected_output in result.std_out
 
 
-def test_validate_commit_branch(github):
+def test_validate_commit(github):
 
-    result = github.run('validate-commit --branch release')
+    result = github.run('validate-commit')
 
     expected_output = 'Validation passed'
-
-    assert expected_output in result.std_out
-
-
-def test_generate_changelog_no_sha_no_branch(github):
-
-    result = github.run('generate-changelog', catch_exceptions=True)
-
-    expected_output = 'Must specify either --sha or --branch.'
-
-    assert expected_output in result.std_out
-
-
-def test_generate_changelog_sha_and_branch(github):
-
-    result = github.run('generate-changelog --sha sha --branch branch', catch_exceptions=True)
-
-    expected_output = 'Use either --sha or --branch, not both.'
 
     assert expected_output in result.std_out
 
@@ -297,7 +217,7 @@ def test_generate_changelog_sha(github, temp_dir):
 
     result = github.run('generate-changelog --sha {} --target {}'.format(LAST_COMMIT, destination))
 
-    expected_output = 'Generated at {}'.format(destination)
+    expected_output = 'Changelog written to: {}'.format(destination)
 
     assert os.path.exists(destination)
     assert expected_output in result.std_out
@@ -311,20 +231,7 @@ def test_generate_changelog_from_base(github, temp_dir):
 
     result = github.run('generate-changelog --base {} --sha {} --target {}'.format(base, LAST_COMMIT, destination))
 
-    expected_output = 'Generated at {}'.format(destination)
-
-    assert os.path.exists(destination)
-    assert expected_output in result.std_out
-
-
-def test_generate_changelog_branch(github, temp_dir):
-
-    destination = os.path.join(temp_dir, 'changelog.md')
-
-    result = github.run('generate-changelog --branch release --target {}'
-                        .format(destination))
-
-    expected_output = 'Generated at {}'.format(destination)
+    expected_output = 'Changelog written to: {}'.format(destination)
 
     assert os.path.exists(destination)
     assert expected_output in result.std_out
@@ -334,9 +241,9 @@ def test_generate_changelog_no_target(github):
 
     destination = os.path.join(os.getcwd(), 'release-changelog.md')
 
-    result = github.run('generate-changelog --branch release')
+    result = github.run('generate-changelog --sha release')
 
-    expected_output = 'Generated at {}'.format(destination)
+    expected_output = 'Changelog written to: {}'.format(destination)
 
     assert os.path.exists(destination)
     assert expected_output in result.std_out
@@ -349,7 +256,7 @@ def test_generate_changelog_failed(github):
     with open(destination, 'w') as stream:
         stream.write('changelog')
 
-    result = github.run('generate-changelog --branch release', catch_exceptions=True)
+    result = github.run('generate-changelog --sha release', catch_exceptions=True)
 
     expected_output = 'File exists: {}'.format(destination)
 
@@ -369,7 +276,7 @@ def test_upload_changelog_failed(github):
 @pytest.mark.wet
 def test_upload_changelog(github, request, temp_dir):
 
-    release = test_utils.create_release(github, request, LAST_COMMIT)
+    release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
     changelog_file = os.path.join(temp_dir, 'changelog')
     changelog_content = 'changelog'
@@ -388,40 +295,10 @@ def test_upload_changelog(github, request, temp_dir):
     assert expected_output in result.std_out
 
 
-def test_create_release_no_sha_no_branch(github):
-
-    result = github.run('create-release', catch_exceptions=True)
-
-    expected_output = 'Must specify either --sha or --branch.'
-
-    assert expected_output in result.std_out
-
-
-def test_create_release_sha_and_branch(github):
-
-    result = github.run('create-release --sha sha --branch branch', catch_exceptions=True)
-
-    expected_output = 'Use either --sha or --branch, not both.'
-
-    assert expected_output in result.std_out
-
-
 @pytest.mark.wet
 def test_create_release_sha(github):
 
     result = github.run('create-release --sha {}'.format(LAST_COMMIT))
-
-    expected_output = 'Release created: https://github.com/{}/releases/tag/0.0.1'.format(
-        REPO_UNDER_TEST)
-
-    assert github.api.repo.get_release(id='0.0.1')
-    assert expected_output in result.std_out
-
-
-@pytest.mark.wet
-def test_create_release_branch(github):
-
-    result = github.run('create-release --branch release')
 
     expected_output = 'Release created: https://github.com/{}/releases/tag/0.0.1'.format(
         REPO_UNDER_TEST)
@@ -463,7 +340,7 @@ def test_create_release_not_python_project(github):
 
 def test_create_release_failed(github):
 
-    result = github.run('create-release --branch branch', catch_exceptions=True)
+    result = github.run('create-release --sha branch', catch_exceptions=True)
 
     expected_output = 'Commit not found: branch'
 
@@ -473,7 +350,7 @@ def test_create_release_failed(github):
 @pytest.mark.wet
 def test_upload_asset(github, request, temp_dir):
 
-    release = test_utils.create_release(github, request, LAST_COMMIT)
+    release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
     asset_file = os.path.join(temp_dir, 'asset')
     with open(asset_file, 'w') as stream:
@@ -499,7 +376,7 @@ def test_upload_asset_failed(github):
     assert expected_output in result.std_out
 
 
-def test_detect_issue_no_sha_no_message(github):
+def test_detect_issue_no_sha_no_message(github, log):
 
     result = github.run('detect-issue', catch_exceptions=True)
 
@@ -547,7 +424,7 @@ def test_detect_issue_failed(github):
 @pytest.mark.wet
 def test_delete_release(github, request):
 
-    release = test_utils.create_release(github, request, LAST_COMMIT)
+    release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
     result = github.run('delete-release --name {}'.format(release.title))
 
@@ -571,7 +448,7 @@ def test_delete_release_failed(github):
 @pytest.mark.wet
 def test_delete_tag(github, request):
 
-    release = test_utils.create_release(github, request, LAST_COMMIT)
+    release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
     result = github.run('delete-tag --name {}'.format(release.title))
 
@@ -654,10 +531,10 @@ def test_set_version_failed(github):
 @pytest.mark.wet
 def test_reset_branch(github):
 
-    commit = github.api.create_commit(branch='release',
-                                      path='README.md',
-                                      contents='hello',
-                                      message='message')
+    commit = github.api._create_commit(sha='release',
+                                       path='README.md',
+                                       contents='hello',
+                                       message='message')
 
     result = github.run('reset-branch --name release --sha {}'.format(commit.sha))
 
@@ -683,10 +560,10 @@ def test_reset_branch_already_at_sha(github):
 @pytest.mark.wet
 def test_reset_branch_hard(github):
 
-    commit = github.api.create_commit(branch='release',
-                                      path='README.md',
-                                      contents='hello',
-                                      message='message')
+    commit = github.api._create_commit(sha='release',
+                                       path='README.md',
+                                       contents='hello',
+                                       message='message')
 
     result = github.run('reset-branch --name release --sha {} --hard'.format(commit.sha))
 
@@ -734,49 +611,6 @@ def test_reset_branch_failed(github):
     result = github.run('reset-branch --name doesnt-exist --sha sha', catch_exceptions=True)
 
     expected_output = 'Branch doesnt-exist doesnt exist in {}'.format(REPO_UNDER_TEST)
-
-    assert expected_output in result.std_out
-
-
-@pytest.mark.wet
-def test_reset_tag(github, request):
-
-    release_sha = '33526a9e0445541d96e027db2aeb93d07cdf8bd6'
-    test_utils.create_release(github, request, sha=release_sha, name='0.0.1')
-    commit = github.api.create_commit(branch='release',
-                                      path='README.md',
-                                      contents='hello',
-                                      message='message',
-                                      sha=release_sha)
-
-    result = github.run('reset-tag --name 0.0.1 --sha {}'.format(commit.sha))
-
-    expected_output = 'Tag 0.0.1 is now at {}'.format(commit.sha)
-
-    actual_sha = github.api.repo.get_git_ref('tags/0.0.1').object.sha
-
-    assert commit.sha == actual_sha
-    assert expected_output in result.std_out
-
-
-@pytest.mark.wet
-def test_reset_tag_already_at_sha(github, request):
-
-    test_utils.create_release(github, request, sha=LAST_COMMIT, name='0.0.1')
-
-    result = github.run('reset-tag --name 0.0.1 --sha={}'.format(LAST_COMMIT),
-                        catch_exceptions=True)
-
-    expected_output = 'Reference refs/tags/0.0.1 is already at {}'.format(LAST_COMMIT)
-
-    assert expected_output in result.std_out
-
-
-def test_reset_tag_failed(github):
-
-    result = github.run('reset-tag --name doesnt-exist --sha sha', catch_exceptions=True)
-
-    expected_output = 'Tag not found: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -840,7 +674,7 @@ def test_commit_file(github):
 
     contents = 'contents'
 
-    result = github.run('commit-file '
+    result = github.run('commit '
                         '--path README.md '
                         '--contents {} '
                         '--message message '
@@ -859,7 +693,7 @@ def test_commit_file(github):
 
 def test_commit_file_failed(github):
 
-    result = github.run('commit-file '
+    result = github.run('commit '
                         '--path path '
                         '--contents contents '
                         '--message message '
@@ -872,37 +706,9 @@ def test_commit_file_failed(github):
 
 
 @pytest.mark.wet
-def test_create_commit(github):
-
-    result = github.run('create-commit '
-                        '--path README.md '
-                        '--contents contents '
-                        '--message message '
-                        '--branch release')
-
-    expected_output = 'Created commit'
-
-    assert expected_output in result.std_out
-
-
-def test_create_commit_failed(github):
-
-    result = github.run('create-commit '
-                        '--path path '
-                        '--contents contents '
-                        '--message message '
-                        '--branch branch',
-                        catch_exceptions=True)
-
-    expected_output = 'Commit not found: branch'
-
-    assert expected_output in result.std_out
-
-
-@pytest.mark.wet
 def test_close_issue_issue_doesnt_exist(github, request):
 
-    release = test_utils.create_release(github, request, LAST_COMMIT)
+    release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
     expected_output = 'Issue 100 not found'
 
@@ -925,15 +731,13 @@ def test_close_issue_release_doesnt_exist(github):
 @pytest.mark.wet
 def test_close_issue(github, request):
 
-    release = test_utils.create_release(github, request, LAST_COMMIT)
+    release = test_utils.create_release(github.api, request, LAST_COMMIT)
 
-    result = github.run('close-issue --number=7 --release {}'.format(release.title))
+    github.run('close-issue --number=7 --release {}'.format(release.title))
 
     expected_status = 'closed'
     expected_comment = 'This issue is part of release [{}]({})'.format(
         release.title, release.html_url)
-
-    expected_output = 'Done'
 
     issue = github.api.repo.get_issue(number=7)
 
@@ -941,4 +745,3 @@ def test_close_issue(github, request):
 
     assert expected_status == issue.state
     assert expected_comment in issue_comments
-    assert expected_output in result.std_out

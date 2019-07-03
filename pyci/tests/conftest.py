@@ -39,7 +39,7 @@ from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
 from pyci.tests import utils as test_utils
 
-# logger.DEFAULT_LOG_LEVEL = logging.DEBUG
+logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
@@ -140,18 +140,22 @@ def _release(pyci, github):
     yield ReleaseCommand()
 
 
-@pytest.fixture(name='github')
-def _github(pyci, repo, token):
-
-    repository = GitHubRepository.create(repo=REPO_UNDER_TEST,
-                                         access_token=token)
+@pytest.fixture(name='gh')
+def _gh(token, repo):
+    repository =  GitHubRepository.create(repo=REPO_UNDER_TEST,
+                                          access_token=token)
     setattr(repository, 'repo', repo)
+    return repository
+
+
+@pytest.fixture(name='github')
+def _github(pyci, gh, repo, token):
 
     # pylint: disable=too-few-public-methods
     class GithubSubCommand(object):
 
         def __init__(self):
-            self.api = repository
+            self.api = gh
 
         @staticmethod
         def run(command, binary=False, catch_exceptions=False):
