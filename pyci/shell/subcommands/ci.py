@@ -19,7 +19,7 @@ import click
 
 
 from pyci.shell import handle_exceptions
-from pyci.shell import help
+from pyci.shell import help as pyci_help
 from pyci.shell.logger import get as get_logger
 from pyci.api import ci
 
@@ -31,7 +31,7 @@ log = get_logger()
 @handle_exceptions
 @click.pass_context
 @click.option('--release-branch', required=True,
-              help=help.RELEASE_BRANCH)
+              help=pyci_help.RELEASE_BRANCH)
 def validate_build(ctx, release_branch, **_):
 
     """
@@ -81,7 +81,7 @@ def validate_build(ctx, release_branch, **_):
                               })
             log.sub()
             log.echo('Validation passed')
-        except BaseException as _:
+        except BaseException:
             log.xmark()
             log.sub()
             raise

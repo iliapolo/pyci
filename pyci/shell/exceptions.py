@@ -29,7 +29,7 @@ class TerminationException(click.ClickException):
         self.cause = cause
         super(TerminationException, self).__init__(message or str(cause))
 
-    def show(self, file=None):
+    def show(self, _file=None):
         log.debug(self.tb)
         log.error(self.format_message())
         info = build_info(self.cause)

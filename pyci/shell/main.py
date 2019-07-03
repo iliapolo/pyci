@@ -30,7 +30,7 @@ from pyci.api.pypi import PyPI
 from pyci.api import exceptions
 from pyci.api import utils
 from pyci.shell import solutions
-from pyci.shell import help
+from pyci.shell import help as pyci_help
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import release
@@ -97,7 +97,7 @@ def app(ctx, debug, no_ci):
 
 @click.group()
 @click.option('--repo', required=False,
-              help=help.REPO)
+              help=pyci_help.REPO)
 @click.pass_context
 @handle_exceptions
 def github(ctx, repo):
@@ -118,7 +118,7 @@ def github(ctx, repo):
 @click.group()
 @click.pass_context
 @click.option('--repo', required=False,
-              help=help.REPO)
+              help=pyci_help.REPO)
 @click.option('--sha', required=False,
               help='Pack a specific sha.')
 @click.option('--path', required=False,

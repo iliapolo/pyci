@@ -19,16 +19,6 @@ import os
 
 import pytest
 
-try:
-    # python2
-    from mock import MagicMock
-    from mock import ANY
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
-    from unittest.mock import ANY
-
 from pyci.tests.conftest import LAST_COMMIT
 
 

@@ -47,9 +47,3 @@ class Context(object):
     @packager.setter
     def packager(self, value):
         self._packager = value
-
-    def invoke(self):
-        pass
-
-    def forward(self):
-        pass

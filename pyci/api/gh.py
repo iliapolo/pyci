@@ -877,6 +877,7 @@ class _GitHubCommit(object):
 
             raise exceptions.ReleaseAlreadyExistsException(release=version)
 
+    # pylint: disable=too-many-branches,too-many-statements
     def generate_changelog(self, base, hooks):
 
         hooks = hooks or {}
@@ -920,7 +921,8 @@ class _GitHubCommit(object):
 
         changelog = model.Changelog(current_version=self.setup_py_version, sha=self.commit.sha)
 
-        pre_analyze(commits) if pre_analyze else None
+        if pre_analyze:
+            pre_analyze(commits)
 
         for commit in commits:
 

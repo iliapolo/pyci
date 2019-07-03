@@ -29,7 +29,7 @@ from pyci.shell import handle_exceptions
 from pyci.shell.logger import get as get_logger
 from pyci.shell.exceptions import ShellException
 from pyci.shell.exceptions import TerminationException
-from pyci.shell import help
+from pyci.shell import help as pyci_help
 from pyci.shell.subcommands import ci
 
 log = get_logger()
@@ -39,11 +39,11 @@ log = get_logger()
 @handle_exceptions
 @click.pass_context
 @click.option('--branch',
-              help=help.BRANCH)
+              help=pyci_help.BRANCH)
 @click.option('--master-branch', required=False, default='master',
-              help=help.MASTER_BRANCH)
+              help=pyci_help.MASTER_BRANCH)
 @click.option('--release-branch', required=False, default='release',
-              help=help.RELEASE_BRANCH)
+              help=pyci_help.RELEASE_BRANCH)
 @click.option('--version', required=False,
               help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--changelog-base', required=False,
@@ -106,8 +106,8 @@ def release_(ctx, version, branch, master_branch, release_branch, changelog_base
             if isinstance(e.cause, exceptions.ReleaseValidationFailedException):
                 log.sub()
                 log.echo("Not releasing: {}".format(str(e)))
-                return
-            raise
+            else:
+                raise
 
     log.echo("Releasing branch '{}'".format(branch), add=True)
 

@@ -142,14 +142,14 @@ def _release(pyci, github):
 
 @pytest.fixture(name='gh')
 def _gh(token, repo):
-    repository =  GitHubRepository.create(repo=REPO_UNDER_TEST,
-                                          access_token=token)
+    repository = GitHubRepository.create(repo=REPO_UNDER_TEST,
+                                         access_token=token)
     setattr(repository, 'repo', repo)
     return repository
 
 
 @pytest.fixture(name='github')
-def _github(pyci, gh, repo, token):
+def _github(pyci, gh):
 
     # pylint: disable=too-few-public-methods
     class GithubSubCommand(object):

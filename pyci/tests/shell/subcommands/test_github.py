@@ -376,7 +376,7 @@ def test_upload_asset_failed(github):
     assert expected_output in result.std_out
 
 
-def test_detect_issue_no_sha_no_message(github, log):
+def test_detect_issue_no_sha_no_message(github):
 
     result = github.run('detect-issue', catch_exceptions=True)
 
@@ -531,6 +531,7 @@ def test_set_version_failed(github):
 @pytest.mark.wet
 def test_reset_branch(github):
 
+    # pylint: disable=protected-access
     commit = github.api._create_commit(sha='release',
                                        path='README.md',
                                        contents='hello',
@@ -560,6 +561,7 @@ def test_reset_branch_already_at_sha(github):
 @pytest.mark.wet
 def test_reset_branch_hard(github):
 
+    # pylint: disable=protected-access
     commit = github.api._create_commit(sha='release',
                                        path='README.md',
                                        contents='hello',

@@ -23,7 +23,7 @@ from pyci.api.packager import DEFAULT_WHEEL_VERSION
 from pyci.shell import handle_exceptions
 from pyci.shell import logger
 from pyci.shell.exceptions import ShellException
-from pyci.shell import help
+from pyci.shell import help as pyci_help
 
 log = logger.get()
 
@@ -31,11 +31,11 @@ log = logger.get()
 @click.command()
 @click.pass_context
 @click.option('--base-name', required=False,
-              help=help.BASE_NAME)
+              help=pyci_help.BASE_NAME)
 @click.option('--entrypoint', required=False,
-              help=help.ENTRYPOINT)
+              help=pyci_help.ENTRYPOINT)
 @click.option('--pyinstaller-version', required=False,
-              help=help.PY_INSTALLER)
+              help=pyci_help.PY_INSTALLER)
 @handle_exceptions
 def binary(ctx, base_name, entrypoint, pyinstaller_version):
 
@@ -88,6 +88,8 @@ def binary(ctx, base_name, entrypoint, pyinstaller_version):
                       "PyCI knows about.\nFor more details see " \
                       "https://github.com/iliapolo/pyci#cli-detection"
             e.possible_solutions = [
+                # pylint this 'e' is of type BaseException here - IntelliJ gets it though.
+                # pylint: disable=no-member
                 'Create an entrypoint file in one of the following paths: {}'.format(', '.join(e.expected_paths)),
                 'Use --entrypoint to specify a custom entrypoint path'
             ]

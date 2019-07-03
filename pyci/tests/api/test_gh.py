@@ -641,6 +641,7 @@ def test_reset_branch_non_existing_sha(gh):
 @pytest.mark.wet
 def test_reset_branch(gh):
 
+    # pylint: disable=protected-access
     commit = gh._create_commit(sha='release',
                                path='README.md',
                                contents='hello',
@@ -662,7 +663,8 @@ def test_reset_branch_already_at_sha(gh):
 
 @pytest.mark.wet
 def test_reset_branch_hard(gh):
-    
+
+    # pylint: disable=protected-access
     commit = gh._create_commit(sha='release',
                                path='README.md',
                                contents='hello',

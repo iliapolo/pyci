@@ -29,7 +29,7 @@ from pyci.shell.subcommands import pack
 from pyci.shell.subcommands import pypi
 from pyci.shell.logger import get as get_logger
 from pyci.shell.exceptions import TerminationException
-from pyci.shell import help
+from pyci.shell import help as pyci_help
 
 log = get_logger()
 
@@ -39,26 +39,26 @@ log = get_logger()
 @handle_exceptions
 @click.pass_context
 @click.option('--repo', required=False,
-              help=help.REPO)
+              help=pyci_help.REPO)
 @click.option('--branch', required=False,
-              help=help.BRANCH)
+              help=pyci_help.BRANCH)
 @click.option('--changelog-base', required=False,
               help='Base commit for changelog generation. (exclusive)')
 @click.option('--version', required=False,
               help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch', required=False, default='master',
-              help=help.MASTER_BRANCH)
+              help=pyci_help.MASTER_BRANCH)
 @click.option('--release-branch', required=False, default='release',
-              help=help.RELEASE_BRANCH)
+              help=pyci_help.RELEASE_BRANCH)
 @click.option('--pypi-test', is_flag=True,
               help='Use PyPI test index. This option is ignored if --no-wheel is used.')
 @click.option('--pypi-url', is_flag=True,
               help='Specify a custom PyPI index url. This option is ignored if --no-wheel is '
                    'used.')
 @click.option('--binary-entrypoint', required=False,
-              help=help.ENTRYPOINT)
+              help=pyci_help.ENTRYPOINT)
 @click.option('--binary-base-name', required=False,
-              help=help.BASE_NAME)
+              help=pyci_help.BASE_NAME)
 @click.option('--wheel-universal', is_flag=True,
               help='Should the created wheel be universal?.')
 @click.option('--force', is_flag=True,
@@ -80,6 +80,7 @@ log = get_logger()
               help='Which version of wheel to use. Note that PyCI is tested only against '
                    'version {}, this is an advanced option, use at your own peril'
               .format(DEFAULT_WHEEL_VERSION))
+# pylint: disable=too-many-branches
 def release(ctx,
             repo,
             branch,
@@ -126,6 +127,9 @@ def release(ctx,
 
     try:
 
+        # No other way unfortunately, importing it normally would cause
+        # an actual runtime cyclic-import problem.
+        # pylint: disable=cyclic-import
         from pyci.shell import main
 
         ctx.invoke(main.github, repo=repo)
