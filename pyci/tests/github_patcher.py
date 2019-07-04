@@ -117,10 +117,7 @@ class ReplayingConnection(object):
         assert verb == self._replay()
         assert self._host == self._replay()
         assert self._port == self._replay()
-        replay_url = self._replay()
-        print 'Comparing url {} with replay_url {}'.format(url, replay_url)
-
-        assert self._split_url(url) == self._split_url(replay_url)
+        assert self._split_url(url) == self._split_url(self._replay())
 
         # pylint: disable=eval-used
         desanitized_headers = eval(self._replay())
