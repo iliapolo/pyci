@@ -43,4 +43,3 @@ release: dep-project ## Run release
 codecov: dep-test ## Report coverage to codecov.io
 
 	coveralls
-	codecov --required
