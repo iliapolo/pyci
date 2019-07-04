@@ -28,7 +28,7 @@ lint: dep ## Run lint validations.
 
 test-unit: dep ## Run the unit tests.
 
-	py.test -s --durations=10 -v -m "not cross_distro" -rs -c configs/pytest.ini  --cov-config=configs/coverage.ini --cov=pyci pyci/tests --rootdir .
+	py.test -s --durations=10 -v -m "not cross_distro" -rs -c configs/pytest.ini  --cov-config=configs/coverage.ini --cov=pyci pyci/tests/api/test_ci.py --rootdir .
 
 test-cross-distro: dep ## Run the cross-distro tests.
 
@@ -42,4 +42,5 @@ release: dep-project ## Run release
 
 codecov: dep-test ## Report coverage to codecov.io
 
-	codecov
+	coveralls
+	codecov --required
