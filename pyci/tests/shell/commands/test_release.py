@@ -87,7 +87,7 @@ def test_release(release, temp_dir, mocker):
 @pytest.mark.wet
 def test_release_no_wheel_publish(release, temp_dir, mocker):
 
-    release_options = '--no-wheel-publish --binary-entrypoint {}'.format(
+    release_options = '--no-wheel-publish --no-installer --binary-entrypoint {}'.format(
         os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
 
     expected_binary_name = 'pyci-guinea-pig.binary'
