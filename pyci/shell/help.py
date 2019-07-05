@@ -16,6 +16,7 @@
 #############################################################################
 
 from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
+from pyci.api.packager import DEFAULT_WHEEL_VERSION
 
 BRANCH = 'The name of the branch you want to release. The defaulting heuristics ' \
               'are as follows: ' \
@@ -44,5 +45,9 @@ BASE_NAME = "The base name of the created file. Defaults to the name specified i
             "Note that the full name will be suffixed with platform specific info. For example, on a 64-bit MacOS " \
             "machine, given the name 'pyci', the file will be 'pyci-x86_64-Darwin'"
 
-PY_INSTALLER = 'Which version of PyInstaller to use. Note that PyCI is tested only against ' \
+PY_INSTALLER_VERSION = 'Which version of PyInstaller to use. Note that PyCI is tested only against ' \
                'version {}, this is an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION)
+
+
+WHEEL_VERSION = 'Which version of wheel to use for packaging. Note that PyCI is tested only against version {}, ' \
+        'this is an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION)

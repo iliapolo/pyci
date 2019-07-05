@@ -35,7 +35,7 @@ log = logger.get()
 @click.option('--entrypoint', required=False,
               help=pyci_help.ENTRYPOINT)
 @click.option('--pyinstaller-version', required=False,
-              help=pyci_help.PY_INSTALLER)
+              help=pyci_help.PY_INSTALLER_VERSION)
 @handle_exceptions
 def binary(ctx, base_name, entrypoint, pyinstaller_version):
 
@@ -108,9 +108,7 @@ def binary(ctx, base_name, entrypoint, pyinstaller_version):
                    'corresponds to the --universal option of bdis_wheel '
                    '(https://wheel.readthedocs.io/en/stable/)')
 @click.option('--wheel-version', required=False,
-              help='Which version of wheel to use for packaging. Note that PyCI is tested only against '
-                   'version {}, this is an advanced option, use at your own peril'
-              .format(DEFAULT_WHEEL_VERSION))
+              help=pyci_help.WHEEL_VERSION)
 @handle_exceptions
 def wheel(ctx, universal, wheel_version):
 

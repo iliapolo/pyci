@@ -21,8 +21,6 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import utils
-from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
-from pyci.api.packager import DEFAULT_WHEEL_VERSION
 from pyci.shell import handle_exceptions
 from pyci.shell.subcommands import github
 from pyci.shell.subcommands import pack
@@ -34,7 +32,6 @@ from pyci.shell import help as pyci_help
 log = get_logger()
 
 
-# pylint: disable=too-many-arguments,too-many-locals
 @click.command()
 @handle_exceptions
 @click.pass_context
@@ -42,45 +39,52 @@ log = get_logger()
               help=pyci_help.REPO)
 @click.option('--branch', required=False,
               help=pyci_help.BRANCH)
-@click.option('--changelog-base', required=False,
-              help='Base commit for changelog generation. (exclusive)')
-@click.option('--version', required=False,
-              help='Use this version instead of the automatic, changelog based, generated version.')
 @click.option('--master-branch', required=False, default='master',
               help=pyci_help.MASTER_BRANCH)
 @click.option('--release-branch', required=False, default='release',
               help=pyci_help.RELEASE_BRANCH)
+@click.option('--changelog-base', required=False,
+              help='Base commit for changelog generation (exclusive)')
+@click.option('--version', required=False,
+              help='Use this version instead of the changelog generated version')
+@click.option('--author', required=False,
+              help='Program author. Defaults to the author value in setup.py (if exists). Used by the '
+                   'installer package metadata')
+@click.option('--website', required=False,
+              help='Website URL. Defaults to the url value in setup.py (if exists). Used by the installer '
+                   'package metadata')
+@click.option('--copyr', required=False,
+              help='Copyright string. Default to an empty value. Used by the installer package metadata')
+@click.option('--license-path', required=False,
+              help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
+                   'to license value in setup.py (if exists). Used by the installer package metadata')
 @click.option('--pypi-test', is_flag=True,
-              help='Use PyPI test index. This option is ignored if --no-wheel is used.')
+              help='Use PyPI test index. This option is ignored if --no-wheel is used')
 @click.option('--pypi-url', is_flag=True,
               help='Specify a custom PyPI index url. This option is ignored if --no-wheel is '
-                   'used.')
+                   'used')
 @click.option('--binary-entrypoint', required=False,
               help=pyci_help.ENTRYPOINT)
 @click.option('--binary-base-name', required=False,
               help=pyci_help.BASE_NAME)
+@click.option('--pyinstaller-version', required=False,
+              help=pyci_help.PY_INSTALLER_VERSION)
+@click.option('--no-binary', is_flag=True,
+              help='Do not create and upload a binary executable as part of the release process')
 @click.option('--wheel-universal', is_flag=True,
-              help='Should the created wheel be universal?.')
-@click.option('--force', is_flag=True,
-              help='Force release without any validations.')
+              help='Should the created wheel be universal?')
+@click.option('--wheel-version', required=False,
+              help=pyci_help.WHEEL_VERSION)
+@click.option('--no-wheel-publish', is_flag=True,
+              help='Do not upload the wheel to PyPI (Will still upload to the GitHub release)')
 @click.option('--no-wheel', is_flag=True,
               help='Do not create and upload a wheel package to PyPI as part of the release '
-                   'process.')
-@click.option('--no-wheel-publish', is_flag=True,
-              help='Do not upload the wheel to PyPI. (Will still upload to the GitHub release)')
-@click.option('--no-binary', is_flag=True,
-              help='Do not create and upload a binary executable as part of the release process.')
+                   'process')
 @click.option('--no-installer', is_flag=True,
-              help='Do not create and upload an installer package.')
-@click.option('--pyinstaller-version', required=False,
-              help='Which version of PyInstaller to use. Note that PyCI is tested only against '
-                   'version {}, this is an advanced option, use at your own peril'
-              .format(DEFAULT_PY_INSTALLER_VERSION))
-@click.option('--wheel-version', required=False,
-              help='Which version of wheel to use. Note that PyCI is tested only against '
-                   'version {}, this is an advanced option, use at your own peril'
-              .format(DEFAULT_WHEEL_VERSION))
-# pylint: disable=too-many-branches
+              help='Do not create and upload an installer package')
+@click.option('--force', is_flag=True,
+              help='Force release without any validations')
+# pylint: disable=too-many-branches,too-many-arguments,too-many-locals
 def release(ctx,
             repo,
             branch,
@@ -99,7 +103,11 @@ def release(ctx,
             version,
             no_wheel_publish,
             no_installer,
-            force):
+            force,
+            author,
+            website,
+            copyr,
+            license_path):
 
     """
     Execute a complete release process.
@@ -108,12 +116,17 @@ def release(ctx,
 
         2. Create and upload a platform dependent binary executable to the release.
 
-        3. Create and upload a wheel to the release.
+        3. Create and upload a platform (and distro) dependent installer to the release.
 
-        4. Publish the wheel on PyPI.
+        4. Create and upload a wheel to the release.
+
+        5. Publish the wheel on PyPI.
 
     Much of this process is configurable via the command options. For example you can choose not to publish
-    the wheel to PyPI by specifying the '--no-publish` flag.
+    the wheel to PyPI by specifying the '--no-wheel-publish` flag.
+
+    Currently only windows installers are created, if the command is executed from some other platform, the installer
+    creation is silently ignored. Adding support for all platforms and distros is in thw works.
 
     """
 
@@ -171,7 +184,13 @@ def release(ctx,
                                      wheel_version=wheel_version)
 
         if not no_installer:
-            installer_path = _pack_installer(ctx=ctx, binary_path=binary_path)
+            installer_path = _pack_installer(ctx=ctx,
+                                             binary_path=binary_path,
+                                             author=author,
+                                             version=version,
+                                             license_path=license_path,
+                                             copyr=copyr,
+                                             website=website)
 
         log.sub()
 
@@ -212,7 +231,7 @@ def release(ctx,
         log.echo('PyPI: {}'.format(wheel_url))
 
 
-def _pack_installer(ctx, binary_path):
+def _pack_installer(ctx, version, author, website, copyr, license_path, binary_path):
 
     if not utils.is_windows():
         # Currently installers are only supported for windows.
@@ -221,12 +240,12 @@ def _pack_installer(ctx, binary_path):
 
     exei_path = ctx.invoke(pack.exei,
                            binary_path=binary_path,
-                           version=None,
+                           version=version,
                            output=None,
-                           author=None,
-                           website=None,
-                           copyr=None,
-                           license_path=None)
+                           author=author,
+                           website=website,
+                           copyr=copyr,
+                           license_path=license_path)
 
     return exei_path
 

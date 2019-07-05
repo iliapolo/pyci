@@ -25,8 +25,22 @@ from pyci.tests.conftest import LAST_COMMIT
 @pytest.mark.wet
 def test_release(release, temp_dir, mocker):
 
-    release_options = '--pypi-test --binary-entrypoint {}'.format(
-        os.path.join('pyci_guinea_pig', 'shell', 'custom_main.py'))
+    expected_entrypoint = 'entrypoint'
+    expected_author = 'author'
+    expected_website = 'website'
+    expected_license_path = 'license-path'
+    expected_copyr = 'copyr'
+
+    release_options = '--pypi-test ' \
+                      '--author {} ' \
+                      '--website {} ' \
+                      '--license-path {} ' \
+                      '--copyr {} ' \
+                      '--binary-entrypoint {}'.format(expected_author,
+                                                      expected_website,
+                                                      expected_license_path,
+                                                      expected_copyr,
+                                                      expected_entrypoint)
 
     expected_binary_name = 'pyci-guinea-pig.binary'
     expected_wheel_name = 'pyci-guinea-pig.whl'
@@ -36,14 +50,21 @@ def test_release(release, temp_dir, mocker):
     wheel_path = os.path.join(temp_dir, expected_wheel_name)
     exei_path = os.path.join(temp_dir, expected_exei_name)
 
-    def _exei(*_, **__):
+    def _exei(*_, **kwargs):
+
+        assert expected_author == kwargs.get('author')
+        assert expected_website == kwargs.get('website')
+        assert expected_license_path == kwargs.get('license_path')
+        assert expected_copyr == kwargs.get('copyr')
 
         with open(exei_path, 'w') as f:
             f.write('exei')
 
         return binary_path
 
-    def _binary(*_, **__):
+    def _binary(*_, **kwargs):
+
+        assert expected_entrypoint == kwargs.get('entrypoint')
 
         with open(binary_path, 'w') as f:
             f.write('binary')
