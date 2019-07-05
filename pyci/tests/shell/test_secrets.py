@@ -14,14 +14,15 @@
 #   * limitations under the License.
 #
 #############################################################################
+
 import contextlib
 import os
 
-import click
 # noinspection PyPackageRequirements
 import pytest
 
 from pyci.shell import secrets
+from pyci.shell.exceptions import ShellException
 
 
 @contextlib.contextmanager
@@ -53,7 +54,7 @@ def test_github_access_token():
 def test_github_access_token_none():
 
     with env(secrets.GITHUB_ACCESS_TOKEN, None):
-        with pytest.raises(click.ClickException):
+        with pytest.raises(ShellException):
             secrets.github_access_token()
 
 
@@ -70,7 +71,7 @@ def test_twine_username():
 def test_twine_username_none():
 
     with env(secrets.TWINE_USERNAME, None):
-        with pytest.raises(click.ClickException):
+        with pytest.raises(ShellException):
             secrets.twine_username()
 
 
@@ -87,5 +88,5 @@ def test_twine_password():
 def test_twine_password_none():
 
     with env(secrets.TWINE_PASSWORD, None):
-        with pytest.raises(click.ClickException):
+        with pytest.raises(ShellException):
             secrets.twine_password()

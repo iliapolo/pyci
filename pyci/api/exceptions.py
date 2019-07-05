@@ -16,6 +16,7 @@
 #############################################################################
 
 import os
+import platform
 import six
 
 
@@ -228,6 +229,26 @@ class FileExistException(ApiException):
         return 'File exists: {0}'.format(self.path)
 
 
+class BinaryExistsException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(BinaryExistsException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Binary exists: {0}'.format(self.path)
+
+
+class WheelExistsException(ApiException):
+
+    def __init__(self, path):
+        self.path = path
+        super(WheelExistsException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Wheel exists: {0}'.format(self.path)
+
+
 class FileIsADirectoryException(ApiException):
 
     def __init__(self, path):
@@ -302,6 +323,18 @@ class RegexMatchFailureException(ApiException):
         return "No match found for regex '{}'".format(self.regex)
 
 
+class InvalidNSISVersionException(ApiException):
+
+    def __init__(self, version, pattern):
+        self.pattern = pattern
+        self.version = version
+        super(InvalidNSISVersionException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Illegal NSIS version string '{}': Must match pattern '{}'".format(
+            self.version, self.pattern)
+
+
 class FailedExtractingNameFromSetupPyException(ApiException):
 
     def __init__(self, cause, repo=None, sha=None, path=None):
@@ -315,8 +348,8 @@ class FailedExtractingNameFromSetupPyException(ApiException):
 
         location = repo_location(self.repo, self.sha, self.path)
 
-        return "Failed extracting project name from setup.py file of repository at location {}: {}".format(
-            location, self.cause)
+        return "Failed extracting project name from setup.py file of repository at location {}: " \
+               "{}".format(location, self.cause)
 
 
 class NotPythonProjectException(ApiException):
@@ -455,6 +488,85 @@ class PythonNotFoundException(ApiException):
 
     def __str__(self):
         return "Python installation not found in PATH"
+
+
+class FailedReadingSetupPyArgumentException(ApiException):
+
+    def __init__(self, argument, cause):
+        self.argument = argument
+        self.cause = cause
+        super(FailedReadingSetupPyArgumentException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Failed reading argument '{}' from setup.py: {}".format(self.argument, self.cause)
+
+
+class FailedReadingSetupPyAuthorException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyAuthorException, self).__init__('author', cause)
+
+
+class FailedReadingSetupPyNameException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyNameException, self).__init__('name', cause)
+
+
+class FailedReadingSetupPyVersionException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyVersionException, self).__init__('version', cause)
+
+
+class FailedReadingSetupPyDescriptionException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyDescriptionException, self).__init__('description', cause)
+
+
+class FailedReadingSetupPyURLException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyURLException, self).__init__('url', cause)
+
+
+class FailedReadingSetupPyLicenseException(FailedReadingSetupPyArgumentException):
+
+    def __init__(self, cause):
+        super(FailedReadingSetupPyLicenseException, self).__init__('license', cause)
+
+
+class WrongPlatformException(ApiException):
+
+    def __init__(self, expected):
+        self.expected = expected
+        super(WrongPlatformException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Wrong execution Platform. Expected '{}' but running on '{}'".format(
+            self.expected, platform.system()
+        )
+
+
+class LicenseNotFoundException(ApiException):
+
+    def __init__(self, cause):
+        self.cause = cause
+        super(LicenseNotFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "License not found: {}".format(self.cause)
+
+
+class BinaryFileDoesntExistException(ApiException):
+
+    def __init__(self, cause):
+        self.cause = cause
+        super(BinaryFileDoesntExistException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return "Binary file doesn't exist: {}".format(self.cause)
 
 
 def repo_location(repo, sha, path):

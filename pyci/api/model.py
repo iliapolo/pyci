@@ -275,14 +275,6 @@ class _Change(object):
 
     def __init__(self, title, url, timestamp):
 
-        """
-        Args:
-            title (str): The change title.
-            url (str): URL pointing to the change.
-            timestamp (float): Epoch time in millis associated with this change.
-
-        """
-
         if not title:
             raise exceptions.InvalidArgumentsException('title cannot be empty')
 
@@ -320,6 +312,9 @@ class ChangelogIssue(_Change):
     PATCH = 'patch'
     MINOR = 'minor'
     MAJOR = 'major'
+
+    SEMANTIC_VERSION_LABELS = [PATCH, MINOR, MAJOR]
+    TYPE_LABELS = [FEATURE, BUG, ISSUE]
 
     def __init__(self, title, url, timestamp, kind=ISSUE, semantic=None, impl=None):
         super(ChangelogIssue, self).__init__(title, url, timestamp)

@@ -33,7 +33,7 @@ def test_pack_sha_and_path(pyci, binary):
 @pytest.mark.parametrize("binary", [False, True])
 def test_pack_repo_no_sha(pyci, binary):
 
-    result = pyci.run('pack --repo repo wheel', catch_exceptions=True, binary=binary)
+    result = pyci.run('--no-ci pack --repo repo wheel', catch_exceptions=True, binary=binary)
 
     expected_output = 'Must specify --sha as well'
 
@@ -69,7 +69,7 @@ def test_pack_target_dir_doesnt_exist(pyci, binary):
                       catch_exceptions=True,
                       binary=binary)
 
-    expected_output = 'The target directory you specified does not exist: doesnt-exist'
+    expected_output = 'Directory does not exist: doesnt-exist'
 
     assert expected_output in result.std_out
 
@@ -81,7 +81,7 @@ def test_pack_sha_doesnt_exist(pyci, binary):
                       catch_exceptions=True,
                       binary=binary)
 
-    expected_output = 'Failed downloading repository content'
+    expected_output = 'Not Found'
 
     assert expected_output in result.std_out
 

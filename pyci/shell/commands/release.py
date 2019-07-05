@@ -21,75 +21,79 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import utils
-from pyci.api.gh import GitHubRepository
-from pyci.api.packager import Packager
-from pyci.api.pypi import PyPI
-from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
-from pyci.api.packager import DEFAULT_WHEEL_VERSION
-from pyci.shell import BRANCH_HELP, detect_repo
-from pyci.api.utils import is_pyinstaller
-from pyci.shell import MASTER_BRANCH_HELP
-from pyci.shell import RELEASE_BRANCH_HELP
-from pyci.shell import REPO_HELP
-from pyci.shell import handle_exceptions, secrets
+from pyci.shell import handle_exceptions
 from pyci.shell.subcommands import github
 from pyci.shell.subcommands import pack
 from pyci.shell.subcommands import pypi
 from pyci.shell.logger import get as get_logger
+from pyci.shell.exceptions import TerminationException
+from pyci.shell import help as pyci_help
 
 log = get_logger()
 
 
-# pylint: disable=too-many-arguments,too-many-locals
 @click.command()
 @handle_exceptions
 @click.pass_context
 @click.option('--repo', required=False,
-              help=REPO_HELP)
-@click.option('--branch-name', required=False,
-              help=BRANCH_HELP)
+              help=pyci_help.REPO)
+@click.option('--branch', required=False,
+              help=pyci_help.BRANCH)
+@click.option('--master-branch', required=False, default='master',
+              help=pyci_help.MASTER_BRANCH)
+@click.option('--release-branch', required=False, default='release',
+              help=pyci_help.RELEASE_BRANCH)
 @click.option('--changelog-base', required=False,
-              help='Base commit for changelog generation. (exclusive)')
+              help='Base commit for changelog generation (exclusive)')
 @click.option('--version', required=False,
-              help='Use this version instead of the automatic, changelog based, generated version.')
-@click.option('--master-branch-name', required=False, default='master',
-              help=MASTER_BRANCH_HELP)
-@click.option('--release-branch-name', required=False, default='release',
-              help=RELEASE_BRANCH_HELP)
+              help='Use this version instead of the changelog generated version')
+@click.option('--author', required=False,
+              help='Program author. Defaults to the author value in setup.py (if exists). Used by the '
+                   'installer package metadata')
+@click.option('--website', required=False,
+              help='Website URL. Defaults to the url value in setup.py (if exists). Used by the installer '
+                   'package metadata')
+@click.option('--copyr', required=False,
+              help='Copyright string. Default to an empty value. Used by the installer package metadata')
+@click.option('--license-path', required=False,
+              help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
+                   'to license value in setup.py (if exists). Used by the installer package metadata')
 @click.option('--pypi-test', is_flag=True,
-              help='Use PyPI test index. This option is ignored if --no-wheel is used.')
+              help='Use PyPI test index. This option is ignored if --no-wheel is used')
 @click.option('--pypi-url', is_flag=True,
               help='Specify a custom PyPI index url. This option is ignored if --no-wheel is '
-                   'used.')
+                   'used')
 @click.option('--binary-entrypoint', required=False,
-              help='Path (relative to the repository root) of the file to be used as the '
-                   'executable entry point. This corresponds to the positional script argument '
-                   'passed to PyInstaller (https://pythonhosted.org/PyInstaller/usage.html)')
+              help=pyci_help.ENTRYPOINT)
+@click.option('--binary-base-name', required=False,
+              help=pyci_help.BASE_NAME)
+@click.option('--pyinstaller-version', required=False,
+              help=pyci_help.PY_INSTALLER_VERSION)
+@click.option('--no-binary', is_flag=True,
+              help='Do not create and upload a binary executable as part of the release process')
 @click.option('--wheel-universal', is_flag=True,
-              help='Should the created wheel be universal?.')
-@click.option('--force', is_flag=True,
-              help='Force release without any validations.')
+              help='Should the created wheel be universal?')
+@click.option('--wheel-version', required=False,
+              help=pyci_help.WHEEL_VERSION)
+@click.option('--no-wheel-publish', is_flag=True,
+              help='Do not upload the wheel to PyPI (Will still upload to the GitHub release)')
 @click.option('--no-wheel', is_flag=True,
               help='Do not create and upload a wheel package to PyPI as part of the release '
-                   'process.')
-@click.option('--no-wheel-publish', is_flag=True,
-              help='Do not upload the wheel to PyPI. (Will still upload to the GitHub release)')
-@click.option('--no-binary', is_flag=True,
-              help='Do not create and upload a binary executable as part of the release process.')
-@click.option('--pyinstaller-version', required=False,
-              help='Which version of PyInstaller to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_PY_INSTALLER_VERSION))
-@click.option('--wheel-version', required=False,
-              help='Which version of wheel to use. Note that PyCI is tested only against version {}, this is '
-                   'an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION))
+                   'process')
+@click.option('--no-installer', is_flag=True,
+              help='Do not create and upload an installer package')
+@click.option('--force', is_flag=True,
+              help='Force release without any validations')
+# pylint: disable=too-many-branches,too-many-arguments,too-many-locals
 def release(ctx,
             repo,
-            branch_name,
-            master_branch_name,
-            release_branch_name,
+            branch,
+            master_branch,
+            release_branch,
             pypi_test,
             pypi_url,
             binary_entrypoint,
+            binary_base_name,
             wheel_universal,
             no_binary,
             no_wheel,
@@ -98,102 +102,65 @@ def release(ctx,
             changelog_base,
             version,
             no_wheel_publish,
-            force):
+            no_installer,
+            force,
+            author,
+            website,
+            copyr,
+            license_path):
 
     """
     Execute a complete release process.
 
-    This command will do the following:
-
         1. Execute a github release on the specified branch. (see 'pyci github release --help')
 
-        2. Create and upload a platform dependent binary executable to the release. (Optional)
+        2. Create and upload a platform dependent binary executable to the release.
 
-        3. Create and upload a wheel package to PyPI. (Optional)
+        3. Create and upload a platform (and distro) dependent installer to the release.
+
+        4. Create and upload a wheel to the release.
+
+        5. Publish the wheel on PyPI.
+
+    Much of this process is configurable via the command options. For example you can choose not to publish
+    the wheel to PyPI by specifying the '--no-wheel-publish` flag.
+
+    Currently only windows installers are created, if the command is executed from some other platform, the installer
+    creation is silently ignored. Adding support for all platforms and distros is in thw works.
 
     """
 
-    ci_provider = ctx.parent.ci_provider
+    ci_provider = ctx.obj.ci_provider
 
-    branch_name = branch_name or (ci_provider.branch if ci_provider else None)
+    branch = branch or (ci_provider.branch if ci_provider else None)
 
-    if not branch_name:
-        raise click.ClickException('Must provide --branch-name')
+    if not branch:
+        raise click.BadOptionUsage(option_name='branch', message='Must provide --branch when running outside CI')
 
-    repo = detect_repo(ctx, ci_provider, repo)
+    # No other way unfortunately, importing it normally would cause
+    # an actual runtime cyclic-import problem.
+    # pylint: disable=cyclic-import
+    from pyci.shell import main
 
-    if not no_binary and is_pyinstaller():
-        error = click.ClickException('Creating a binary package is not supported when '
-                                     'running from within a binary')
-        error.possible_solutions = [
-            'Use --no-binary to skip creating the binary package',
-            'Run the command after installing pyci as a wheel (pip install pyci)'
-        ]
-        raise error
+    ctx.invoke(main.github, repo=repo)
+    ctx.invoke(main.pypi, test=pypi_test, repository_url=pypi_url)
 
-    try:
+    github_release = ctx.invoke(github.release_,
+                                version=version,
+                                branch=branch,
+                                master_branch=master_branch,
+                                release_branch=release_branch,
+                                changelog_base=changelog_base,
+                                force=force)
 
-        github_release, wheel_url = release_internal(
-            binary_entrypoint=binary_entrypoint,
-            branch_name=branch_name,
-            ci=ci_provider,
-            force=force,
-            master_branch_name=master_branch_name,
-            no_binary=no_binary,
-            no_wheel=no_wheel,
-            pypi_test=pypi_test,
-            pypi_url=pypi_url,
-            release_branch_name=release_branch_name,
-            repo=repo,
-            wheel_universal=wheel_universal,
-            pyinstaller_version=pyinstaller_version,
-            wheel_version=wheel_version,
-            changelog_base=changelog_base,
-            version=version,
-            no_wheel_publish=no_wheel_publish)
+    if github_release is None:
+        # This is our way of knowing that github.release_
+        # decided this commit shouldn't be silently ignored, not released.
+        return
 
-        log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
-        log.echo('Github: {}'.format(github_release.url))
-
-        if wheel_url:
-            log.echo('PyPI: {}'.format(wheel_url))
-
-    except exceptions.ReleaseValidationFailedException as e:
-        log.sub()
-        log.echo("Not releasing: {}".format(str(e)))
-
-
-def release_internal(binary_entrypoint,
-                     branch_name,
-                     ci,
-                     force,
-                     master_branch_name,
-                     no_binary,
-                     no_wheel,
-                     pypi_test,
-                     pypi_url,
-                     release_branch_name,
-                     repo,
-                     wheel_universal,
-                     pyinstaller_version,
-                     wheel_version,
-                     changelog_base,
-                     no_wheel_publish,
-                     version):
-
-    gh = GitHubRepository.create(repo=repo, access_token=secrets.github_access_token())
-    github_release = github.release_branch_internal(
-        branch_name=branch_name,
-        master_branch_name=master_branch_name,
-        release_branch_name=release_branch_name,
-        force=force,
-        gh=gh,
-        ci_provider=ci,
-        changelog_base=changelog_base,
-        version=version)
+    ctx.invoke(main.pack, repo=repo, sha=github_release.sha)
 
     package_directory = tempfile.mkdtemp()
-    packager = Packager.create(repo, sha=github_release.sha, target_dir=package_directory)
 
     wheel_url = None
 
@@ -201,36 +168,51 @@ def release_internal(binary_entrypoint,
 
         binary_path = None
         wheel_path = None
+        installer_path = None
 
         log.echo('Creating packages', add=True)
 
         if not no_binary:
-            binary_path = _pack_binary(binary_entrypoint=binary_entrypoint,
-                                       packager=packager,
+            binary_path = _pack_binary(ctx=ctx,
+                                       base_name=binary_base_name,
+                                       entrypoint=binary_entrypoint,
                                        pyinstaller_version=pyinstaller_version)
 
         if not no_wheel:
-            wheel_path = _pack_wheel(packager=packager,
+            wheel_path = _pack_wheel(ctx=ctx,
                                      wheel_universal=wheel_universal,
                                      wheel_version=wheel_version)
+
+        if not no_installer:
+            installer_path = _pack_installer(ctx=ctx,
+                                             binary_path=binary_path,
+                                             author=author,
+                                             version=version,
+                                             license_path=license_path,
+                                             copyr=copyr,
+                                             website=website)
 
         log.sub()
 
         log.echo('Uploading packages', add=True)
 
         if binary_path:
-            _upload_asset(asset_path=binary_path,
-                          github_release=github_release,
-                          gh=gh)
+            _upload_asset(ctx=ctx,
+                          asset_path=binary_path,
+                          github_release=github_release)
+
+        if installer_path:
+            _upload_asset(ctx=ctx,
+                          asset_path=installer_path,
+                          github_release=github_release)
 
         if wheel_path:
-            _upload_asset(asset_path=wheel_path,
-                          github_release=github_release,
-                          gh=gh)
+            _upload_asset(ctx=ctx,
+                          asset_path=wheel_path,
+                          github_release=github_release)
 
             if not no_wheel_publish:
-                _upload_pypi(pypi_url=pypi_url,
-                             pypi_test=pypi_test,
+                _upload_pypi(ctx=ctx,
                              wheel_path=wheel_path)
 
         log.sub()
@@ -242,68 +224,108 @@ def release_internal(binary_entrypoint,
             log.warn('Failed cleaning up packager directory ({}): {}'
                      .format(package_directory, str(e)))
 
-    return github_release, wheel_url
+    log.echo('Hip Hip, Hurray! :). Your new version is released and ready to go.', add=True)
+    log.echo('Github: {}'.format(github_release.url))
+
+    if wheel_url:
+        log.echo('PyPI: {}'.format(wheel_url))
 
 
-def _pack_wheel(packager, wheel_universal, wheel_version):
+def _pack_installer(ctx, version, author, website, copyr, license_path, binary_path):
 
-    wheel_path = pack.wheel_internal(universal=wheel_universal,
-                                     packager=packager,
-                                     wheel_version=wheel_version)
+    if not utils.is_windows():
+        # Currently installers are only supported for windows.
+        # Rpm and Deb are in the works.
+        return None
+
+    installer_path = ctx.invoke(pack.nsis,
+                                binary_path=binary_path,
+                                version=version,
+                                output=None,
+                                author=author,
+                                website=website,
+                                copyr=copyr,
+                                license_path=license_path)
+
+    return installer_path
+
+
+def _pack_wheel(ctx, wheel_universal, wheel_version):
+
+    wheel_path = ctx.invoke(pack.wheel,
+                            universal=wheel_universal,
+                            wheel_version=wheel_version)
 
     return wheel_path
 
 
-def _pack_binary(binary_entrypoint, packager, pyinstaller_version):
+def _pack_binary(ctx, base_name, entrypoint, pyinstaller_version):
 
     binary_package_path = None
 
     try:
 
-        binary_package_path = pack.binary_internal(entrypoint=binary_entrypoint,
-                                                   name=None,
-                                                   packager=packager,
-                                                   pyinstaller_version=pyinstaller_version)
-    except exceptions.DefaultEntrypointNotFoundException as e:
-        # this is ok, just means that the project is not an executable
-        # according to our assumptions.
-        log.echo('Binary package will not be created because an entrypoint was not '
-                 'found in the expected paths: {}. \nYou can specify a custom '
-                 'entrypoint path by using the "--binary-entrypoint" option.\n'
-                 'If your package is not meant to be an executable binary, '
-                 'use the "--no-binary" flag to avoid seeing this message'
-                 .format(e.expected_paths))
+        binary_package_path = ctx.invoke(pack.binary,
+                                         entrypoint=entrypoint,
+                                         base_name=base_name,
+                                         pyinstaller_version=pyinstaller_version)
+
+    except TerminationException as e:
+
+        if isinstance(e.cause, exceptions.DefaultEntrypointNotFoundException):
+            # this is ok, just means that the project is not an executable
+            # according to our assumptions.
+            log.echo('Binary package will not be created because an entrypoint was not '
+                     'found in the expected paths: {}. \nYou can specify a custom '
+                     'entrypoint path by using the "--binary-entrypoint" option.\n'
+                     'If your package is not meant to be an executable binary, '
+                     'use the "--no-binary" flag to avoid seeing this message'
+                     .format(e.cause.expected_paths))
+            return binary_package_path
+
+        raise
 
     return binary_package_path
 
 
-def _upload_asset(asset_path, gh, github_release):
+def _upload_asset(ctx, asset_path, github_release):
 
     try:
 
-        github.upload_asset_internal(asset=asset_path,
-                                     release=github_release.title,
-                                     gh=gh)
-    except IOError:
-        # this is really weird, but for some reason this might
-        # happen when the asset already exists...
-        # see https://github.com/sigmavirus24/github3.py/issues/779
-        log.echo('Asset {} already published.'.format(asset_path))
-    except exceptions.AssetAlreadyPublishedException as e:
-        # hmm, this is ok when running concurrently but not
-        # so much otherwise...ho can we tell?
-        log.echo('Asset {} already published.'.format(e.asset))
+        ctx.invoke(github.upload_asset,
+                   asset=asset_path,
+                   release=github_release.title)
+
+    except TerminationException as e:
+
+        if isinstance(e.cause, IOError):
+            # this is really weird, but for some reason this might
+            # happen when the asset already exists...
+            # see https://github.com/sigmavirus24/github3.py/issues/779
+            log.echo('Asset {} already published.'.format(asset_path))
+            return
+
+        if isinstance(e.cause, exceptions.AssetAlreadyPublishedException):
+            # hmm, this is ok when running concurrently but not
+            # so much otherwise...ho can we tell?
+            log.echo('Asset {} already published.'.format(e.cause.asset))
+            return
+
+        raise
 
 
-def _upload_pypi(pypi_url, wheel_path, pypi_test):
+def _upload_pypi(ctx, wheel_path):
 
-    pypi_api = PyPI.create(username=secrets.twine_username(),
-                           password=secrets.twine_password(),
-                           test=pypi_test,
-                           repository_url=pypi_url)
     try:
-        pypi.upload_internal(wheel=wheel_path, pypi=pypi_api)
-    except exceptions.WheelAlreadyPublishedException as e:
-        # hmm, this is ok when running concurrently but not
-        # so much otherwise...ho can we tell?
-        log.echo('Wheel {} already published.'.format(e.wheel))
+
+        ctx.invoke(pypi.upload, wheel=wheel_path)
+
+    except TerminationException as e:
+
+        if isinstance(e.cause, exceptions.WheelAlreadyPublishedException):
+            # hmm, this is ok when running concurrently but not
+            # so much otherwise...ho can we tell?
+            log.echo('Wheel {} already published.'.format(e.cause.wheel))
+            return
+
+        raise

@@ -19,6 +19,8 @@ import os
 
 import click
 
+from pyci.shell import exceptions
+
 TWINE_PASSWORD = 'TWINE_PASSWORD'
 TWINE_USERNAME = 'TWINE_USERNAME'
 GITHUB_ACCESS_TOKEN = 'GITHUB_ACCESS_TOKEN'
@@ -32,8 +34,8 @@ def github_access_token():
     if not _is_interactive():
         return click.prompt('Enter Github access token:', hide_input=True)  # pragma: no cover
 
-    raise click.ClickException('Please provide a github access token by setting the '
-                               '{} env variable.'.format(GITHUB_ACCESS_TOKEN))
+    raise exceptions.ShellException('Please provide a github access token by setting the '
+                                    '{} env variable.'.format(GITHUB_ACCESS_TOKEN))
 
 
 def twine_username():
@@ -44,8 +46,8 @@ def twine_username():
     if not _is_interactive():
         return click.prompt('Enter twine username:', hide_input=True)  # pragma: no cover
 
-    raise click.ClickException('Please provide a pypi username by setting the '
-                               '{} env variable.'.format(TWINE_USERNAME))
+    raise exceptions.ShellException('Please provide a pypi username by setting the '
+                                    '{} env variable.'.format(TWINE_USERNAME))
 
 
 def twine_password():
@@ -56,8 +58,8 @@ def twine_password():
     if not _is_interactive():
         return click.prompt('Enter twine password:', hide_input=True)  # pragma: no cover
 
-    raise click.ClickException('Please provide a pypi password by setting the '
-                               '{} env variable.'.format(TWINE_PASSWORD))
+    raise exceptions.ShellException('Please provide a pypi password by setting the '
+                                    '{} env variable.'.format(TWINE_PASSWORD))
 
 
 def _is_interactive():

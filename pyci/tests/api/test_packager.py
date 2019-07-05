@@ -129,7 +129,7 @@ def test_wheel_file_exists(pack, repo_version):
     with open(expected, 'w') as stream:
         stream.write('package')
 
-    with pytest.raises(exceptions.FileExistException):
+    with pytest.raises(exceptions.WheelExistsException):
         pack.api.wheel()
 
 
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     if platform.system() == 'Windows':
         expected = '{}.exe'.format(expected)
 
-    actual = pack.api.binary(name=name,
+    actual = pack.api.binary(base_name=name,
                              entrypoint=custom_main)
 
     assert expected == actual
@@ -182,7 +182,7 @@ def test_binary_only_requirements_txt(runner, temp_dir):
 
     packager = Packager.create(path=repo_path, target_dir=temp_dir)
 
-    binary_path = packager.binary(name='only-requirements', entrypoint='main.py')
+    binary_path = packager.binary(base_name='only-requirements', entrypoint='main.py')
 
     # lets make sure the binary actually works
     assert runner.run(binary_path).std_out == 'Hello from requirements'
@@ -194,7 +194,7 @@ def test_binary_no_requirements(runner, temp_dir):
 
     packager = Packager.create(path=repo_path, target_dir=temp_dir)
 
-    binary_path = packager.binary(name='no-requirements', entrypoint='main.py')
+    binary_path = packager.binary(base_name='no-requirements', entrypoint='main.py')
 
     result = runner.run(binary_path, exit_on_failure=False)
 
@@ -213,7 +213,7 @@ def test_binary_file_exists(pack):
     with open(expected, 'w') as stream:
         stream.write('package')
 
-    with pytest.raises(exceptions.FileExistException):
+    with pytest.raises(exceptions.BinaryExistsException):
         pack.api.binary(entrypoint=conftest.SPEC_FILE)
 
 
@@ -230,3 +230,104 @@ def test_binary_entrypoint_doesnt_exist(pack):
 
     with pytest.raises(exceptions.EntrypointNotFoundException):
         pack.api.binary(entrypoint='doesnt-exist')
+
+
+def test_nsis_no_binary_path(pack, mocker):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    with pytest.raises(exceptions.InvalidArgumentsException):
+        pack.api.nsis(binary_path=None)
+
+
+def test_nsis_binary_path_doesnt_exist(pack, mocker):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    with pytest.raises(exceptions.BinaryFileDoesntExistException):
+        pack.api.nsis(binary_path='doesnt-exist')
+
+
+def test_nsis_invalid_version_string(pack, mocker, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    with pytest.raises(exceptions.InvalidNSISVersionException):
+        pack.api.nsis(binary_package, version='1.2')
+
+
+def test_nsis_license_not_found(pack, mocker, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    with pytest.raises(exceptions.LicenseNotFoundException):
+        pack.api.nsis(binary_package, version='1.0.0.0', license_path='doesnt-exist')
+
+
+def test_nsis_destination_exists(pack, mocker, repo_path, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    destination = os.path.join(temp_dir, 'installer.exe')
+
+    with open(destination, 'w') as f:
+        f.write('dummy')
+
+    with pytest.raises(exceptions.FileExistException):
+        pack.api.nsis(binary_package,
+                      version='1.0.0.0',
+                      license_path=os.path.join(repo_path, 'LICENSE'),
+                      output=destination)
+
+
+def test_nsis_target_directory_doesnt_exists(pack, mocker, repo_path, temp_dir):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    binary_package = os.path.join(temp_dir, 'binary.exe')
+
+    with open(binary_package, 'w') as f:
+        f.write('dummy')
+
+    destination = os.path.join(temp_dir, 'doesnt-exist', 'installer.exe')
+
+    with pytest.raises(exceptions.DirectoryDoesntExistException):
+        pack.api.nsis(binary_package,
+                      version='1.0.0.0',
+                      license_path=os.path.join(repo_path, 'LICENSE'),
+                      output=destination)
+
+
+@pytest.mark.linux
+def test_nsis_on_linux(pack):
+
+    with pytest.raises(exceptions.WrongPlatformException):
+        pack.api.nsis(binary_path='doesnt-exist')
+
+
+@pytest.mark.windows
+def test_nsis(pack, pyci):
+
+    basename = os.path.basename(pyci.binary_path)
+    name = basename.replace('.exe', '')
+
+    pack.api.nsis(pyci.binary_path)
+
+    expected = os.path.join(os.getcwd(), '{}-installer.exe'.format(name))
+
+    assert os.path.exists(expected)

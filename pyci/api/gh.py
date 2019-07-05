@@ -26,6 +26,7 @@ from github import InputGitTreeElement
 from github.GithubException import UnknownObjectException
 from github.GithubException import GithubException
 
+from pyci.api.model import ChangelogIssue
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
@@ -56,7 +57,7 @@ class GitHubRepository(object):
         if not access_token:
             raise exceptions.InvalidArgumentsException('access_token cannot be empty')
 
-        self.__branches = {}
+        self.__commits = {}
         self._logger = logger.Logger(__name__)
         self._hub = Github(access_token, timeout=30)
         self._repo_name = repo
@@ -85,7 +86,7 @@ class GitHubRepository(object):
         self._debug('Fetched default branch.', name=name)
         return name
 
-    def validate_commit(self, branch=None, sha=None, hooks=None):
+    def validate_commit(self, sha=None, hooks=None):
 
         """
         Validate a commit should be be released. Valid commits are one's who are attached to an
@@ -94,27 +95,18 @@ class GitHubRepository(object):
 
         Args:
             hooks: dictionary of callable hooks to execute in various steps of this method.
-            branch (:str, optional): To validate the last commit of this branch.
             sha (:str, optional): To validate a specific commit.
 
         Raises:
-            exceptions.CommitNotRelatedToIssueException: Raised when the commit is not related to
-                any issue.
-            exceptions.IssueIsNotLabeledAsReleaseException: Raised when the issue does not have any
-                release labels.
+            exceptions.CommitNotRelatedToIssueException: Raised when the commit is not related to any issue.
+            exceptions.IssueIsNotLabeledAsReleaseException: Raised when the issue does not have any release labels.
 
         """
 
-        if branch and sha:
-            raise exceptions.InvalidArgumentsException('either branch or sha is allowed')
+        sha = sha or self.default_branch_name
+        self._get_or_create_commit(sha).validate(hooks=hooks)
 
-        if not branch and not sha:
-            raise exceptions.InvalidArgumentsException('either branch or sha is required')
-
-        branch = branch or self.default_branch_name
-        self._get_or_create_branch(branch).validate_commit(sha=sha, hooks=hooks)
-
-    def generate_changelog(self, branch=None, sha=None, base=None, hooks=None):
+    def generate_changelog(self, sha=None, base=None, hooks=None):
 
         """
         Generate a changelog for the given commit.
@@ -123,7 +115,6 @@ class GitHubRepository(object):
 
         Args:
             hooks: dictionary of callable hooks to execute in various steps of this method.
-            branch (:str, optional): For the last commit of this branch.
             sha (:str, optional): For a specific commit.
             base: (:str, optional): Base sha to start from (exclusive). Can also be a branch name.
                 Defaults to the last release prior to sha/branch.
@@ -132,23 +123,16 @@ class GitHubRepository(object):
             pyci.api.model.Changelog: A changelog instance.
         """
 
-        if branch and sha:
-            raise exceptions.InvalidArgumentsException('either branch or sha is allowed')
+        sha = sha or self.default_branch_name
+        return self._get_or_create_commit(sha).generate_changelog(base=base, hooks=hooks)
 
-        if not branch and not sha:
-            raise exceptions.InvalidArgumentsException('either branch or sha is required')
-
-        branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).generate_changelog(sha=sha, base=base, hooks=hooks)
-
-    def create_release(self, branch=None, sha=None):
+    def create_release(self, sha=None):
 
         """
         Create a release pointing to the specific commit. The release title will be the setup.py
         version as it was in the commit.
 
         Args:
-            branch (:str, optional): From the last commit of this branch.
             sha (:str, optional): From this specific commit.
 
         Returns:
@@ -157,19 +141,12 @@ class GitHubRepository(object):
 
         Raises:
             exceptions.ReleaseAlreadyExistException: Raised when the release already exists.
-            exceptions.NotPythonProjectException: Raised when attempting to release a project
-                that does not conform to python standard packaging.
+            exceptions.NotPythonProjectException: Raised a project does not conform to python standard packaging.
 
         """
 
-        if branch and sha:
-            raise exceptions.InvalidArgumentsException('either branch or sha is allowed')
-
-        if not branch and not sha:
-            raise exceptions.InvalidArgumentsException('either branch or sha is required')
-
-        branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).create_release(sha=sha)
+        sha = sha or self.default_branch_name
+        return self._get_or_create_commit(sha).create_release()
 
     def upload_asset(self, asset, release):
 
@@ -399,39 +376,51 @@ class GitHubRepository(object):
         except UnknownObjectException:
             raise exceptions.TagNotFoundException(tag=name)
 
-    def bump_version(self, semantic, branch=None, sha=None):
+    def bump_version(self, semantic, branch=None):
 
         """
-        Bump the version of setup.py according the semantic specification.
+        Bump the version of setup.py according to the semantic specification.
         The base version is retrieved from the current setup.py file of the branch.
         Note, This will actually create a commit on top of the branch you specify.
 
         Args:
             semantic (:str, optional): A semantic version modifier (e.g minor, major..).
-            branch (:str, optional): The branch name to perform to commit on. Defaults to
-                the default branch of the repository.
-            sha (:str, optional): The sha of the commit to use as the base version. Defaults to
-                the last commit of the branch.
+            branch (:str, optional): The branch to push to commit to. Defaults to the default repository branch.
 
         Returns:
             pyci.api.model.Commit: The commit that was created.
 
         Raises:
-            exceptions.TargetVersionEqualsCurrentVersionException: Raised when the current
-            version in setup.py is equal to the calculated version number.
+            pyci.api.exceptions.TargetVersionEqualsCurrentVersionException:
+                Current version in setup.py is equal to the calculated version number.
         """
 
         if not semantic:
             raise exceptions.InvalidArgumentsException('semantic cannot be empty')
 
-        if semantic not in ['patch', 'minor', 'major']:
-            raise exceptions.InvalidArgumentsException('semantic must be one of: [patch, minor, '
-                                                       'major]')
+        if semantic not in ChangelogIssue.SEMANTIC_VERSION_LABELS:
+            raise exceptions.InvalidArgumentsException('semantic must be one of: {}'
+                                                       .format(ChangelogIssue.SEMANTIC_VERSION_LABELS))
 
         branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).bump_version(semantic=semantic, sha=sha)
 
-    def set_version(self, value, branch=None, sha=None):
+        last_branch_commit = self._get_or_create_commit(sha=branch)
+
+        current_version = last_branch_commit.setup_py_version
+
+        bumps = {
+            model.ChangelogIssue.PATCH: semver.bump_patch,
+            model.ChangelogIssue.MINOR: semver.bump_minor,
+            model.ChangelogIssue.MAJOR: semver.bump_major
+        }
+
+        self._debug('Determining next version', current_version=current_version)
+        next_version = bumps[semantic](current_version)
+        self._debug('Determined next version', current_version=current_version, next_version=next_version)
+
+        return self.set_version(value=next_version, branch=branch)
+
+    def set_version(self, value, branch=None):
 
         """
         Sets the version of setup.py file to the specified version number.
@@ -439,17 +428,14 @@ class GitHubRepository(object):
 
         Args:
             value (str): The semantic version string.
-            branch (:str, optional): The branch name to perform to commit on. Defaults to
-                the default branch of the repository.
-            sha (:str, optional): The sha of the commit to use as the base version. Defaults to
-                the last commit of the branch.
+            branch (:str, optional): The branch to push to commit to. Defaults to the default repository branch.
 
         Returns:
             pyci.api.model.Bump: The commit that was created.
 
         Raises:
-            exceptions.TargetVersionEqualsCurrentVersionException: Raised when the current
-            version in setup.py is equal to the given value.
+            pyci.api.exceptions.TargetVersionEqualsCurrentVersionException:
+                Current version in setup.py is equal to the given value.
 
         """
 
@@ -462,7 +448,26 @@ class GitHubRepository(object):
             raise exceptions.InvalidArgumentsException('value is not a legal semantic version')
 
         branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).set_version(value=value, reset=True, sha=sha)
+
+        last_branch_commit = self._get_or_create_commit(sha=branch)
+
+        current_version = last_branch_commit.setup_py_version
+
+        self._debug('Generating setup.py file contents...', next_version=value)
+        setup_py = utils.generate_setup_py(last_branch_commit.setup_py, value)
+        self._debug('Generated setup.py file contents.')
+
+        commit_message = BUMP_VERSION_COMMIT_MESSAGE_FORMAT.format(value)
+
+        if current_version == value:
+            raise exceptions.TargetVersionEqualsCurrentVersionException(version=current_version)
+
+        bump_commit = self.commit(path='setup.py', contents=setup_py, message=commit_message)
+        return model.Bump(
+            impl=bump_commit.impl,
+            prev_version=current_version,
+            next_version=value,
+            sha=bump_commit.sha)
 
     def reset_branch(self, name, sha, hard=False):
 
@@ -470,9 +475,9 @@ class GitHubRepository(object):
         Reset the branch to the sha. This is equivalent to 'git reset'.
 
         Args:
-            name (str): The branch name.
-            sha (str): The sha to reset to.
-            hard (bool): Preform a hard reset.
+            name (:str): The branch name.
+            sha (:str): The sha to reset to.
+            hard (:bool, optional): Preform a hard reset. Defaults to false.
         """
 
         if not name:
@@ -485,27 +490,6 @@ class GitHubRepository(object):
             self._reset_ref(ref='heads/{}'.format(name), sha=sha, hard=hard)
         except UnknownObjectException:
             raise exceptions.BranchNotFoundException(branch=name, repo=self._repo_name)
-
-    def reset_tag(self, name, sha):
-
-        """
-        Reset the tag to the sha. This is equivalent to 'git reset'.
-
-        Args:
-            name (str): The tag name.
-            sha (str): The sha to reset to.
-        """
-
-        if not name:
-            raise exceptions.InvalidArgumentsException('name cannot be empty')
-
-        if not sha:
-            raise exceptions.InvalidArgumentsException('sha cannot be empty')
-
-        try:
-            self._reset_ref(ref='tags/{}'.format(name), sha=sha, hard=False)
-        except UnknownObjectException:
-            raise exceptions.TagNotFoundException(tag=name)
 
     def create_branch(self, name, sha):
 
@@ -570,7 +554,7 @@ class GitHubRepository(object):
         except UnknownObjectException:
             raise exceptions.BranchNotFoundException(branch=name, repo=self._repo_name)
 
-    def commit_file(self, path, contents, message, branch=None):
+    def commit(self, path, contents, message, branch=None):
 
         """
         Commit a file to the repository.
@@ -579,8 +563,7 @@ class GitHubRepository(object):
             path (str): Path to the file, relative to the repository root.
             contents (str): The new contents of the file.
             message (str): The commit message.
-            branch (:str, optional): The branch to commit to. Defaults to the repository default
-                branch.
+            branch (:str, optional): The branch to commit to. Defaults to the repository default branch.
         """
 
         if not path:
@@ -593,45 +576,25 @@ class GitHubRepository(object):
             raise exceptions.InvalidArgumentsException('message cannot be empty')
 
         branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).commit_file(path=path,
-                                                              contents=contents,
-                                                              message=message)
 
-    def create_commit(self, path, contents, message, sha=None, branch=None):
+        self._debug('Fetching last commit for branch...')
+        try:
+            last_commit = self.repo.get_commit(sha=branch)
+        except GithubException as e:
+            if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
+                raise exceptions.BranchNotFoundException(branch=branch,
+                                                         repo=self.repo.full_name)
+            raise  # pragma: no cover
+        self._debug('Fetched last commit for branch.', last_commit=last_commit.sha)
 
-        """
-        Create a commit in the repository.
+        commit = self._create_commit(path, contents, message, last_commit.sha)
 
-        Note, this method does not actually update any reference to point to this commit.
-        The created commit will be floating until you reset some reference to it.
+        self._debug('Updating branch to point to commit...', branch=branch, sha=commit.sha)
+        ref = self.repo.get_git_ref(ref='heads/{0}'.format(branch))
+        ref.edit(sha=commit.sha)
+        self._debug('Updated branch to point to commit', branch=branch, sha=ref.object.sha)
 
-        This is advanced API, only use it if you really know what you are doing.
-
-        Args:
-            path (str): Path to the file, relative to the repository root.
-            contents (str): The new contents of the file.
-            message (str): The commit message.
-            sha (:str, optional): Specify a sha to use as a parent for the created commit.
-                Defaults to the last commit of the branch.
-            branch (:str, optional): Used if sha is not provided. Defaults to the repository default
-                branch.
-        """
-
-        if not path:
-            raise exceptions.InvalidArgumentsException('path cannot be empty')
-
-        if not contents:
-            raise exceptions.InvalidArgumentsException('contents cannot be empty')
-
-        if not message:
-            raise exceptions.InvalidArgumentsException('message cannot be empty')
-
-        branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).create_commit(
-            path=path,
-            contents=contents,
-            message=message,
-            sha=sha)
+        return commit
 
     def close_issue(self, num, release):
 
@@ -705,20 +668,60 @@ class GitHubRepository(object):
                              url=release.html_url,
                              sha=tag.object.sha)
 
-    def _create_set_version_commit(self, value, sha=None, branch=None):
+    def _create_set_version_commit(self, value, sha):
 
-        """
-        Internal! Do not use
+        commit = self._get_or_create_commit(sha=sha)
 
-        """
+        current_version = commit.setup_py_version
 
-        branch = branch or self.default_branch_name
-        return self._get_or_create_branch(branch).set_version(value=value, sha=sha, reset=False)
+        self._debug('Generating setup.py file contents...', next_version=value)
+        setup_py = utils.generate_setup_py(commit.setup_py, value)
+        self._debug('Generated setup.py file contents.')
 
-    def _get_or_create_branch(self, branch):
-        if branch not in self.__branches:
-            self.__branches[branch] = _GitHubBranch(gh=self, branch_name=branch)
-        return self.__branches[branch]
+        commit_message = BUMP_VERSION_COMMIT_MESSAGE_FORMAT.format(value)
+
+        if current_version == value:
+            raise exceptions.TargetVersionEqualsCurrentVersionException(version=current_version)
+
+        return self._create_commit(path='setup.py',
+                                   contents=setup_py,
+                                   message=commit_message,
+                                   sha=sha)
+
+    def _create_commit(self, path, contents, message, sha):
+
+        tree = InputGitTreeElement(path=path,
+                                   mode='100644',
+                                   type='blob',
+                                   content=contents)
+
+        commit = self.repo.get_commit(sha=sha)
+
+        self._debug('Fetching base tree for sha...', sha=commit.commit.tree.sha)
+        base_tree = self.repo.get_git_tree(sha=commit.commit.tree.sha)
+        self._debug('Fetched base tree for sha', sha=commit.commit.tree.sha,
+                    tree=base_tree.sha)
+
+        self._debug('Creating tree...', tree_element=tree, base_tree=base_tree.sha)
+        git_tree = self.repo.create_git_tree(tree=[tree], base_tree=base_tree)
+        self._debug('Created tree.', tree_element=tree, tree_sha=git_tree.sha,
+                    base_tree=base_tree.sha)
+
+        self._debug('Creating commit...', commit_message=message, tree=git_tree.sha,
+                    parent=commit.sha)
+        commit = self.repo.create_git_commit(message=message,
+                                             tree=git_tree,
+                                             parents=[commit.commit])
+        self._debug('Created commit', commit_message=message, tree=git_tree.sha,
+                    parent=commit.sha,
+                    sha=commit.sha)
+
+        return model.Commit(impl=commit, sha=commit.sha, url=commit.html_url)
+
+    def _get_or_create_commit(self, sha):
+        if sha not in self.__commits:
+            self.__commits[sha] = _GitHubCommit(repo=self, sha=sha)
+        return self.__commits[sha]
 
     def _reset_ref(self, ref, sha, hard):
 
@@ -745,90 +748,15 @@ class GitHubRepository(object):
         self._logger.debug(message, **kwargs)
 
 
-class _GitHubBranch(object):
-
-    def __init__(self, gh, branch_name):
-        self.github = gh
-        self.branch_name = branch_name
-        self.__commits = {}
-        self._runner = LocalCommandRunner()
-        self._logger = logger.Logger(__name__)
-        self._log_ctx = {
-            'repo': self.github.repo.full_name,
-            'branch': self.branch_name
-        }
-
-    def validate_commit(self, sha, hooks):
-        sha = sha or self.branch_name
-        self._get_or_create_commit(sha=sha).validate_commit(hooks)
-
-    def generate_changelog(self, sha, base, hooks):
-        sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).generate_changelog(base, hooks)
-
-    def create_release(self, sha):
-        sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).create_release()
-
-    def commit_file(self, path, contents, message):
-
-        self._debug('Fetching last commit for branch...')
-        try:
-            last_commit = self.github.repo.get_commit(sha=self.branch_name)
-        except GithubException as e:
-            if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
-                raise exceptions.BranchNotFoundException(branch=self.branch_name,
-                                                         repo=self.github.repo.full_name)
-            raise  # pragma: no cover
-        self._debug('Fetched last commit for branch.', last_commit=last_commit.sha)
-
-        commit = self.create_commit(path, contents, message, last_commit.sha)
-
-        self._debug('Updating branch to point to commit...', branch=self.branch_name,
-                    sha=commit.sha)
-        ref = self.github.repo.get_git_ref(ref='heads/{0}'.format(self.branch_name))
-        ref.edit(sha=commit.sha)
-        self._debug('Updated branch to point to commit', branch=self.branch_name,
-                    sha=ref.object.sha)
-
-        return commit
-
-    def create_commit(self, path, contents, message, sha):
-        sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).create_commit(
-            path=path,
-            contents=contents,
-            message=message)
-
-    def bump_version(self, semantic, sha):
-        sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).bump_version(semantic=semantic)
-
-    def set_version(self, value, sha, reset=True):
-        sha = sha or self.branch_name
-        return self._get_or_create_commit(sha=sha).set_version(value=value, reset=reset)
-
-    def _get_or_create_commit(self, sha):
-        if sha not in self.__commits:
-            self.__commits[sha] = _GitHubCommit(branch=self, sha=sha)
-        return self.__commits[sha]
-
-    def _debug(self, message, **kwargs):
-        kwargs = copy.deepcopy(kwargs)
-        kwargs.update(self._log_ctx)
-        self._logger.debug(message, **kwargs)
-
-
 class _GitHubCommit(object):
 
-    def __init__(self, branch, sha):
-        self._branch = branch
+    def __init__(self, repo, sha):
+        self._repo = repo
         self._sha = sha
         self._runner = LocalCommandRunner()
         self._logger = logger.Logger(__name__)
         self._log_ctx = {
-            'repo': self._branch.github.repo.full_name,
-            'branch': self._branch.branch_name,
+            'repo': self._repo.repo.full_name,
             'sha': self._sha
         }
 
@@ -836,7 +764,7 @@ class _GitHubCommit(object):
     def commit(self):
         try:
             self._debug('Fetching commit...')
-            commit = self._branch.github.repo.get_commit(sha=self._sha)
+            commit = self._repo.repo.get_commit(sha=self._sha)
             self._debug('Fetched commit.', commit=commit.html_url)
             return commit
         except GithubException as e:
@@ -846,7 +774,7 @@ class _GitHubCommit(object):
 
     @cachedproperty
     def issue(self):
-        issue = self._branch.github.detect_issue(commit_message=self.commit.commit.message)
+        issue = self._repo.detect_issue(commit_message=self.commit.commit.message)
         if issue:
             issue = issue.impl
         return issue
@@ -863,10 +791,10 @@ class _GitHubCommit(object):
     def setup_py_path(self):
 
         try:
-            content_file = self._branch.github.repo.get_contents(path='setup.py',
-                                                                 ref=self.commit.sha)
+            content_file = self._repo.repo.get_contents(path='setup.py',
+                                                        ref=self.commit.sha)
         except UnknownObjectException:
-            raise exceptions.NotPythonProjectException(repo=self._branch.github.repo.full_name,
+            raise exceptions.NotPythonProjectException(repo=self._repo.repo.full_name,
                                                        sha=self.commit.sha,
                                                        cause='setup.py file not found')
 
@@ -889,12 +817,14 @@ class _GitHubCommit(object):
         self._debug('Extracted current setup.py version...', setup_py_version=setup_py_version)
         return setup_py_version
 
-    def validate_commit(self, hooks):
+    def validate(self, hooks):
 
-        pre_issue = hooks.get('pre_issue') if hooks else None
-        pre_label = hooks.get('pre_label') if hooks else None
-        post_issue = hooks.get('post_issue') if hooks else None
-        post_label = hooks.get('post_label') if hooks else None
+        hooks = hooks or {}
+
+        pre_issue = hooks.get('pre_issue')
+        pre_label = hooks.get('pre_label')
+        post_issue = hooks.get('post_issue')
+        post_label = hooks.get('post_label')
 
         self._debug('Validating commit should be released...')
 
@@ -911,8 +841,7 @@ class _GitHubCommit(object):
             pre_label()
 
         if not any(label in self.labels for label in ['patch', 'minor', 'major']):
-            raise exceptions.IssueNotLabeledAsReleaseException(issue=self.issue.number,
-                                                               sha=self.commit.sha)
+            raise exceptions.IssueNotLabeledAsReleaseException(issue=self.issue.number, sha=self.commit.sha)
 
         if post_label:
             post_label()
@@ -925,9 +854,8 @@ class _GitHubCommit(object):
 
         try:
 
-            self._debug('Creating Github release...', name=version, sha=self.commit.sha,
-                        tag=version)
-            github_release = self._branch.github.repo.create_git_release(
+            self._debug('Creating Github release...', name=version, sha=self.commit.sha, tag=version)
+            github_release = self._repo.repo.create_git_release(
                 tag=version,
                 target_commitish=self.commit.sha,
                 name=version,
@@ -935,8 +863,7 @@ class _GitHubCommit(object):
                 draft=False,
                 prerelease=False
             )
-            self._debug('Created Github release...', name=version, sha=self.commit.sha,
-                        tag=version)
+            self._debug('Created Github release...', name=version, sha=self.commit.sha, tag=version)
 
             return model.Release(impl=github_release,
                                  title=version,
@@ -950,44 +877,30 @@ class _GitHubCommit(object):
 
             raise exceptions.ReleaseAlreadyExistsException(release=version)
 
-    # pylint: disable=too-many-branches,too-many-locals,too-many-statements
+    # pylint: disable=too-many-branches,too-many-statements
     def generate_changelog(self, base, hooks):
 
-        pre_commit = hooks.get('pre_commit') if hooks else None
-        pre_collect = hooks.get('pre_collect') if hooks else None
-        pre_analyze = hooks.get('pre_analyze') if hooks else None
-        post_analyze = hooks.get('post_analyze') if hooks else None
-        post_commit = hooks.get('post_commit') if hooks else None
+        hooks = hooks or {}
+
+        pre_commit = hooks.get('pre_commit')
+        pre_collect = hooks.get('pre_collect')
+        pre_analyze = hooks.get('pre_analyze')
+        post_analyze = hooks.get('post_analyze')
+        post_commit = hooks.get('post_commit')
 
         self._debug('Generating changelog...')
 
         if pre_collect:
             pre_collect()
 
-        def _fetch_last_release():
-
-            last_release = None
-
-            # this relies on the fact github returns a descending order list.
-            # will this always be the case? couldn't find any docs about it...
-            # i really don't want to sort it myself because it might mean fetching a lot of releases,
-            # which takes time...
-            for release in self._branch.github.repo.get_releases():
-                tag_commit = self._fetch_tag_commit(release.tag_name)
-                if tag_commit.commit.author.date <= self.commit.commit.author.date:
-                    last_release = tag_commit.sha
-                    break
-
-            return last_release
-
-        base = base or _fetch_last_release()
-
+        # additional API call to support branch names as base
         if base:
-            # additional API call to support branch names as base
-            base = self._branch.github.repo.get_commit(sha=base).sha
+            base = self._repo.repo.get_commit(sha=base).sha
+
+        base = base or self._fetch_last_release()
 
         self._debug('Fetching commits...')
-        all_commits = self._branch.github.repo.get_commits(sha=self.commit.sha)
+        all_commits = self._repo.repo.get_commits(sha=self.commit.sha)
 
         commits = []
 
@@ -1018,7 +931,7 @@ class _GitHubCommit(object):
 
             issue = None
             try:
-                issue = self._branch.github.detect_issue(commit_message=commit.commit.message)
+                issue = self._repo.detect_issue(commit_message=commit.commit.message)
             except exceptions.IssueNotFoundException as e:
                 # This shouldn't stop us from creating a changelog
                 self._debug('Commit {} is linked to a non-existing issue/pr: {}. Ignoring...'
@@ -1078,88 +991,25 @@ class _GitHubCommit(object):
 
         return changelog
 
-    def bump_version(self, semantic):
+    def _fetch_last_release(self):
 
-        current_version = self.setup_py_version
+        last_release = None
 
-        def _bump_current_version():
+        # this relies on the fact github returns a descending order list.
+        # will this always be the case? couldn't find any docs about it...
+        # i really don't want to sort it myself because it might mean fetching a lot of releases,
+        # which takes time...
+        for release in self._repo.repo.get_releases():
+            tag_commit = self._fetch_tag_commit(release.tag_name)
+            if tag_commit.commit.author.date <= self.commit.commit.author.date:
+                last_release = tag_commit.sha
+                break
 
-            result = current_version
-
-            if semantic == model.ChangelogIssue.PATCH:
-                result = semver.bump_patch(result)
-            if semantic == model.ChangelogIssue.MINOR:
-                result = semver.bump_minor(result)
-            if semantic == model.ChangelogIssue.MAJOR:
-                result = semver.bump_major(result)
-
-            return result
-
-        self._debug('Determining next version', current_version=current_version)
-        next_version = _bump_current_version()
-        self._debug('Determined next version', current_version=current_version,
-                    next_version=next_version)
-
-        return self.set_version(value=next_version)
-
-    def set_version(self, value, reset=True):
-
-        current_version = self.setup_py_version
-
-        self._debug('Generating setup.py file contents...', next_version=value)
-        setup_py = utils.generate_setup_py(self.setup_py, value)
-        self._debug('Generated setup.py file contents.')
-
-        commit_message = BUMP_VERSION_COMMIT_MESSAGE_FORMAT.format(value)
-
-        if current_version != value:
-            if reset:
-                bump_commit = self._branch.commit_file(path='setup.py',
-                                                       contents=setup_py,
-                                                       message=commit_message)
-            else:
-                bump_commit = self.create_commit(path='setup.py',
-                                                 contents=setup_py,
-                                                 message=commit_message)
-            return model.Bump(
-                impl=bump_commit.impl,
-                prev_version=current_version,
-                next_version=value,
-                sha=bump_commit.sha)
-
-        raise exceptions.TargetVersionEqualsCurrentVersionException(version=current_version)
-
-    def create_commit(self, path, contents, message):
-
-        tree = InputGitTreeElement(path=path,
-                                   mode='100644',
-                                   type='blob',
-                                   content=contents)
-
-        self._debug('Fetching base tree for sha...', sha=self.commit.commit.tree.sha)
-        base_tree = self._branch.github.repo.get_git_tree(sha=self.commit.commit.tree.sha)
-        self._debug('Fetched base tree for sha', sha=self.commit.commit.tree.sha,
-                    tree=base_tree.sha)
-
-        self._debug('Creating tree...', tree_element=tree, base_tree=base_tree.sha)
-        git_tree = self._branch.github.repo.create_git_tree(tree=[tree], base_tree=base_tree)
-        self._debug('Created tree.', tree_element=tree, tree_sha=git_tree.sha,
-                    base_tree=base_tree.sha)
-
-        self._debug('Creating commit...', commit_message=message, tree=git_tree.sha,
-                    parent=self.commit.sha)
-        commit = self._branch.github.repo.create_git_commit(message=message,
-                                                            tree=git_tree,
-                                                            parents=[self.commit.commit])
-        self._debug('Created commit', commit_message=message, tree=git_tree.sha,
-                    parent=self.commit.sha,
-                    sha=commit.sha)
-
-        return model.Commit(impl=commit, sha=commit.sha, url=commit.html_url)
+        return last_release
 
     def _fetch_tag_commit(self, tag_name):
-        tag = self._branch.github.repo.get_git_ref(ref='tags/{0}'.format(tag_name))
-        return self._branch.github.repo.get_commit(sha=tag.object.sha)
+        tag = self._repo.repo.get_git_ref(ref='tags/{0}'.format(tag_name))
+        return self._repo.repo.get_commit(sha=tag.object.sha)
 
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)

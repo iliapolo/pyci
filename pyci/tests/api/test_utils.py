@@ -78,45 +78,6 @@ def test_validate_file_does_not_exist():
     utils.validate_file_does_not_exist(path='doesnt-exist')
 
 
-def test_extract_name_from_setup_py_double_quotes():
-
-    expected = 'my-name'
-
-    actual = utils.extract_name_from_setup_py("""
-setup(
-    name="{}",
-)
-
-    """.format(expected))
-
-    assert actual == expected
-
-
-def test_extract_name_from_setup_py_single_quotes():
-
-    expected = 'my-name'
-
-    actual = utils.extract_name_from_setup_py("""
-setup(
-    name='{}',
-)
-
-    """.format(expected))
-
-    assert actual == expected
-
-
-def test_extract_name_from_setup_py_no_match():
-
-    with pytest.raises(exceptions.RegexMatchFailureException):
-        utils.extract_name_from_setup_py("""
-setup(
-    hello='world',
-)
-    
-""")
-
-
 def test_extract_version_from_setup_py_double_quotes():
 
     expected = '0.1.0'

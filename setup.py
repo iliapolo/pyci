@@ -28,6 +28,7 @@ PROJECT_NAME = 'py-ci'
 
 setup(
     name='py-ci',
+    url='https://github.com/iliapolo/pyci/',
     version='0.6.1',
     author='Eli Polonsky',
     author_email='eli.polonsky@gmail.com',
@@ -35,6 +36,7 @@ setup(
         BASE_PACKAGE_NAME,
         '{0}.resources'.format(BASE_PACKAGE_NAME),
         '{0}.resources.virtualenv_support'.format(BASE_PACKAGE_NAME),
+        '{0}.resources.windows_support'.format(BASE_PACKAGE_NAME),
         '{0}.api'.format(BASE_PACKAGE_NAME),
         '{0}.shell'.format(BASE_PACKAGE_NAME),
         '{0}.shell.commands'.format(BASE_PACKAGE_NAME),
@@ -46,7 +48,10 @@ setup(
             'resources/pyci.ascii',
             'resources/virtualenv.py',
             'resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl',
-            'resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl'
+            'resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl',
+            'resources/windows_support/installer.nsi.jinja',
+            'resources/windows_support/nsis-3.04.zip',
+            'resources/windows_support/path.nsh'
         ],
     },
     license='LICENSE',
@@ -57,7 +62,7 @@ setup(
         ]
     },
     install_requires=[
-        'click==6.7',
+        'click==7.0',
         'semver==2.8.0',
         'PyGithub==1.40',
         'requests==2.22.0',

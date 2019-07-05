@@ -23,21 +23,25 @@ import click
 import pyci
 import pyci.shell
 from pyci.api import logger as api_logger
-from pyci.api import ci
+from pyci.api import ci as ci_api
 from pyci.api.gh import GitHubRepository
 from pyci.api.packager import Packager
 from pyci.api.pypi import PyPI
 from pyci.api import exceptions
 from pyci.api import utils
-from pyci.shell import REPO_HELP
+from pyci.shell import solutions
+from pyci.shell import help as pyci_help
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
 from pyci.shell.commands import release
+from pyci.shell.context import Context
 from pyci.shell.subcommands import github as github_group
 from pyci.shell.subcommands import pack as pack_group
 from pyci.shell.subcommands import pypi as pypi_group
+from pyci.shell.subcommands import ci as ci_group
 from pyci.shell import logger as shell_logger
 from pyci import resources
+from pyci.shell.exceptions import ShellException
 
 log = shell_logger.get()
 
@@ -71,6 +75,8 @@ def app(ctx, debug, no_ci):
 
     """
 
+    ctx.obj = Context()
+
     ascii_art = resources.get_text_resource('pyci.ascii')
 
     log.echo('', prefix=False)
@@ -80,17 +86,18 @@ def app(ctx, debug, no_ci):
         api_logger.DEFAULT_LOG_LEVEL = logging.DEBUG
         shell_logger.get().logger.set_level(logging.DEBUG)
 
-    ctx.ci_provider = None
+    ci_provider = None
     if not no_ci:
-        ctx.ci_provider = ci.detect()
+        ci_provider = ci_api.detect()
+        ctx.obj.ci_provider = ci_provider
 
-    if ctx.ci_provider:
-        log.echo('Detected CI Provider: {0}'.format(ctx.ci_provider.name))
+    if ci_provider:
+        log.echo('Detected CI Provider: {0}'.format(ci_provider.name))
 
 
 @click.group()
 @click.option('--repo', required=False,
-              help=REPO_HELP)
+              help=pyci_help.REPO)
 @click.pass_context
 @handle_exceptions
 def github(ctx, repo):
@@ -99,17 +106,19 @@ def github(ctx, repo):
     Sub-command for Github operations.
     """
 
-    repo = pyci.shell.detect_repo(ctx, ctx.parent.ci_provider, repo)
+    repo = pyci.shell.detect_repo(ctx, ctx.obj.ci_provider, repo)
 
-    ctx.github = GitHubRepository.create(
+    gh = GitHubRepository.create(
         repo=repo,
         access_token=secrets.github_access_token())
+
+    ctx.obj.github = gh
 
 
 @click.group()
 @click.pass_context
 @click.option('--repo', required=False,
-              help=REPO_HELP)
+              help=pyci_help.REPO)
 @click.option('--sha', required=False,
               help='Pack a specific sha.')
 @click.option('--path', required=False,
@@ -128,39 +137,38 @@ def pack(ctx, repo, sha, path, target_dir):
 
     """
 
+    ci_provider = ctx.obj.ci_provider
+
+    sha = sha if sha else (ci_provider.sha if ci_provider else None)
+
     if not path:
-        repo = pyci.shell.detect_repo(ctx, ctx.parent.ci_provider, repo)
+        repo = pyci.shell.detect_repo(ctx, ci_provider, repo)
 
     if repo and not sha:
-        raise click.BadOptionUsage('Must specify --sha as well')
+        raise click.UsageError('Must specify --sha as well')
 
     if sha and path:
-        raise click.ClickException("Use either --sha or --path, not both")
+        raise click.UsageError("Use either --sha or --path, not both")
 
     if not sha and not path:
-        raise click.BadOptionUsage('Must specify either --sha or --path')
+        raise click.UsageError('Must specify either --sha or --path')
 
     try:
-        ctx.packager = Packager.create(repo=repo, path=path, sha=sha, target_dir=target_dir)
+        ctx.obj.packager = Packager.create(repo=repo, path=path, sha=sha, target_dir=target_dir)
     except exceptions.DirectoryDoesntExistException as e:
-        err = click.ClickException('The target directory you specified does not exist: {}'
-                                   .format(e.path))
+        err = ShellException(str(e))
         err.possible_solutions = [
             'Create the directory and try again'
         ]
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
-    except exceptions.NotPythonProjectException:
-        err = click.ClickException('The project is not structured as a standard python '
-                                   'project.')
-        err.possible_solutions = [
-            'Please follow these instructions to create a standard '
-            'python project --> https://packaging.python.org/tutorials/distributing-packages/'
-        ]
+    except exceptions.NotPythonProjectException as e:
+        err = ShellException(str(e))
+        err.possible_solutions = solutions.non_standard_project()
         tb = sys.exc_info()[2]
         utils.raise_with_traceback(err, tb)
     except exceptions.DownloadFailedException as e:
-        err = click.ClickException('Failed downloading repository content: {}'.format(e.err))
+        err = ShellException(str(e))
         if e.code == 404:
             err.cause = 'You either provided a non existing sha or a non existing repository'
         tb = sys.exc_info()[2]
@@ -180,15 +188,24 @@ def pypi(ctx, test, repository_url):
     Sub-command for PyPI operations.
     """
 
-    ctx.pypi = PyPI.create(repository_url=repository_url,
-                           test=test,
-                           username=secrets.twine_username(),
-                           password=secrets.twine_password())
+    ctx.obj.pypi = PyPI.create(repository_url=repository_url,
+                               test=test,
+                               username=secrets.twine_username(),
+                               password=secrets.twine_password())
 
 
-github.add_command(github_group.release_branch)
+@click.group()
+def ci():
+
+    """
+    Sub-command for CI operations.
+    """
+
+    pass
+
+
+github.add_command(github_group.release_)
 github.add_command(github_group.validate_commit)
-github.add_command(github_group.validate_build)
 github.add_command(github_group.generate_changelog)
 github.add_command(github_group.create_release)
 github.add_command(github_group.upload_asset)
@@ -199,21 +216,23 @@ github.add_command(github_group.delete_tag)
 github.add_command(github_group.bump_version)
 github.add_command(github_group.set_version)
 github.add_command(github_group.reset_branch)
-github.add_command(github_group.reset_tag)
 github.add_command(github_group.create_branch)
 github.add_command(github_group.delete_branch)
-github.add_command(github_group.create_commit)
-github.add_command(github_group.commit_file)
+github.add_command(github_group.commit)
 github.add_command(github_group.close_issue)
 
 pack.add_command(pack_group.binary)
 pack.add_command(pack_group.wheel)
+pack.add_command(pack_group.nsis)
 
 pypi.add_command(pypi_group.upload)
+
+ci.add_command(ci_group.validate_build)
 
 app.add_command(github)
 app.add_command(pack)
 app.add_command(pypi)
+app.add_command(ci)
 app.add_command(release.release)
 
 # allows running the application as a single executable

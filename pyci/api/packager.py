@@ -15,6 +15,7 @@
 #
 #############################################################################
 
+import sys
 import copy
 import logging
 import os
@@ -24,6 +25,7 @@ import tempfile
 import contextlib
 
 from boltons.cacheutils import cachedproperty
+from jinja2 import Template
 
 from pyci.api import logger, exceptions
 from pyci.api import utils
@@ -44,9 +46,9 @@ class Packager(object):
     A packager instance is associated with a specific version of your repository, and is capable
     of packing various formats of it.
 
-    If you specify a sha, the packager will download your repository from that sha and
-    operate on it. If you specify a local path, it will create a copy of your local
-    repository version and operate on that, in which case, the sha argument is irrelevant.
+    If you specify a sha (and repo), the packager will download your repository from that sha and
+    operate on it. If you specify a local path, it will operate directly on that path,
+    in which case, the sha and repo arguments are irrelevant.
 
     Args:
         repo (:str, optional): The repository full name.
@@ -89,6 +91,16 @@ class Packager(object):
         }
         self._repo_dir = self._create_repo()
 
+    def _create_repo(self):
+
+        if self._path:
+            repo_dir = self._path
+        else:
+            self._debug('Downloading repo {}@{}...'.format(self._repo, self._sha))
+            repo_dir = utils.download_repo(self._repo, self._sha)
+
+        return repo_dir
+
     @property
     def target_dir(self):
         return self._target_dir
@@ -110,7 +122,7 @@ class Packager(object):
                         target_dir=target_dir,
                         log=log)
 
-    def binary(self, name=None, entrypoint=None, pyinstaller_version=None):
+    def binary(self, base_name=None, entrypoint=None, pyinstaller_version=None):
 
         """
         Create a binary executable.
@@ -121,8 +133,10 @@ class Packager(object):
 
         Under the hood, this uses the PyInstaller project.
 
+        For more information please visit https://www.pyinstaller.org/
+
         Args:
-            name (str): The base name of the target file. The final name will be in the
+            base_name (str): The base name of the target file. The final name will be in the
                form of: <name>-<platform-machine>-<platform-system> (e.g pyci-x86_64-Darwin).
                Defaults to the 'name' specified in your setup.py file.
             entrypoint (:`str`, optional): Path to a script file from which the executable
@@ -131,8 +145,6 @@ class Packager(object):
                    - <name>.spec
                    - <name>/shell/main.py
             pyinstaller_version (:str, optional): Which PyInstaller version to use.
-
-        For more information please visit https://www.pyinstaller.org/.
 
         Raises:
             FileExistsException: Raised if the destination file already exists.
@@ -147,16 +159,19 @@ class Packager(object):
         temp_dir = tempfile.mkdtemp()
         try:
 
-            name = name or self._default_name
-            entrypoint = entrypoint or self._default_entrypoint(name)
+            base_name = base_name or self._default_name
+            entrypoint = entrypoint or self._default_entrypoint(base_name)
 
             destination = os.path.join(self.target_dir, '{0}-{1}-{2}'
-                                       .format(name, platform.machine(), platform.system()))
+                                       .format(base_name, platform.machine(), platform.system()))
 
             if platform.system().lower() == 'windows':
                 destination = '{0}.exe'.format(destination)
 
-            utils.validate_file_does_not_exist(path=destination)
+            try:
+                utils.validate_file_does_not_exist(path=destination)
+            except exceptions.FileExistException as e:
+                raise exceptions.BinaryExistsException(path=e.path)
 
             dist_dir = os.path.join(temp_dir, 'dist')
             build_dir = os.path.join(temp_dir, 'build')
@@ -167,7 +182,7 @@ class Packager(object):
                 raise exceptions.EntrypointNotFoundException(repo=self._repo,
                                                              entrypoint=entrypoint)
 
-            with self._create_virtualenv(name) as virtualenv:
+            with self._create_virtualenv(base_name) as virtualenv:
 
                 self._logger.debug('Installing pyinstaller...')
 
@@ -214,7 +229,9 @@ class Packager(object):
 
         This method will create a wheel package, according the the regular python wheel standards.
 
-        Under the hood, this uses the bdist_wheel command provider by the wheel project.
+        Under the hood, this uses the bdist_wheel command provided by the wheel project.
+
+        For more information please visit https://pythonwheels.com/
 
         Args:
             universal (bool): True if the created will should be universal, False otherwise.
@@ -224,8 +241,6 @@ class Packager(object):
             FileExistsException: Raised if the destination file already exists.
             DirectoryDoesntExistException: Raised if the destination directory does not exist.
 
-        For more information please visit https://pythonwheels.com/.
-
         """
 
         temp_dir = tempfile.mkdtemp()
@@ -234,17 +249,15 @@ class Packager(object):
             dist_dir = os.path.join(temp_dir, 'dist')
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
-            setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-
             try:
-                utils.validate_file_exists(setup_py_file)
-            except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException) as e:
+                name = self._default_name
+            except exceptions.FailedReadingSetupPyNameException as e:
                 raise exceptions.NotPythonProjectException(repo=self._repo,
                                                            cause=str(e),
                                                            sha=self._sha,
                                                            path=self._path)
 
-            with self._create_virtualenv(self._default_name) as virtualenv:
+            with self._create_virtualenv(name) as virtualenv:
 
                 self._logger.debug('Installing wheel...')
 
@@ -256,7 +269,7 @@ class Packager(object):
 
                 command = '{} {} bdist_wheel --bdist-dir {} --dist-dir {}'.format(
                     utils.get_python_executable('python', exec_home=virtualenv),
-                    setup_py_file,
+                    self._setup_py_path,
                     bdist_dir,
                     dist_dir)
 
@@ -273,7 +286,10 @@ class Packager(object):
 
             destination = os.path.join(self.target_dir, actual_name)
 
-            utils.validate_file_does_not_exist(path=destination)
+            try:
+                utils.validate_file_does_not_exist(path=destination)
+            except exceptions.FileExistException as e:
+                raise exceptions.WheelExistsException(path=e.path)
 
             shutil.copy(os.path.join(dist_dir, actual_name), destination)
             self._debug('Packaged successfully.', package=destination)
@@ -282,27 +298,212 @@ class Packager(object):
         finally:
             utils.rmf(temp_dir)
 
-    def _create_repo(self):
+    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-statements
+    def nsis(self, binary_path,
+             version=None,
+             output=None,
+             author=None,
+             website=None,
+             copyr=None,
+             description=None,
+             license_path=None):
 
-        if self._path:
-            repo_dir = self._path
-        else:
-            self._debug('Downloading repo {}@{}...'.format(self._repo, self._sha))
-            repo_dir = utils.download_repo(self._repo, self._sha)
+        """
+        Create a windows installer package.
 
-        return repo_dir
+        This method will produce an executable installer (.exe) that, when executed, will install
+        the provided binary into "Program Files". In addition, it will manipulate the system PATH
+        variable on the target machine so that the binary can be executed from any directory.
+
+        Under the hood, this uses the NSIS project.
+
+        For more information please visit https://nsis.sourceforge.io/Main_Page
+
+        Args:
+            binary_path (:str): True if the created will should be universal, False otherwise.
+            version (:str, optional): Version string metadata. Defaults to the 'version' argument
+                in your setup.py file.
+            output (:str, optional): Target file to create. Defaults to
+                {binary-path-basename}-installer.exe
+            author (:str, optional): Which wheel version to use.
+            website (:str, optional): Which wheel version to use.
+            copyr (:str, optional): Which wheel version to use.
+            description (:str, optional): Which wheel version to use.
+            license_path (:str, optional): Which wheel version to use.
+
+        Raises:
+            LicenseNotFoundException: Raised if a license file is missing.
+            BinaryFileDoesntExistException: Raised if the provided binary file doesn't exist.
+            FileExistsException: Raised if the destination file already exists.
+            DirectoryDoesntExistException: Raised if the destination directory does not exist.
+
+        """
+
+        if not utils.is_windows():
+            raise exceptions.WrongPlatformException(expected='Windows')
+
+        if not binary_path:
+            raise exceptions.InvalidArgumentsException('Must pass binary_path')
+
+        try:
+            self._debug('Validating binary exists: {}'.format(binary_path))
+            utils.validate_file_exists(binary_path)
+        except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException) as e:
+            raise exceptions.BinaryFileDoesntExistException(str(e))
+
+        try:
+            version = version or self._default_version
+            self._debug('Validating version string: {}'.format(version))
+            utils.validate_nsis_version(version)
+        except exceptions.InvalidNSISVersionException as err:
+            tb = sys.exc_info()[2]
+            try:
+                # Auto-correction attempt for standard python versions
+                version = '{}.0'.format(version)
+                utils.validate_nsis_version(version)
+            except exceptions.InvalidNSISVersionException:
+                utils.raise_with_traceback(err, tb)
+
+        installer_base_name = os.path.basename(binary_path).replace('.exe', '')
+        try:
+            name = self._default_name
+        except BaseException as e:
+            self._debug('Unable to extract default name from setup.py: {}. Using binary base name...'.format(str(e)))
+            name = installer_base_name
+
+        installer_name = '{}-installer'.format(installer_base_name)
+        copyr = copyr or ''
+
+        destination = os.path.abspath(output or '{}.exe'.format(
+            os.path.join(self._target_dir, installer_name)))
+        self._debug('Validating destination file does not exist: {}'.format(destination))
+        utils.validate_file_does_not_exist(destination)
+
+        target_directory = os.path.abspath(os.path.join(destination, os.pardir))
+
+        self._debug('Validating target directory exists: {}'.format(target_directory))
+        utils.validate_directory_exists(target_directory)
+
+        try:
+            license_path = license_path or os.path.abspath(os.path.join(self._repo_dir,
+                                                                        self._default_license))
+            self._debug('Validating license file exists: {}'.format(license_path))
+            utils.validate_file_exists(license_path)
+        except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException) as e:
+            raise exceptions.LicenseNotFoundException(str(e))
+
+        author = author or self._default_author
+        website = website or self._default_url
+        description = description or self._default_description
+
+        config = {
+            'name': name,
+            'author': author,
+            'website': website,
+            'copyright': copyr,
+            'license_path': license_path,
+            'binary_path': binary_path,
+            'description': description,
+            'installer_name': installer_name
+        }
+
+        temp_dir = tempfile.mkdtemp()
+
+        try:
+
+            support = 'windows_support'
+
+            template = get_text_resource(os.path.join(support, 'installer.nsi.jinja'))
+            nsis_zip_resource = get_binary_resource(os.path.join(support, 'nsis-3.04.zip'))
+            path_header_resource = get_text_resource(os.path.join(support, 'path.nsh'))
+
+            self._debug('Rendering nsi template...')
+            nsi = Template(template).render(**config)
+            installer_path = os.path.join(temp_dir, 'installer.nsi')
+            with open(installer_path, 'w') as f:
+                f.write(nsi)
+            self._debug('Finished rendering nsi template: {}'.format(installer_path))
+
+            self._debug('Writing path header file...')
+            path_header_path = os.path.join(temp_dir, 'path.nsh')
+            with open(path_header_path, 'w') as header:
+                header.write(path_header_resource)
+            self._debug('Finished writing path header file: {}'.format(path_header_path))
+
+            self._debug('Extracting NSIS from resources...')
+
+            nsis_archive = os.path.join(temp_dir, 'nsis.zip')
+            with open(nsis_archive, 'wb') as _w:
+                _w.write(nsis_zip_resource)
+            utils.unzip(nsis_archive, target_dir=temp_dir)
+            self._debug('Finished extracting makensis.exe from resources: {}'.format(nsis_archive))
+
+            makensis_path = os.path.join(temp_dir, 'nsis-3.04', 'makensis.exe')
+            command = '{} -DVERSION={} {}'.format(makensis_path, version, installer_path)
+
+            self._debug('Creating installer...')
+            self._runner.run(command, cwd=temp_dir)
+
+            out_file = os.path.join(temp_dir, '{}.exe'.format(installer_name))
+
+            self._debug('Copying {} to target path...'.format(out_file))
+            shutil.copyfile(out_file, destination)
+            self._debug('Finished copying installer to target path: {}'.format(destination))
+
+            self._debug('Packaged successfully.', package=destination)
+
+            return destination
+
+        finally:
+            utils.rmf(temp_dir)
 
     @cachedproperty
     def _default_name(self):
-        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
-        with open(setup_py_file) as f:
-            try:
-                return utils.extract_name_from_setup_py(f.read())
-            except exceptions.RegexMatchFailureException as e:
-                raise exceptions.FailedExtractingNameFromSetupPyException(repo=self._repo,
-                                                                          sha=self._sha,
-                                                                          path=self._path,
-                                                                          cause=str(e))
+        try:
+            return self.__run_setup_py('name')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyNameException(str(e))
+
+    @cachedproperty
+    def _default_author(self):
+        try:
+            self._debug('Reading author from setup.py...')
+            return self.__run_setup_py('author')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyAuthorException(str(e))
+
+    @cachedproperty
+    def _default_version(self):
+        try:
+            self._debug('Reading version from setup.py...')
+            return self.__run_setup_py('version')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyVersionException(str(e))
+
+    @cachedproperty
+    def _default_description(self):
+        try:
+            self._debug('Reading description from setup.py...')
+            return self.__run_setup_py('description')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyVersionException(str(e))
+
+    @cachedproperty
+    def _default_license(self):
+        try:
+            self._debug('Reading license from setup.py...')
+            return self.__run_setup_py('license')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyLicenseException(str(e))
+
+    @cachedproperty
+    def _default_url(self):
+        try:
+            self._debug('Reading url from setup.py...')
+            return self.__run_setup_py('url')
+        except exceptions.NotPythonProjectException as e:
+            raise exceptions.FailedReadingSetupPyURLException(str(e))
 
     def _default_entrypoint(self, name):
 
@@ -322,6 +523,35 @@ class Packager(object):
         raise exceptions.DefaultEntrypointNotFoundException(
             repo=self._repo, name=self._default_name, expected_paths=expected_paths)
 
+    @cachedproperty
+    def _setup_py_path(self):
+        return os.path.join(self._repo_dir, 'setup.py')
+
+    @staticmethod
+    def _interpreter():
+
+        if utils.is_pyinstaller():
+            interpreter = utils.which('python')
+        else:
+            interpreter = utils.get_python_executable('python')
+
+        if not interpreter:
+            raise exceptions.PythonNotFoundException()
+
+        return interpreter
+
+    def __run_setup_py(self, argument):
+
+        if not os.path.exists(self._setup_py_path):
+            raise exceptions.NotPythonProjectException(repo=self._repo,
+                                                       cause='setup.py file doesnt exist',
+                                                       sha=self._sha,
+                                                       path=self._path)
+
+        command = '{} {} --{}'.format(self._interpreter(), self._setup_py_path, argument)
+
+        return self._runner.run(command).std_out
+
     # pylint: disable=too-many-branches
     @contextlib.contextmanager
     def _create_virtualenv(self, name, python=None):
@@ -332,17 +562,7 @@ class Packager(object):
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
 
-        interpreter = python
-
-        if not interpreter:
-
-            if utils.is_pyinstaller():
-                interpreter = utils.which('python')
-                if not interpreter:
-                    raise exceptions.PythonNotFoundException()
-
-            else:
-                interpreter = utils.get_python_executable('python')
+        interpreter = python or self._interpreter()
 
         def _create_virtualenv_dist():
 
@@ -373,7 +593,6 @@ class Packager(object):
                                                                  virtualenv_py,
                                                                  virtualenv_path)
 
-        setup_py_file = os.path.join(self._repo_dir, 'setup.py')
         requirements_file = os.path.join(self._repo_dir, 'requirements.txt')
 
         self._runner.run(create_virtualenv_command, cwd=self._repo_dir)
@@ -388,14 +607,15 @@ class Packager(object):
             self._debug('Using requirements file: {}'.format(requirements_file))
             requires = requirements_file
 
-        elif os.path.exists(setup_py_file):
+        elif os.path.exists(self._setup_py_path):
 
             # Dump the 'install_requires' argument from setup.py into a requirements file.
             egg_base = os.path.join(temp_dir, 'egg-base')
             os.mkdir(egg_base)
 
             self._debug('Dumping requirements file for {}'.format(name))
-            self._runner.run('{} {} egg_info --egg-base {}'.format(interpreter, setup_py_file, egg_base),
+            self._runner.run('{} {} egg_info --egg-base {}'
+                             .format(interpreter, self._setup_py_path, egg_base),
                              cwd=self._repo_dir)
 
             requires = None
@@ -421,11 +641,12 @@ class Packager(object):
                 utils.rmf(temp_dir)
             except BaseException as e:
                 if utils.is_windows():
-                    # The temp_dir was populated with files written by a different process (pip install)
-                    # On windows, this causes a [Error 5] Access is denied error.
+                    # The temp_dir was populated with files written by a different process
+                    # (pip install) On windows, this causes a [Error 5] Access is denied error.
                     # Eventually I will have to fix this - until then, sorry windows users...
-                    self._debug("Failed cleaning up temporary directory after creating virtualenv {}: {} - "
-                                "You might have some leftovers because of this...".format(temp_dir, str(e)))
+                    self._debug("Failed cleaning up temporary directory after creating virtualenv "
+                                "{}: {} - You might have some leftovers because of this..."
+                                .format(temp_dir, str(e)))
                 else:
                     raise
 

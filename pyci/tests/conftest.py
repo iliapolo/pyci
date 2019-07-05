@@ -58,6 +58,9 @@ def _skip(request, test_name):
     if _get_marker(request, test_name, 'linux') is not None and system == 'windows':
         __skip('This test should not run on windows')
 
+    if _get_marker(request, test_name, 'windows') is not None and system != 'windows':
+        __skip('This test should not run on windows')
+
     if _get_marker(request, test_name, 'docker') is not None and docker is None:
         __skip('This test can only run when docker is installed')
 
@@ -137,18 +140,22 @@ def _release(pyci, github):
     yield ReleaseCommand()
 
 
-@pytest.fixture(name='github')
-def _github(pyci, repo, token):
-
+@pytest.fixture(name='gh')
+def _gh(token, repo):
     repository = GitHubRepository.create(repo=REPO_UNDER_TEST,
                                          access_token=token)
     setattr(repository, 'repo', repo)
+    return repository
+
+
+@pytest.fixture(name='github')
+def _github(pyci, gh):
 
     # pylint: disable=too-few-public-methods
     class GithubSubCommand(object):
 
         def __init__(self):
-            self.api = repository
+            self.api = gh
 
         @staticmethod
         def run(command, binary=False, catch_exceptions=False):

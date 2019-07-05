@@ -22,11 +22,11 @@ import time
 from pyci.api.utils import generate_setup_py
 
 
-def create_release(github, request, sha, name=None):
+def create_release(gh, request, sha, name=None):
 
     release_name = name or request.node.name
 
-    return github.api.repo.create_git_release(
+    return gh.repo.create_git_release(
         tag=release_name,
         target_commitish=sha,
         name=release_name,
@@ -53,10 +53,15 @@ def copy_repo(dst):
     import pyci
     source_path = os.path.abspath(os.path.join(pyci.__file__, os.pardir, os.pardir))
 
+    def _copyfile(path):
+        shutil.copyfile(path, os.path.join(dst, os.path.basename(path)))
+
     code = os.path.join(source_path, 'pyci')
     setup_py = os.path.join(source_path, 'setup.py')
     spec = os.path.join(source_path, 'pyci.spec')
+    license_path = os.path.join(source_path, 'LICENSE')
 
-    shutil.copytree(code, os.path.join(dst, 'pyci'))
-    shutil.copyfile(setup_py, os.path.join(dst, 'setup.py'))
-    shutil.copyfile(spec, os.path.join(dst, 'pyci.spec'))
+    shutil.copytree(code, os.path.join(dst, os.path.basename(code)))
+    _copyfile(setup_py)
+    _copyfile(spec)
+    _copyfile(license_path)

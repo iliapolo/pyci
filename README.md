@@ -1,6 +1,4 @@
 [![Build Status](https://travis-ci.org/iliapolo/pyci.svg?branch=release)](https://travis-ci.org/iliapolo/pyci)
-[![Build status](https://ci.appveyor.com/api/projects/status/psflvuie49b5gi71/branch/release?svg=true)](https://ci.appveyor.com/project/iliapolo/pyci/branch/release)
-[![Build Status](https://circleci.com/gh/iliapolo/pyci/tree/release.svg?style=svg)](https://circleci.com/gh/iliapolo/pyci/tree/release)
 [![Requirements Status](https://requires.io/github/iliapolo/pyci/requirements.svg?branch=release)](https://requires.io/github/iliapolo/pyci/requirements/?branch=release)
 [![codecov](https://codecov.io/gh/iliapolo/pyci/branch/release/graph/badge.svg)](https://codecov.io/gh/iliapolo/pyci)
 [![PyPI Version](http://img.shields.io/pypi/v/py-ci.svg)](https://pypi.org/project/py-ci/)
@@ -545,7 +543,7 @@ main differences revolve around these issues:
     includes these files in the target wheel. [PyInstaller]()https://www.pyinstaller.org/ does not do
     this unfortunately, and you have to specify your package data in 
     a [spec](https://pyinstaller.readthedocs.io/en/v3.3.1/spec-files.html) file (similar to setup.py).  
-    You can see an example in PyCI itself, which uses [this](./pyci.spec#L11) spec file.
+    You can see an example in PyCI itself, which uses [this](pyci.spec#L11) spec file.
 
 - Invoking python command line tools
 
@@ -554,7 +552,7 @@ main differences revolve around these issues:
     However, the python runtime inside a PyInstaller package is not standard, and by default, 
     does not include the *bin* directory from the installation. This means you have to add it 
     yourself, again using a spec file. You can see an example in PyCI itself, which 
-    uses [this](./pyci.spec#L19) spec file.
+    uses [this](pyci.spec#L19) spec file.
     
     Also, the path to these command line tools will **not** be the same. Remember, you running 
     inside a compressed package that embeds the python library. When your command line is invoked,

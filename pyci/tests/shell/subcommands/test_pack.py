@@ -52,7 +52,8 @@ if __name__ == '__main__':
     six.print_('It works!')        
 ''')
 
-    pack.run('binary --name {} --entrypoint {} --pyinstaller-version 3.4'.format(name, custom_main), binary=binary)
+    pack.run('binary --base-name {} --entrypoint {} --pyinstaller-version 3.4'
+             .format(name, custom_main), binary=binary)
 
     if binary:
 
@@ -70,7 +71,7 @@ if __name__ == '__main__':
     else:
 
         # noinspection PyUnresolvedReferences
-        Packager.binary.assert_called_once_with(name=name,  # pylint: disable=no-member
+        Packager.binary.assert_called_once_with(base_name=name,  # pylint: disable=no-member
                                                 entrypoint=custom_main,
                                                 pyinstaller_version='3.4')
 
@@ -87,9 +88,10 @@ def test_binary_file_exists(pack, binary):
     with open(expected_package_path, 'w') as stream:
         stream.write('package')
 
-    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), catch_exceptions=True, binary=binary)
+    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE),
+                      catch_exceptions=True, binary=binary)
 
-    expected_output = 'Binary already exists: {}'.format(expected_package_path)
+    expected_output = 'Binary exists'
     expected_possible_solution = 'Delete/Move the binary and try again'
 
     assert expected_output in result.std_out
@@ -101,7 +103,7 @@ def test_binary_default_entrypoint_doesnt_exist(pack, binary):
 
     result = pack.run('binary', catch_exceptions=True, binary=binary)
 
-    expected_output = 'Failed locating an entrypoint file'
+    expected_output = 'No entrypoint found for repo'
     expected_possible_solutions = [
         'Create an entrypoint file in one of the following paths',
         'Use --entrypoint to specify a custom entrypoint path'
@@ -117,7 +119,7 @@ def test_binary_entrypoint_doesnt_exist(pack, binary):
 
     result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True, binary=binary)
 
-    expected_output = 'The entrypoint path you specified does not exist: doesnt-exist'
+    expected_output = 'Entrypoint not found for repo'
 
     assert expected_output in result.std_out
 
@@ -134,7 +136,8 @@ def test_wheel(pack, repo_version, temp_dir, binary, mocker):
 
     if binary:
 
-        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'.format(repo_version))
+        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'
+                                     .format(repo_version))
 
         expected_output = 'Wheel package created: {}'.format(expected_path)
 
@@ -148,7 +151,7 @@ def test_wheel(pack, repo_version, temp_dir, binary, mocker):
                                                wheel_version='0.33.4')
 
 
-@pytest.mark.parametrize("binary", [False, True])
+@pytest.mark.parametrize("binary", [False])
 def test_wheel_file_exists(pack, repo_version, binary):
 
     expected_path = os.path.join(os.getcwd(), 'py_ci-{}-py2.py3-none-any.whl'
@@ -159,7 +162,7 @@ def test_wheel_file_exists(pack, repo_version, binary):
 
     result = pack.run('wheel --universal', catch_exceptions=True, binary=binary)
 
-    expected_output = 'Wheel already exists: {}'.format(expected_path)
+    expected_output = 'Wheel exists'
     expected_possible_solution = 'Delete/Move the package and try again'
 
     assert expected_output in result.std_out
@@ -232,7 +235,8 @@ def test_binary_cross_distribution_wheel(log, repo_version, repo_path, test_name
                     locale_setup = 'export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 &&'
 
                 result = run_distro.run('chmod +x {} && {} {} pack --path {} wheel'
-                                        .format(remote_binary_path, locale_setup, remote_binary_path, remote_repo_path),
+                                        .format(remote_binary_path, locale_setup,
+                                                remote_binary_path, remote_repo_path),
                                         exit_on_failure=False)
 
                 assert expected_output in result.std_out

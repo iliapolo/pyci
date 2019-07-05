@@ -15,13 +15,11 @@
 #
 #############################################################################
 
-import sys
 import os
 
 import click
 
 from pyci.api import exceptions
-from pyci.api import utils
 from pyci.shell import handle_exceptions
 from pyci.shell import logger
 
@@ -43,21 +41,18 @@ def upload(ctx, wheel):
     """
 
     try:
-        wheel_url = upload_internal(wheel=wheel, pypi=ctx.parent.pypi)
-        log.echo('Wheel uploaded: {}'.format(wheel_url))
-    except exceptions.WheelAlreadyPublishedException as e:
-        e.cause = 'You probably forgot to bump the version number of your project'
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(e, tb)
 
+        pypi = ctx.obj.pypi
 
-def upload_internal(wheel, pypi):
-
-    try:
         log.echo('Uploading {} to PyPI...'.format(os.path.basename(wheel)), break_line=False)
         wheel_url = pypi.upload(wheel=wheel)
         log.checkmark()
+        log.echo('Wheel uploaded: {}'.format(wheel_url))
         return wheel_url
-    except BaseException as _:
+    except BaseException as e:
+
+        if isinstance(e, exceptions.WheelAlreadyPublishedException):
+            e.cause = 'You probably forgot to bump the version number of your project'
+
         log.xmark()
         raise
