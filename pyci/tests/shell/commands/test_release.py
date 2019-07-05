@@ -61,7 +61,7 @@ def test_release(release, temp_dir, mocker):
         with open(installer_path, 'w') as f:
             f.write('nsis')
 
-        return binary_path
+        return installer_path
 
     def _binary(*_, **kwargs):
 
