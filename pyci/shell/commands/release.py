@@ -238,16 +238,16 @@ def _pack_installer(ctx, version, author, website, copyr, license_path, binary_p
         # Rpm and Deb are in the works.
         return None
 
-    exei_path = ctx.invoke(pack.exei,
-                           binary_path=binary_path,
-                           version=version,
-                           output=None,
-                           author=author,
-                           website=website,
-                           copyr=copyr,
-                           license_path=license_path)
+    installer_path = ctx.invoke(pack.nsis,
+                                binary_path=binary_path,
+                                version=version,
+                                output=None,
+                                author=author,
+                                website=website,
+                                copyr=copyr,
+                                license_path=license_path)
 
-    return exei_path
+    return installer_path
 
 
 def _pack_wheel(ctx, wheel_universal, wheel_version):

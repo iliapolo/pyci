@@ -300,7 +300,7 @@ class Packager(object):
 
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-statements
-    def exei(self, binary_path,
+    def nsis(self, binary_path,
              version=None,
              output=None,
              author=None,

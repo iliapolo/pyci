@@ -23,6 +23,7 @@ from pyci.tests.conftest import LAST_COMMIT
 
 
 @pytest.mark.wet
+# pylint: disable=too-many-locals
 def test_release(release, temp_dir, mocker):
 
     expected_entrypoint = 'entrypoint'
@@ -44,21 +45,21 @@ def test_release(release, temp_dir, mocker):
 
     expected_binary_name = 'pyci-guinea-pig.binary'
     expected_wheel_name = 'pyci-guinea-pig.whl'
-    expected_exei_name = 'pyci-guinea-pig.whl'
+    expected_installer_name = 'pyci-guinea-pig.exe'
 
     binary_path = os.path.join(temp_dir, expected_binary_name)
     wheel_path = os.path.join(temp_dir, expected_wheel_name)
-    exei_path = os.path.join(temp_dir, expected_exei_name)
+    installer_path = os.path.join(temp_dir, expected_installer_name)
 
-    def _exei(*_, **kwargs):
+    def _nsis(*_, **kwargs):
 
         assert expected_author == kwargs.get('author')
         assert expected_website == kwargs.get('website')
         assert expected_license_path == kwargs.get('license_path')
         assert expected_copyr == kwargs.get('copyr')
 
-        with open(exei_path, 'w') as f:
-            f.write('exei')
+        with open(installer_path, 'w') as f:
+            f.write('nsis')
 
         return binary_path
 
@@ -87,7 +88,7 @@ def test_release(release, temp_dir, mocker):
     mocker.patch(target='pyci.api.utils.is_windows', side_effect=_is_windows)
     mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
     mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
-    mocker.patch(target='pyci.api.packager.Packager.exei', side_effect=_exei)
+    mocker.patch(target='pyci.api.packager.Packager.nsis', side_effect=_nsis)
     mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch release {}'.format(release_options))
@@ -97,7 +98,7 @@ def test_release(release, temp_dir, mocker):
     assets = [asset.name for asset in github_release.get_assets()]
     assert expected_binary_name in assets
     assert expected_wheel_name in assets
-    assert expected_exei_name in assets
+    assert expected_installer_name in assets
 
     from pyci.api.pypi import PyPI
 

@@ -19,7 +19,6 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import utils
-from pyci.api.packager import DEFAULT_WHEEL_VERSION
 from pyci.shell import handle_exceptions
 from pyci.shell import logger
 from pyci.shell.exceptions import ShellException
@@ -170,7 +169,7 @@ def wheel(ctx, universal, wheel_version):
               help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
                    'to license value in setup.py (if exists)')
 @handle_exceptions
-def exei(ctx, binary_path, version, output, author, website, copyr, license_path):
+def nsis(ctx, binary_path, version, output, author, website, copyr, license_path):
 
     """
     Create a windows executable installer.
@@ -185,14 +184,14 @@ def exei(ctx, binary_path, version, output, author, website, copyr, license_path
     """
 
     if not utils.is_windows():
-        raise ShellException('exei packaging can only run on windows machines')
+        raise ShellException('NSIS packaging can only run on windows machines')
 
     try:
 
         packager = ctx.obj.packager
 
-        log.echo('Packaging exei...', break_line=False)
-        package_path = packager.exei(binary_path,
+        log.echo('Packaging NSIS installer...', break_line=False)
+        package_path = packager.nsis(binary_path,
                                      version=version,
                                      output=output,
                                      author=author,
