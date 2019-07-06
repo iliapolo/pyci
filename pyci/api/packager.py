@@ -58,7 +58,7 @@ class Packager(object):
 
     """
 
-    def __init__(self, repo=None, sha=None, path=None, target_dir=None, log=None):
+    def __init__(self, repo=None, sha=None, path=None, target_dir=None, python=None, log=None):
 
         if sha and not repo:
             raise exceptions.InvalidArgumentsException('Must pass repo as well when passing sha')
@@ -79,6 +79,7 @@ class Packager(object):
             utils.validate_directory_exists(path)
 
         self._repo = repo
+        self._python = python
         self._target_dir = target_dir or os.getcwd()
         self._sha = sha
         self._path = os.path.abspath(path) if path else None
@@ -141,9 +142,7 @@ class Packager(object):
                Defaults to the 'name' specified in your setup.py file.
             entrypoint (:`str`, optional): Path to a script file from which the executable
                is built. This can either by a .py or a .spec file.
-               By default, the packager will look for the following files (in order):
-                   - <name>.spec
-                   - <name>/shell/main.py
+               By default, the packager will look for the entry point specified in setup.py.
             pyinstaller_version (:str, optional): Which PyInstaller version to use.
 
         Raises:
@@ -153,6 +152,7 @@ class Packager(object):
                 and the default entry-points pyci looks for are also missing.
             EntrypointNotFoundException: Raised when the custom entrypoint provided does not
                 exist in the repository.
+            MultipleDefaultEntrypointsFoundException: If setup.py contains multiple entrypoints specification.
 
         """
 
@@ -160,7 +160,7 @@ class Packager(object):
         try:
 
             base_name = base_name or self._default_name
-            entrypoint = entrypoint or self._default_entrypoint(base_name)
+            entrypoint = entrypoint or self._default_entrypoint
 
             destination = os.path.join(self.target_dir, '{0}-{1}-{2}'
                                        .format(base_name, platform.machine(), platform.system()))
@@ -505,31 +505,58 @@ class Packager(object):
         except exceptions.NotPythonProjectException as e:
             raise exceptions.FailedReadingSetupPyURLException(str(e))
 
-    def _default_entrypoint(self, name):
+    @cachedproperty
+    def _default_entrypoint(self):
 
-        expected_paths = [
-            '{0}.spec'.format(name),
-            os.path.join(name, 'shell', 'main.py')
-        ]
+        temp_dir = tempfile.mkdtemp()
 
-        for path in expected_paths:
-            try:
-                full_path = os.path.join(self._repo_dir, path)
-                utils.validate_file_exists(path=full_path)
-                return full_path
-            except (exceptions.FileIsADirectoryException, exceptions.FileDoesntExistException):
-                pass
+        try:
 
-        raise exceptions.DefaultEntrypointNotFoundException(
-            repo=self._repo, name=self._default_name, expected_paths=expected_paths)
+            egg_base = os.path.join(temp_dir, 'egg-base')
+
+            self.__create_egg_info(egg_base)
+
+            entrypoints_txt = self._lookup_egg_info(egg_base, 'entry_points.txt')
+
+            if not entrypoints_txt:
+                raise exceptions.DefaultEntrypointNotFoundException(repo=self._repo,
+                                                                    reason='No entrypoints defined in setup.py')
+
+            console_scripts = utils.parse_ini(entrypoints_txt)['console_scripts']
+
+            assert console_scripts
+
+            if len(console_scripts) > 1:
+                raise exceptions.MultipleDefaultEntrypointsFoundException(repo=self._repo,
+                                                                          entrypoints=console_scripts.keys())
+
+            script_path = '{}.py'.format(console_scripts[console_scripts.keys()[0]].split(':')[0].replace('.', os.sep))
+
+            return os.path.join(self._repo_dir, script_path)
+
+        finally:
+            utils.rmf(temp_dir)
 
     @cachedproperty
     def _setup_py_path(self):
         return os.path.join(self._repo_dir, 'setup.py')
 
-    @staticmethod
-    def _interpreter():
+    @cachedproperty
+    def _interpreter(self):
+        return self._python or self._lookup_interpreter()
 
+    @staticmethod
+    def _lookup_egg_info(egg_base, name):
+
+        for dirpath, _, filenames in os.walk(egg_base):
+            if name in filenames:
+                f = os.path.join(dirpath, name)
+                return f
+
+        return None
+
+    @staticmethod
+    def _lookup_interpreter():
         if utils.is_pyinstaller():
             interpreter = utils.which('python')
         else:
@@ -548,21 +575,28 @@ class Packager(object):
                                                        sha=self._sha,
                                                        path=self._path)
 
-        command = '{} {} --{}'.format(self._interpreter(), self._setup_py_path, argument)
+        command = '{} {} --{}'.format(self._interpreter, self._setup_py_path, argument)
 
         return self._runner.run(command).std_out
 
+    def __create_egg_info(self, egg_base):
+
+        if not os.path.exists(egg_base):
+            os.mkdir(egg_base)
+
+        self._runner.run('{} {} egg_info --egg-base {}'
+                         .format(self._interpreter, self._setup_py_path, egg_base),
+                         cwd=self._repo_dir)
+
     # pylint: disable=too-many-branches
     @contextlib.contextmanager
-    def _create_virtualenv(self, name, python=None):
+    def _create_virtualenv(self, name):
 
         temp_dir = tempfile.mkdtemp()
 
         virtualenv_path = os.path.join(temp_dir, name)
 
         self._debug('Creating virtualenv {}'.format(virtualenv_path))
-
-        interpreter = python or self._interpreter()
 
         def _create_virtualenv_dist():
 
@@ -589,7 +623,7 @@ class Packager(object):
 
         virtualenv_py = _create_virtualenv_dist()
 
-        create_virtualenv_command = '{} {} --no-wheel {}'.format(interpreter,
+        create_virtualenv_command = '{} {} --no-wheel {}'.format(self._interpreter,
                                                                  virtualenv_py,
                                                                  virtualenv_path)
 
@@ -609,19 +643,12 @@ class Packager(object):
 
         elif os.path.exists(self._setup_py_path):
 
-            # Dump the 'install_requires' argument from setup.py into a requirements file.
             egg_base = os.path.join(temp_dir, 'egg-base')
-            os.mkdir(egg_base)
 
             self._debug('Dumping requirements file for {}'.format(name))
-            self._runner.run('{} {} egg_info --egg-base {}'
-                             .format(interpreter, self._setup_py_path, egg_base),
-                             cwd=self._repo_dir)
+            self.__create_egg_info(egg_base)
 
-            requires = None
-            for dirpath, _, filenames in os.walk(egg_base):
-                if 'requires.txt' in filenames:
-                    requires = os.path.join(dirpath, 'requires.txt')
+            requires = self._lookup_egg_info(egg_base, 'requires.txt')
 
             if not requires:
                 # Something is really wrong if this happens

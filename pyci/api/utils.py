@@ -24,6 +24,8 @@ import sys
 import tempfile
 import uuid
 import zipfile
+import configparser
+
 import six
 
 
@@ -420,3 +422,45 @@ def validate_nsis_version(version):
 
     if len(parts) != 4:
         raise exceptions.InvalidNSISVersionException(pattern='X.X.X.X', version=version)
+
+
+def parse_ini(f):
+
+    """
+    Parse an ini formatted file into a dictionary.
+
+    Each stanza is translated to a top level dictionary key. For example, the following ini file:
+
+    [console_scripts]
+    pyci = pyci.shell.main:app
+
+    Will be parsed into the following dictionary:
+
+    {
+      "console_scripts": {
+        "pyci": "pyci.shell.main:app"
+      }
+    }
+
+    Args:
+        f (:str): Path to the file to parse.
+
+    Returns:
+        A dictionary representing the file.
+
+    """
+
+    with open(f) as ini:
+
+        dictionary = {}
+        ini_parser = configparser.ConfigParser()
+        ini_parser.read_string(six.u(ini.read()))
+
+        for section in ini_parser.sections():
+            section = str(section)
+            dictionary[section] = {}
+            for key in ini_parser.options(section):
+                key = str(key)
+                dictionary[section][key] = ini_parser.get(section=section, option=key)
+
+        return dictionary

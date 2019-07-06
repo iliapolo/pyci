@@ -133,15 +133,24 @@ class CommandExecutionException(ApiException):
 
 class DefaultEntrypointNotFoundException(ApiException):
 
-    def __init__(self, repo, name, expected_paths):
-        self.expected_paths = expected_paths
-        self.name = name
+    def __init__(self, repo, reason):
+        self.reason = reason
         self.repo = repo
         super(DefaultEntrypointNotFoundException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'No entrypoint found for repo {}: Looked in --> [{}]'.format(
-            self.repo, ', '.join(self.expected_paths))
+        return 'Failed locating default entry point for repo {}: {}'.format(self.repo, self.reason)
+
+
+class MultipleDefaultEntrypointsFoundException(ApiException):
+
+    def __init__(self, repo, entrypoints):
+        self.entrypoints = entrypoints
+        self.repo = repo
+        super(MultipleDefaultEntrypointsFoundException, self).__init__(self.__str__())
+
+    def __str__(self):
+        return 'Multiple entry points found for repo {}: {}'.format(self.repo, self.entrypoints)
 
 
 class EntrypointNotFoundException(ApiException):

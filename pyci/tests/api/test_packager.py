@@ -146,7 +146,19 @@ def test_binary(runner, pyci):
     runner.run('{0} --help'.format(pyci.binary_path))
 
 
-def test_binary_options(pack, request, runner, temp_dir):
+def test_binary_auto_detect_entrypoint(runner, temp_dir):
+
+    repo_path = test_resources.get_resource_path(os.path.join('repos', 'with-entrypoint'))
+
+    packager = Packager.create(path=repo_path, target_dir=temp_dir)
+
+    binary_path = packager.binary()
+
+    # lets make sure the binary actually works
+    assert runner.run(binary_path).std_out == 'Hello from entrypoint'
+
+
+def test_binary_custom_entrypoint(pack, request, runner, temp_dir):
 
     pack.api.target_dir = temp_dir
 
@@ -219,11 +231,30 @@ def test_binary_file_exists(pack):
 
 def test_binary_default_entrypoint_doesnt_exist(pack):
 
-    os.remove(os.path.join(pack.api.repo_dir, conftest.SPEC_FILE))
     os.remove(os.path.join(pack.api.repo_dir, 'pyci', 'shell', 'main.py'))
 
-    with pytest.raises(exceptions.DefaultEntrypointNotFoundException):
+    with pytest.raises(exceptions.EntrypointNotFoundException):
         pack.api.binary()
+
+
+def test_binary_no_default_entrypoint(temp_dir):
+
+    repo_path = test_resources.get_resource_path(os.path.join('repos', 'no-entrypoint'))
+
+    packager = Packager.create(path=repo_path, target_dir=temp_dir)
+
+    with pytest.raises(exceptions.DefaultEntrypointNotFoundException):
+        packager.binary()
+
+
+def test_binary_multiple_default_entrypoints(temp_dir):
+
+    repo_path = test_resources.get_resource_path(os.path.join('repos', 'multiple-entrypoints'))
+
+    packager = Packager.create(path=repo_path, target_dir=temp_dir)
+
+    with pytest.raises(exceptions.MultipleDefaultEntrypointsFoundException):
+        packager.binary()
 
 
 def test_binary_entrypoint_doesnt_exist(pack):
