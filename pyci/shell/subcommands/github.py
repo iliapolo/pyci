@@ -23,7 +23,7 @@ import click
 
 from pyci.api import exceptions
 from pyci.api import utils
-from pyci.api import model
+from pyci.api.model import model
 from pyci.shell import solutions
 from pyci.shell import handle_exceptions
 from pyci.shell.logger import get as get_logger
@@ -280,11 +280,9 @@ def create_release(ctx, sha):
         log.echo('Release created: {}'.format(release.url))
         return release
 
-    except exceptions.NotPythonProjectException as e:
-        err = ShellException(str(e))
-        err.possible_solutions = solutions.non_standard_project()
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(err, tb)
+    except exceptions.SetupPyNotFoundException as e:
+        e.possible_solutions = [solutions.create_setup_py()]
+        raise
 
 
 @click.command()

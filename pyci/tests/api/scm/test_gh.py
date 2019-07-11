@@ -21,8 +21,8 @@ import pytest
 from github import UnknownObjectException, GithubException, GitRelease
 
 from pyci.api import exceptions, utils
-from pyci.api.gh import GitHubRepository
-from pyci.api.model import Changelog, ChangelogIssue
+from pyci.api.scm.gh import GitHubRepository
+from pyci.api.model import model
 from pyci.tests import conftest
 from pyci.tests.conftest import LAST_COMMIT
 from pyci.tests import utils as test_utils
@@ -227,13 +227,13 @@ def test_upload_changelog(gh, request):
 
     test_utils.create_release(gh, request, expected_sha, expected_title)
 
-    changelog = Changelog(sha=expected_sha, current_version='0.0.1')
+    changelog = model.Changelog(sha=expected_sha, current_version='0.0.1')
 
-    changelog.add(ChangelogIssue(title='title',
-                                 url='url',
-                                 timestamp=100,
-                                 kind=ChangelogIssue.FEATURE,
-                                 semantic=ChangelogIssue.MINOR))
+    changelog.add(model.ChangelogIssue(title='title',
+                                       url='url',
+                                       timestamp=100,
+                                       kind=model.ChangelogIssue.FEATURE,
+                                       semantic=model.ChangelogIssue.MINOR))
 
     release = gh.upload_changelog(changelog=changelog.render(), release='0.0.1')
 
@@ -561,10 +561,10 @@ def test_create_release_non_existing_commit(gh):
         gh.create_release(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab89')
 
 
-def test_create_release_not_python_project(gh):
+def test_create_release_no_setup_py(gh):
 
     sha = 'aee0c4c21d64f95f6742838aded957c2be71c2e5'
-    with pytest.raises(exceptions.NotPythonProjectException):
+    with pytest.raises(exceptions.SetupPyNotFoundException):
         gh.create_release(sha=sha)
 
 

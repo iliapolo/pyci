@@ -15,83 +15,64 @@
 #
 #############################################################################
 
-import pytest
 
+def test_pack_sha_and_path(pyci):
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_sha_and_path(pyci, binary):
-
-    result = pyci.run('pack --sha sha --path path --repo repo wheel',
-                      catch_exceptions=True,
-                      binary=binary)
+    result = pyci.run('pack --sha sha --path path --repo repo wheel', catch_exceptions=True)
 
     expected_output = 'Use either --sha or --path, not both'
 
     assert expected_output in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_repo_no_sha(pyci, binary):
+def test_pack_repo_no_sha(pyci):
 
-    result = pyci.run('--no-ci pack --repo repo wheel', catch_exceptions=True, binary=binary)
+    result = pyci.run('--no-ci pack --repo repo wheel', catch_exceptions=True)
 
     expected_output = 'Must specify --sha as well'
 
     assert expected_output in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_repo_sha_path(pyci, binary):
+def test_pack_repo_sha_path(pyci):
 
-    result = pyci.run('pack --repo repo --sha sha --path path wheel',
-                      catch_exceptions=True,
-                      binary=binary)
+    result = pyci.run('pack --repo repo --sha sha --path path wheel', catch_exceptions=True)
 
     expected_output = 'Use either --sha or --path, not both'
 
     assert expected_output in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_no_repo(pyci, binary):
+def test_pack_no_repo(pyci):
 
-    result = pyci.run('--no-ci pack wheel --help', catch_exceptions=True, binary=binary)
+    result = pyci.run('--no-ci pack wheel --help', catch_exceptions=True)
 
     expected_output = 'Failed detecting repository name'
 
     assert expected_output in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_target_dir_doesnt_exist(pyci, binary):
+def test_pack_target_dir_doesnt_exist(pyci):
 
-    result = pyci.run('pack --repo repo --sha sha --target-dir doesnt-exist wheel --help',
-                      catch_exceptions=True,
-                      binary=binary)
+    result = pyci.run('pack --repo repo --sha sha --target-dir doesnt-exist wheel --help', catch_exceptions=True)
 
     expected_output = 'Directory does not exist: doesnt-exist'
 
     assert expected_output in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_pack_sha_doesnt_exist(pyci, binary):
+def test_pack_sha_doesnt_exist(pyci):
 
-    result = pyci.run('pack --repo iliapolo/pyci --sha doesnt-exist wheel --help',
-                      catch_exceptions=True,
-                      binary=binary)
+    result = pyci.run('pack --repo iliapolo/pyci --sha doesnt-exist wheel --help', catch_exceptions=True)
 
     expected_output = 'Not Found'
 
     assert expected_output in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_github_no_repo(pyci, binary):
+def test_github_no_repo(pyci):
 
-    result = pyci.run('--no-ci github validate-commit --help',
-                      catch_exceptions=True,
-                      binary=binary)
+    result = pyci.run('--no-ci github validate-commit --help', catch_exceptions=True)
 
     expected_output = 'Failed detecting repository name'
 

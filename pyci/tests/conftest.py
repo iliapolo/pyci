@@ -29,9 +29,9 @@ from github import Github
 
 from pyci.api import logger
 from pyci.api import utils
-from pyci.api.gh import GitHubRepository
-from pyci.api.packager import Packager
-from pyci.api.pypi import PyPI
+from pyci.api.scm.gh import GitHubRepository
+from pyci.api.package.packager import Packager
+from pyci.api.publish.pypi import PyPI
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell import secrets
 from pyci.tests.shell import PyCI
@@ -39,7 +39,7 @@ from pyci.tests.shell import CLICK_ISOLATION
 from pyci import tests
 from pyci.tests import utils as test_utils
 
-logger.DEFAULT_LOG_LEVEL = logging.DEBUG
+# logger.DEFAULT_LOG_LEVEL = logging.DEBUG
 
 REPO_UNDER_TEST = 'iliapolo/pyci-guinea-pig'
 LAST_COMMIT = 'cf2d64132f00c849ae1bb62ffb2e32b719b6cbac'
@@ -59,7 +59,7 @@ def _skip(request, test_name):
         __skip('This test should not run on windows')
 
     if _get_marker(request, test_name, 'windows') is not None and system != 'windows':
-        __skip('This test should not run on windows')
+        __skip('This test should only run on windows')
 
     if _get_marker(request, test_name, 'docker') is not None and docker is None:
         __skip('This test can only run when docker is installed')
@@ -180,13 +180,10 @@ def _pack(pyci, repo_path):
         def __init__(self):
             self.api = packager
 
-        def run(self, command, binary=False, catch_exceptions=False):
+        @staticmethod
+        def run(command, binary=False, catch_exceptions=False):
 
-            # noinspection PyProtectedMember
-            # pylint: disable=protected-access
-            pack_options = '--path {}'.format(packager._repo_dir)
-            if self.api.target_dir:
-                pack_options = '{} --target-dir {}'.format(pack_options, self.api.target_dir)
+            pack_options = '--path {}'.format(repo_path)
 
             command = '--no-ci pack {} {}'.format(pack_options, command)
 
@@ -218,6 +215,20 @@ def _pypi(pyci):
                             catch_exceptions=catch_exceptions)
 
     yield PyPISubCommand()
+
+
+@pytest.fixture(name='temp_file')
+def _temp_file(temp_dir):
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False).name
+
+    with open(temp_file, 'w') as f:
+        f.write('stub')
+
+    try:
+        yield temp_file
+    finally:
+        os.remove(temp_file)
 
 
 @pytest.fixture(name='temp_dir')

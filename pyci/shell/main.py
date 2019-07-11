@@ -20,16 +20,13 @@ import sys
 
 import click
 
-import pyci
-import pyci.shell
+from pyci.shell import detect_repo
 from pyci.api import logger as api_logger
-from pyci.api import ci as ci_api
-from pyci.api.gh import GitHubRepository
-from pyci.api.packager import Packager
-from pyci.api.pypi import PyPI
+from pyci.api.ci import ci as ci_api
+from pyci.api.scm.gh import GitHubRepository
+from pyci.api.package.packager import Packager
+from pyci.api.publish.pypi import PyPI
 from pyci.api import exceptions
-from pyci.api import utils
-from pyci.shell import solutions
 from pyci.shell import help as pyci_help
 from pyci.shell import handle_exceptions
 from pyci.shell import secrets
@@ -41,7 +38,6 @@ from pyci.shell.subcommands import pypi as pypi_group
 from pyci.shell.subcommands import ci as ci_group
 from pyci.shell import logger as shell_logger
 from pyci import resources
-from pyci.shell.exceptions import ShellException
 
 log = shell_logger.get()
 
@@ -106,7 +102,7 @@ def github(ctx, repo):
     Sub-command for Github operations.
     """
 
-    repo = pyci.shell.detect_repo(ctx, ctx.obj.ci_provider, repo)
+    repo = detect_repo(ctx, ctx.obj.ci_provider, repo)
 
     gh = GitHubRepository.create(
         repo=repo,
@@ -142,7 +138,7 @@ def pack(ctx, repo, sha, path, target_dir):
     sha = sha if sha else (ci_provider.sha if ci_provider else None)
 
     if not path:
-        repo = pyci.shell.detect_repo(ctx, ci_provider, repo)
+        repo = detect_repo(ctx, ci_provider, repo)
 
     if repo and not sha:
         raise click.UsageError('Must specify --sha as well')
@@ -155,24 +151,19 @@ def pack(ctx, repo, sha, path, target_dir):
 
     try:
         ctx.obj.packager = Packager.create(repo=repo, path=path, sha=sha, target_dir=target_dir)
-    except exceptions.DirectoryDoesntExistException as e:
-        err = ShellException(str(e))
-        err.possible_solutions = [
-            'Create the directory and try again'
-        ]
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(err, tb)
-    except exceptions.NotPythonProjectException as e:
-        err = ShellException(str(e))
-        err.possible_solutions = solutions.non_standard_project()
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(err, tb)
-    except exceptions.DownloadFailedException as e:
-        err = ShellException(str(e))
-        if e.code == 404:
-            err.cause = 'You either provided a non existing sha or a non existing repository'
-        tb = sys.exc_info()[2]
-        utils.raise_with_traceback(err, tb)
+    except BaseException as e:
+
+        if isinstance(e, exceptions.DirectoryDoesntExistException):
+            e.possible_solutions = [
+                'Create the directory and try again'
+            ]
+
+        if isinstance(e, exceptions.DownloadFailedException):
+            # pylint: disable=no-member
+            if e.code == 404:
+                e.cause = 'You either provided a non existing sha or a non existing repository'
+
+        raise
 
 
 @click.group()

@@ -18,78 +18,53 @@
 import os
 import platform
 
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
-
 import pytest
 
-from pyci.api.packager import Packager
+from pyci.api.package.packager import Packager
+from pyci.api import utils
+from pyci.api import exceptions
 from pyci.tests import distros
-from pyci.tests import conftest
+from pyci.tests import utils as test_utils
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_binary(pack, temp_dir, request, runner, binary, mocker):
+def test_binary(pack, runner):
 
-    pack.api.target_dir = temp_dir
+    pack.run('binary', binary=True)
 
-    if not binary:
-        mocker.patch(target='pyci.api.packager.Packager.binary', new=MagicMock())
+    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{}-{}'.format(platform.machine(), platform.system()))
 
-    name = request.node.name.replace('[', '-').replace(']', '')
-    custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
-
-    with open(os.path.join(pack.api.repo_dir, custom_main), 'w') as stream:
-        stream.write('''
-import six
-
-if __name__ == '__main__':
-    six.print_('It works!')        
-''')
-
-    pack.run('binary --base-name {} --entrypoint {} --pyinstaller-version 3.4'
-             .format(name, custom_main), binary=binary)
-
-    if binary:
-
-        expected_package_path = os.path.join(temp_dir, '{}-{}-{}'
-                                             .format(name, platform.machine(), platform.system()))
-
-        if platform.system() == 'Windows':
-            expected_package_path = '{0}.exe'.format(expected_package_path)
-
-        assert os.path.exists(expected_package_path)
-
-        # lets make sure the binary actually works
-        assert runner.run(expected_package_path).std_out == 'It works!'
-
-    else:
-
-        # noinspection PyUnresolvedReferences
-        Packager.binary.assert_called_once_with(base_name=name,  # pylint: disable=no-member
-                                                entrypoint=custom_main,
-                                                pyinstaller_version='3.4')
-
-
-@pytest.mark.parametrize("binary", [False, True])
-def test_binary_file_exists(pack, binary):
-
-    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{0}-{1}'.format(
-        platform.machine(), platform.system()))
-
-    if platform.system() == 'Windows':
+    if utils.is_windows():
         expected_package_path = '{0}.exe'.format(expected_package_path)
 
-    with open(expected_package_path, 'w') as stream:
-        stream.write('package')
+    assert os.path.exists(expected_package_path)
 
-    result = pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE),
-                      catch_exceptions=True, binary=binary)
+    # lets make sure the binary actually works
+    assert runner.run(expected_package_path)
+
+
+def test_binary_options(pack, mocker):
+
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', new=test_utils.MagicMock())
+
+    pack.run('binary '
+             '--base-name name '
+             '--entrypoint entrypoint '
+             '--pyinstaller-version 3.4')
+
+    # noinspection PyUnresolvedReferences
+    Packager.binary.assert_called_once_with(base_name='name',  # pylint: disable=no-member
+                                            entrypoint='entrypoint',
+                                            pyinstaller_version='3.4')
+
+
+def test_binary_file_exists(pack, mocker):
+
+    def _binary(**__):
+        raise exceptions.BinaryExistsException(path='path')
+
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+
+    result = pack.run('binary', catch_exceptions=True)
 
     expected_output = 'Binary exists'
     expected_possible_solution = 'Delete/Move the binary and try again'
@@ -98,15 +73,22 @@ def test_binary_file_exists(pack, binary):
     assert expected_possible_solution in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_binary_default_entrypoint_doesnt_exist(pack, binary):
+def test_binary_no_setup_py_file(pack, mocker, repo_path):
 
-    result = pack.run('binary', catch_exceptions=True, binary=binary)
+    def _binary(**__):
 
-    expected_output = 'No entrypoint found for repo'
+        raise exceptions.FailedDetectingPackageMetadataException(
+            argument='entry_points',
+            reason=exceptions.SetupPyNotFoundException(repo=repo_path))
+
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+
+    result = pack.run('binary', catch_exceptions=True)
+
+    expected_output = 'Failed detecting entry_points'
     expected_possible_solutions = [
-        'Create an entrypoint file in one of the following paths',
-        'Use --entrypoint to specify a custom entrypoint path'
+        'Create a setup.py file and follow standard python packaging structure',
+        'Use --entrypoint to specify a custom entrypoint'
     ]
 
     assert expected_output in result.std_out
@@ -114,53 +96,81 @@ def test_binary_default_entrypoint_doesnt_exist(pack, binary):
         assert expected_possible_solution in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_binary_entrypoint_doesnt_exist(pack, binary):
+def test_binary_missing_entry_points_from_setup_py_file(pack, mocker, repo_path):
 
-    result = pack.run('binary --entrypoint doesnt-exist', catch_exceptions=True, binary=binary)
+    def _binary(**__):
 
-    expected_output = 'Entrypoint not found for repo'
+        raise exceptions.FailedDetectingPackageMetadataException(
+            argument='entry_points',
+            reason=exceptions.MissingSetupPyArgumentException(repo=repo_path, argument='entry_points'))
+
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+
+    result = pack.run('binary', catch_exceptions=True)
+
+    expected_output = 'Failed detecting entry_points'
+    expected_possible_solutions = [
+        "Add the 'entry_points' argument to your setup.py file",
+        'Use --entrypoint to specify a custom entrypoint'
+    ]
 
     assert expected_output in result.std_out
+    for expected_possible_solution in expected_possible_solutions:
+        assert expected_possible_solution in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_wheel(pack, repo_version, temp_dir, binary, mocker):
+def test_binary_console_script_not_found(pack, repo_path, mocker):
 
-    pack.api.target_dir = temp_dir
+    def _binary(**__):
 
-    if not binary:
-        mocker.patch(target='pyci.api.packager.Packager.wheel', new=MagicMock())
+        raise exceptions.ConsoleScriptNotFoundException(repo=repo_path, script='script')
 
-    result = pack.run('wheel --universal --wheel-version 0.33.4', binary=binary)
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
 
-    if binary:
+    result = pack.run('binary', catch_exceptions=True)
 
-        expected_path = os.path.join(temp_dir, 'py_ci-{0}-py2.py3-none-any.whl'
-                                     .format(repo_version))
+    expected_output = 'Console script not found in repo'
+    expected_possible_solutions = [
+        "Fix the 'entry_points' argument in setup.py to point to an existing script",
+        'Use --entrypoint to specify a different script than the one in setup.py (discouraged)'
+    ]
 
-        expected_output = 'Wheel package created: {}'.format(expected_path)
-
-        assert expected_output in result.std_out
-        assert os.path.exists(expected_path)
-
-    else:
-
-        # noinspection PyUnresolvedReferences
-        Packager.wheel.assert_called_once_with(universal=True,  # pylint: disable=no-member
-                                               wheel_version='0.33.4')
+    assert expected_output in result.std_out
+    for expected_possible_solution in expected_possible_solutions:
+        assert expected_possible_solution in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False])
-def test_wheel_file_exists(pack, repo_version, binary):
+def test_wheel(pack, repo_version):
 
-    expected_path = os.path.join(os.getcwd(), 'py_ci-{}-py2.py3-none-any.whl'
-                                 .format(repo_version))
+    result = pack.run('wheel --universal', binary=True)
 
-    with open(expected_path, 'w') as stream:
-        stream.write('package')
+    expected_path = os.path.join(os.getcwd(), 'py_ci-{0}-py2.py3-none-any.whl'.format(repo_version))
 
-    result = pack.run('wheel --universal', catch_exceptions=True, binary=binary)
+    expected_output = 'Wheel package created: {}'.format(expected_path)
+
+    assert expected_output in result.std_out
+    assert os.path.exists(expected_path)
+
+
+def test_wheel_options(pack, mocker):
+
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', new=test_utils.MagicMock())
+
+    pack.run('wheel --universal --wheel-version 0.33.4')
+
+    # noinspection PyUnresolvedReferences
+    Packager.wheel.assert_called_once_with(universal=True,  # pylint: disable=no-member
+                                           wheel_version='0.33.4')
+
+
+def test_wheel_file_exists(pack, mocker):
+
+    def _wheel(**__):
+        raise exceptions.WheelExistsException(path='path')
+
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', side_effect=_wheel)
+
+    result = pack.run('wheel', catch_exceptions=True)
 
     expected_output = 'Wheel exists'
     expected_possible_solution = 'Delete/Move the package and try again'
@@ -169,16 +179,102 @@ def test_wheel_file_exists(pack, repo_version, binary):
     assert expected_possible_solution in result.std_out
 
 
-@pytest.mark.parametrize("binary", [False, True])
-def test_wheel_not_python_project(pack, binary):
+def test_wheel_no_setup_py(pack, repo_path, mocker):
 
-    os.remove(os.path.join(pack.api.repo_dir, 'setup.py'))
+    def _wheel(**__):
+        raise exceptions.SetupPyNotFoundException(repo=repo_path)
 
-    result = pack.run('wheel', binary=binary, catch_exceptions=True)
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', side_effect=_wheel)
 
-    expected_output = 'does not contain a valid python project'
+    result = pack.run('wheel', catch_exceptions=True)
+
+    expected_output = 'does not contain a setup.py'
+    expected_possible_solution = 'Create a setup.py file'
 
     assert expected_output in result.std_out
+    assert expected_possible_solution in result.std_out
+
+
+@pytest.mark.windows
+def test_nsis(pack):
+
+    pack.run('nsis', binary=True)
+
+    expected_package_path = os.path.join(os.getcwd(), 'py-ci-{}-{}-installer.exe'
+                                         .format(platform.machine(), platform.system()))
+
+    assert os.path.exists(expected_package_path)
+
+
+def test_nsis_options(pack, mocker):
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    mocker.patch(target='pyci.api.package.packager.Packager.nsis', new=test_utils.MagicMock())
+
+    pack.run('nsis '
+             '--binary-path binary-path '
+             '--version version '
+             '--output output '
+             '--author author '
+             '--url url '
+             '--copyright copyright '
+             '--license license')
+
+    # noinspection PyUnresolvedReferences
+    Packager.nsis.assert_called_once_with('binary-path',  # pylint: disable=no-member
+                                          version='version',
+                                          output='output',
+                                          author='author',
+                                          url='url',
+                                          copyright_string='copyright',
+                                          license_path='license')
+
+
+def test_nsis_no_setup_py(pack, repo_path, mocker):
+
+    def _nsis(*_, **__):
+
+        raise exceptions.FailedDetectingPackageMetadataException(
+            argument='something',
+            reason=exceptions.SetupPyNotFoundException(repo=repo_path))
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    mocker.patch(target='pyci.api.package.packager.Packager.nsis', side_effect=_nsis)
+
+    result = pack.run('nsis --binary-path binary-path', catch_exceptions=True)
+
+    expected_output = 'does not contain a setup.py'
+    expected_possible_solution = 'Create a setup.py file'
+
+    assert expected_output in result.std_out
+    assert expected_possible_solution in result.std_out
+
+
+def test_nsis_missing_argument_from_setup_py(pack, repo_path, mocker):
+
+    def _nsis(*_, **__):
+
+        raise exceptions.FailedDetectingPackageMetadataException(
+            argument='something',
+            reason=exceptions.MissingSetupPyArgumentException(repo=repo_path, argument='something'))
+
+    mocker.patch('pyci.api.utils.is_windows')
+
+    mocker.patch(target='pyci.api.package.packager.Packager.nsis', side_effect=_nsis)
+
+    result = pack.run('nsis --binary-path binary-path', catch_exceptions=True)
+
+    expected_output = 'Failed detecting something'
+    expected_possible_solutions = [
+        "Add the 'something' argument to your setup.py file",
+        'Use --something to specify a custom something'
+    ]
+
+    assert expected_output in result.std_out
+    for expected_possible_solution in expected_possible_solutions:
+        assert expected_possible_solution in result.std_out
 
 
 @pytest.mark.docker

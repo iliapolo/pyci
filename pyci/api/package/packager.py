@@ -51,14 +51,21 @@ class Packager(object):
     in which case, the sha and repo arguments are irrelevant.
 
     Args:
+
         repo (:str, optional): The repository full name.
+
         sha (:str, optional): The of the repository.
+
         path (:str, optional): The path to your local working copy of the repository.
+
         target_dir (:str, optional): Target directory where packages will be created.
+
+        python (:str, optional): The python interpreter to use for packaging.
+            If not specified, the first 'python' program found in your PATH will be used.
 
     """
 
-    def __init__(self, repo=None, sha=None, path=None, target_dir=None, python=None, log=None):
+    def __init__(self, repo=None, sha=None, path=None, target_dir=None, python=None):
 
         if sha and not repo:
             raise exceptions.InvalidArgumentsException('Must pass repo as well when passing sha')
@@ -78,91 +85,95 @@ class Packager(object):
         if path:
             utils.validate_directory_exists(path)
 
-        self._repo = repo
+        self._repo_location = path if path else '{}@{}'.format(repo, sha)
         self._python = python
         self._target_dir = target_dir or os.getcwd()
-        self._sha = sha
-        self._path = os.path.abspath(path) if path else None
-        self._logger = log or logger.Logger(__name__)
+        self._logger = logger.Logger(__name__)
         self._runner = LocalCommandRunner(log=self._logger)
         self._log_ctx = {
-            'repo': self._repo,
-            'sha': self._sha,
-            'path': self._path
+            'repo': self._repo_location,
         }
-        self._repo_dir = self._create_repo()
+        self._repo_dir = self._create_repo(path, sha, repo)
 
-    def _create_repo(self):
+    def _create_repo(self, path, sha, repo):
 
-        if self._path:
-            repo_dir = self._path
+        if path:
+            repo_dir = path
         else:
-            self._debug('Downloading repo {}@{}...'.format(self._repo, self._sha))
-            repo_dir = utils.download_repo(self._repo, self._sha)
+            self._debug('Downloading {}...'.format(self._repo_location))
+            repo_dir = utils.download_repo(repo, sha)
 
         return repo_dir
 
-    @property
-    def target_dir(self):
-        return self._target_dir
-
-    @target_dir.setter
-    def target_dir(self, target_dir):
-        utils.validate_directory_exists(target_dir)
-        self._target_dir = target_dir
-
-    @property
-    def repo_dir(self):
-        return self._repo_dir
-
     @staticmethod
-    def create(repo=None, sha=None, path=None, target_dir=None, log=None):
+    def create(repo=None, sha=None, path=None, target_dir=None, python=None):
         return Packager(repo=repo,
                         sha=sha,
                         path=path,
                         target_dir=target_dir,
-                        log=log)
+                        python=python)
 
     def binary(self, base_name=None, entrypoint=None, pyinstaller_version=None):
 
         """
         Create a binary executable.
 
-        This method will create a self-contained, platform dependent, executable file. The
-        executable will include a full copy of the current python version, meaning you will be
-        able to run this executable even on environments that don't have python installed.
+        This method will create a self-contained, platform dependent, executable file.
 
         Under the hood, this uses the PyInstaller project.
 
         For more information please visit https://www.pyinstaller.org/
 
         Args:
-            base_name (str): The base name of the target file. The final name will be in the
-               form of: <name>-<platform-machine>-<platform-system> (e.g pyci-x86_64-Darwin).
-               Defaults to the 'name' specified in your setup.py file.
-            entrypoint (:`str`, optional): Path to a script file from which the executable
-               is built. This can either by a .py or a .spec file.
-               By default, the packager will look for the entry point specified in setup.py.
-            pyinstaller_version (:str, optional): Which PyInstaller version to use.
+
+            base_name (:str, optional):
+
+                The base name of the target file. The final name will be in the
+                form of: <name>-<platform-machine>-<platform-system> (e.g pyci-x86_64-Darwin).
+                Defaults to the 'name' specified in your setup.py file.
+
+            entrypoint (:str, optional):
+
+                Path to a script file from which the executable
+                is built. This can either by a .py or a .spec file.
+                By default, the packager will look for the entry point specified in setup.py.
+
+            pyinstaller_version (:str, optional):
+
+                Which PyInstaller version to use. Defaults to 3.4.
 
         Raises:
-            FileExistsException: Raised if the destination file already exists.
-            DirectoryDoesntExistException: Raised if the destination directory does not exist.
-            DefaultEntrypointNotFoundException: Raised when a custom entrypoint is not provided
-                and the default entry-points pyci looks for are also missing.
-            EntrypointNotFoundException: Raised when the custom entrypoint provided does not
-                exist in the repository.
-            MultipleDefaultEntrypointsFoundException: If setup.py contains multiple entrypoints specification.
+
+            BinaryExistsException:
+
+                Destination file already exists.
+
+            DirectoryDoesntExistException:
+
+                Destination directory does not exist.
+
+            DefaultEntrypointNotFoundException:
+
+                A custom entrypoint is not provided and the default entry-points
+                pyci looks for are also missing.
+
+            EntrypointNotFoundException:
+
+                The provided custom entrypoint provided does not exist in the repository.
+
+            MultipleDefaultEntrypointsFoundException:
+
+                If setup.py contains multiple entrypoints specification.
 
         """
 
         temp_dir = tempfile.mkdtemp()
         try:
 
-            base_name = base_name or self._default_name
-            entrypoint = entrypoint or self._default_entrypoint
+            base_name = base_name or self._name
+            entrypoint = entrypoint or self._entrypoint
 
-            destination = os.path.join(self.target_dir, '{0}-{1}-{2}'
+            destination = os.path.join(self._target_dir, '{0}-{1}-{2}'
                                        .format(base_name, platform.machine(), platform.system()))
 
             if platform.system().lower() == 'windows':
@@ -179,7 +190,7 @@ class Packager(object):
             script = os.path.join(self._repo_dir, entrypoint)
 
             if not os.path.exists(script):
-                raise exceptions.EntrypointNotFoundException(repo=self._repo,
+                raise exceptions.EntrypointNotFoundException(repo=self._repo_location,
                                                              entrypoint=entrypoint)
 
             with self._create_virtualenv(base_name) as virtualenv:
@@ -234,12 +245,12 @@ class Packager(object):
         For more information please visit https://pythonwheels.com/
 
         Args:
-            universal (bool): True if the created will should be universal, False otherwise.
+            universal (:bool, optional): True if the created will should be universal, False otherwise.
             wheel_version (:str, optional): Which wheel version to use.
 
         Raises:
-            FileExistsException: Raised if the destination file already exists.
-            DirectoryDoesntExistException: Raised if the destination directory does not exist.
+            WheelExistsException: Destination file already exists.
+            DirectoryDoesntExistException: Destination directory does not exist.
 
         """
 
@@ -249,13 +260,10 @@ class Packager(object):
             dist_dir = os.path.join(temp_dir, 'dist')
             bdist_dir = os.path.join(temp_dir, 'bdist')
 
-            try:
-                name = self._default_name
-            except exceptions.FailedReadingSetupPyNameException as e:
-                raise exceptions.NotPythonProjectException(repo=self._repo,
-                                                           cause=str(e),
-                                                           sha=self._sha,
-                                                           path=self._path)
+            if not os.path.exists(self._setup_py_path):
+                raise exceptions.SetupPyNotFoundException(repo=self._repo_location)
+
+            name = self._name
 
             with self._create_virtualenv(name) as virtualenv:
 
@@ -284,7 +292,7 @@ class Packager(object):
 
             actual_name = utils.lsf(dist_dir)[0]
 
-            destination = os.path.join(self.target_dir, actual_name)
+            destination = os.path.join(self._target_dir, actual_name)
 
             try:
                 utils.validate_file_does_not_exist(path=destination)
@@ -304,8 +312,8 @@ class Packager(object):
              version=None,
              output=None,
              author=None,
-             website=None,
-             copyr=None,
+             url=None,
+             copyright_string=None,
              description=None,
              license_path=None):
 
@@ -321,22 +329,34 @@ class Packager(object):
         For more information please visit https://nsis.sourceforge.io/Main_Page
 
         Args:
+
             binary_path (:str): True if the created will should be universal, False otherwise.
+
             version (:str, optional): Version string metadata. Defaults to the 'version' argument
                 in your setup.py file.
+
             output (:str, optional): Target file to create. Defaults to
                 {binary-path-basename}-installer.exe
-            author (:str, optional): Which wheel version to use.
-            website (:str, optional): Which wheel version to use.
-            copyr (:str, optional): Which wheel version to use.
-            description (:str, optional): Which wheel version to use.
-            license_path (:str, optional): Which wheel version to use.
+
+            author (:str, optional): Package author. Defaults to the value specified in setup.py.
+
+            url (:str, optional): URL to the package website. Defaults to the value specified in setup.py.
+
+            copyright_string (:str, optional): Copyright. Defaults to an empty string.
+
+            description (:str, optional): Package description. Defaults to the value specified in setup.py.
+
+            license_path (:str, optional): Path to a license file. Defaults to the value specified in setup.py.
 
         Raises:
-            LicenseNotFoundException: Raised if a license file is missing.
-            BinaryFileDoesntExistException: Raised if the provided binary file doesn't exist.
-            FileExistsException: Raised if the destination file already exists.
-            DirectoryDoesntExistException: Raised if the destination directory does not exist.
+
+            LicenseNotFoundException: License file doesn't exist.
+
+            BinaryFileDoesntExistException: The provided binary file doesn't exist.
+
+            FileExistsException: Destination file already exists.
+
+            DirectoryDoesntExistException: The destination directory does not exist.
 
         """
 
@@ -349,11 +369,11 @@ class Packager(object):
         try:
             self._debug('Validating binary exists: {}'.format(binary_path))
             utils.validate_file_exists(binary_path)
-        except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException) as e:
-            raise exceptions.BinaryFileDoesntExistException(str(e))
+        except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException):
+            raise exceptions.BinaryDoesntExistException(binary_path)
 
         try:
-            version = version or self._default_version
+            version = version or self._version
             self._debug('Validating version string: {}'.format(version))
             utils.validate_nsis_version(version)
         except exceptions.InvalidNSISVersionException as err:
@@ -367,13 +387,13 @@ class Packager(object):
 
         installer_base_name = os.path.basename(binary_path).replace('.exe', '')
         try:
-            name = self._default_name
+            name = self._name
         except BaseException as e:
             self._debug('Unable to extract default name from setup.py: {}. Using binary base name...'.format(str(e)))
             name = installer_base_name
 
         installer_name = '{}-installer'.format(installer_base_name)
-        copyr = copyr or ''
+        copyright_string = copyright_string or ''
 
         destination = os.path.abspath(output or '{}.exe'.format(
             os.path.join(self._target_dir, installer_name)))
@@ -387,21 +407,21 @@ class Packager(object):
 
         try:
             license_path = license_path or os.path.abspath(os.path.join(self._repo_dir,
-                                                                        self._default_license))
+                                                                        self._license))
             self._debug('Validating license file exists: {}'.format(license_path))
             utils.validate_file_exists(license_path)
         except (exceptions.FileDoesntExistException, exceptions.FileIsADirectoryException) as e:
             raise exceptions.LicenseNotFoundException(str(e))
 
-        author = author or self._default_author
-        website = website or self._default_url
-        description = description or self._default_description
+        author = author or self._author
+        url = url or self._url
+        description = description or self._description
 
         config = {
             'name': name,
             'author': author,
-            'website': website,
-            'copyright': copyr,
+            'website': url,
+            'copyright': copyright_string,
             'license_path': license_path,
             'binary_path': binary_path,
             'description': description,
@@ -459,101 +479,100 @@ class Packager(object):
             utils.rmf(temp_dir)
 
     @cachedproperty
-    def _default_name(self):
-        try:
-            return self.__run_setup_py('name')
-        except exceptions.NotPythonProjectException as e:
-            raise exceptions.FailedReadingSetupPyNameException(str(e))
+    def _name(self):
+        return self._setup_py_argument('name')
 
     @cachedproperty
-    def _default_author(self):
-        try:
-            self._debug('Reading author from setup.py...')
-            return self.__run_setup_py('author')
-        except exceptions.NotPythonProjectException as e:
-            raise exceptions.FailedReadingSetupPyAuthorException(str(e))
+    def _author(self):
+        return self._setup_py_argument('author')
 
     @cachedproperty
-    def _default_version(self):
-        try:
-            self._debug('Reading version from setup.py...')
-            return self.__run_setup_py('version')
-        except exceptions.NotPythonProjectException as e:
-            raise exceptions.FailedReadingSetupPyVersionException(str(e))
+    def _version(self):
+        return self._setup_py_argument('version')
 
     @cachedproperty
-    def _default_description(self):
-        try:
-            self._debug('Reading description from setup.py...')
-            return self.__run_setup_py('description')
-        except exceptions.NotPythonProjectException as e:
-            raise exceptions.FailedReadingSetupPyVersionException(str(e))
+    def _description(self):
+        return self._setup_py_argument('description')
 
     @cachedproperty
-    def _default_license(self):
-        try:
-            self._debug('Reading license from setup.py...')
-            return self.__run_setup_py('license')
-        except exceptions.NotPythonProjectException as e:
-            raise exceptions.FailedReadingSetupPyLicenseException(str(e))
+    def _license(self):
+        return self._setup_py_argument('license')
 
     @cachedproperty
-    def _default_url(self):
-        try:
-            self._debug('Reading url from setup.py...')
-            return self.__run_setup_py('url')
-        except exceptions.NotPythonProjectException as e:
-            raise exceptions.FailedReadingSetupPyURLException(str(e))
+    def _url(self):
+        return self._setup_py_argument('url')
 
     @cachedproperty
-    def _default_entrypoint(self):
+    def _entrypoint(self):
 
-        temp_dir = tempfile.mkdtemp()
+        entry_points = self._setup_py_argument('entry_points')
 
-        try:
+        console_scripts = entry_points['console_scripts']
 
-            egg_base = os.path.join(temp_dir, 'egg-base')
+        if len(console_scripts) > 1:
+            raise exceptions.MultipleDefaultEntrypointsFoundException(repo=self._repo_location,
+                                                                      entrypoints=console_scripts)
 
-            self.__create_egg_info(egg_base)
+        script = console_scripts[0].split('=')[1].strip().split(':')[0].replace('.', os.sep)
 
-            entrypoints_txt = self._lookup_egg_info(egg_base, 'entry_points.txt')
+        script_path = os.path.join(self._repo_dir, '{}.py'.format(script))
 
-            if not entrypoints_txt:
-                raise exceptions.DefaultEntrypointNotFoundException(repo=self._repo,
-                                                                    reason='No entrypoints defined in setup.py')
+        if not os.path.exists(script_path):
+            raise exceptions.ConsoleScriptNotFoundException(repo=self._repo_location, script=script_path)
 
-            console_scripts = utils.parse_ini(entrypoints_txt)['console_scripts']
+        return script_path
 
-            assert console_scripts
-
-            if len(console_scripts) > 1:
-                raise exceptions.MultipleDefaultEntrypointsFoundException(repo=self._repo,
-                                                                          entrypoints=console_scripts.keys())
-
-            script_path = '{}.py'.format(console_scripts[console_scripts.keys()[0]].split(':')[0].replace('.', os.sep))
-
-            return os.path.join(self._repo_dir, script_path)
-
-        finally:
-            utils.rmf(temp_dir)
+    # @cachedproperty
+    # def _package_data(self):
+    #
+    #     package_data = []
+    #
+    #     package_data_d = self._setup_py.get('package_data', {})
+    #
+    #     for package, resources in self._setup_py.get('package_data', {}).iteritems():
+    #
+    #         package_data.extend(os.path.join(package, resource) for resource in resources)
+    #
+    #     return package_data
 
     @cachedproperty
     def _setup_py_path(self):
         return os.path.join(self._repo_dir, 'setup.py')
 
     @cachedproperty
+    def _setup_py(self):
+
+        with open(self._setup_py_path) as f:
+            setup_py = f.read()
+
+        kwargs = {}
+
+        def _setup(*_, **__):
+            kwargs.update(__)
+
+        import setuptools
+
+        setup_func = setuptools.setup
+        runtime_errors = tempfile.NamedTemporaryFile(delete=False)
+
+        try:
+
+            setuptools.setup = _setup
+
+            obj = compile(setup_py, runtime_errors.name, mode='exec')
+
+            # pylint: disable=eval-used
+            eval(obj)
+
+            return kwargs
+
+        finally:
+            setuptools.setup = setup_func
+            os.remove(runtime_errors.name)
+
+    @cachedproperty
     def _interpreter(self):
         return self._python or self._lookup_interpreter()
-
-    @staticmethod
-    def _lookup_egg_info(egg_base, name):
-
-        for dirpath, _, filenames in os.walk(egg_base):
-            if name in filenames:
-                f = os.path.join(dirpath, name)
-                return f
-
-        return None
 
     @staticmethod
     def _lookup_interpreter():
@@ -566,27 +585,6 @@ class Packager(object):
             raise exceptions.PythonNotFoundException()
 
         return interpreter
-
-    def __run_setup_py(self, argument):
-
-        if not os.path.exists(self._setup_py_path):
-            raise exceptions.NotPythonProjectException(repo=self._repo,
-                                                       cause='setup.py file doesnt exist',
-                                                       sha=self._sha,
-                                                       path=self._path)
-
-        command = '{} {} --{}'.format(self._interpreter, self._setup_py_path, argument)
-
-        return self._runner.run(command).std_out
-
-    def __create_egg_info(self, egg_base):
-
-        if not os.path.exists(egg_base):
-            os.mkdir(egg_base)
-
-        self._runner.run('{} {} egg_info --egg-base {}'
-                         .format(self._interpreter, self._setup_py_path, egg_base),
-                         cwd=self._repo_dir)
 
     # pylint: disable=too-many-branches
     @contextlib.contextmanager
@@ -633,31 +631,22 @@ class Packager(object):
 
         pip_path = utils.get_python_executable('pip', exec_home=virtualenv_path)
 
-        requires = None
+        install_command = None
 
         if os.path.exists(requirements_file):
 
-            # Simply use the requirements file.
             self._debug('Using requirements file: {}'.format(requirements_file))
-            requires = requirements_file
+            install_command = '{} -r {}'.format(self._pip_install(pip_path), requirements_file)
 
         elif os.path.exists(self._setup_py_path):
 
-            egg_base = os.path.join(temp_dir, 'egg-base')
+            self._debug('Using install_requires from setup.py: {}'.format(self._setup_py_path))
+            requires = self._setup_py.get('install_requires')
+            install_command = '{} {}'.format(self._pip_install(pip_path), ' '.join(requires))
 
-            self._debug('Dumping requirements file for {}'.format(name))
-            self.__create_egg_info(egg_base)
-
-            requires = self._lookup_egg_info(egg_base, 'requires.txt')
-
-            if not requires:
-                # Something is really wrong if this happens
-                raise RuntimeError('Unable to create requires.txt file')
-
-        if requires:
-            command = '{} -r {}'.format(self._pip_install(pip_path), requires)
+        if install_command:
             self._debug('Installing {} requirements...'.format(name))
-            self._runner.run(command, cwd=self._repo_dir)
+            self._runner.run(install_command, cwd=self._repo_dir)
 
         self._debug('Successfully created virtualenv {}'.format(virtualenv_path))
 
@@ -677,6 +666,22 @@ class Packager(object):
                 else:
                     raise
 
+    def _setup_py_argument(self, argument):
+
+        if not os.path.exists(self._setup_py_path):
+            err = exceptions.SetupPyNotFoundException(repo=self._repo_location)
+
+        else:
+            self._debug('Reading {} from setup.py...'.format(argument))
+            value = self._setup_py.get(argument)
+            if value is None:
+                err = exceptions.MissingSetupPyArgumentException(repo=self._repo_location,
+                                                                 argument=argument)
+            else:
+                return value
+
+        raise exceptions.FailedDetectingPackageMetadataException(argument=argument, reason=err)
+
     def _debug(self, message, **kwargs):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
@@ -686,7 +691,7 @@ class Packager(object):
 
         command = '{} install'.format(pip_path)
         if self._logger.isEnabledFor(logging.DEBUG):
-            command = '{}'.format(command)
+            command = '{} -v'.format(command)
         return command
 
     def _pyinstaller(self, pyinstaller_path):

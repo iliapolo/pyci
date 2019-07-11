@@ -20,17 +20,10 @@ import os
 import pytest
 from github import GithubException, UnknownObjectException
 
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
-
 from pyci.tests.conftest import REPO_UNDER_TEST, LAST_COMMIT
-from pyci.api.gh import BUMP_VERSION_COMMIT_MESSAGE_FORMAT
-from pyci.api import utils, ci
+from pyci.api.scm.gh import BUMP_VERSION_COMMIT_MESSAGE_FORMAT
+from pyci.api.ci import ci
+from pyci.api import utils
 from pyci.tests import utils as test_utils
 
 
@@ -146,9 +139,9 @@ def test_release_not_fast_forward(pyci, repo, mocker):
         'TRAVIS_PULL_REQUEST': 'false'
     })
 
-    detect = MagicMock(return_value=ci_provider)
+    detect = test_utils.MagicMock(return_value=ci_provider)
 
-    mocker.patch(target='pyci.api.ci.detect', new=detect)
+    mocker.patch(target='pyci.api.ci.ci.detect', new=detect)
 
     result = pyci.run('github --repo {} release --force --branch release'
                       .format(REPO_UNDER_TEST),
@@ -329,12 +322,8 @@ def test_create_release_not_python_project(github):
 
     result = github.run('create-release --sha {}'.format(sha), catch_exceptions=True)
 
-    expected_error_message = 'Repository at location github.com/{}@{} ' \
-                             'does not contain a valid python project: setup.py file not found'\
-                             .format(REPO_UNDER_TEST, sha)
-    expected_possible_solution = 'Please follow these instructions to create a standard ' \
-                                 'python project --> https://packaging.python.org' \
-                                 '/tutorials/distributing-packages/'
+    expected_error_message = 'does not contain a setup.py file'
+    expected_possible_solution = 'Create a setup.py file'
 
     assert expected_error_message in result.std_out
     assert expected_possible_solution in result.std_out

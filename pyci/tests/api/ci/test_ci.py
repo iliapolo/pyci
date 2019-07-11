@@ -16,15 +16,10 @@
 #############################################################################
 
 import pytest
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
 
-from pyci.api import ci, exceptions
+from pyci.api.ci import ci
+from pyci.api import exceptions
+from pyci.tests import utils as test_utils
 
 
 @pytest.mark.parametrize("env,expected_name,expected_repo,expected_branch,expected_sha,"
@@ -166,7 +161,7 @@ def test_detect(env,
 
 def test_validate_build_pull_request():
 
-    ci_system = MagicMock()
+    ci_system = test_utils.MagicMock()
 
     ci_system.pull_request = 5
 
@@ -177,7 +172,7 @@ def test_validate_build_pull_request():
 
 def test_validate_build_tag():
 
-    ci_system = MagicMock()
+    ci_system = test_utils.MagicMock()
 
     ci_system.pull_request = None
     ci_system.tag = 'tag'
@@ -189,7 +184,7 @@ def test_validate_build_tag():
 
 def test_validate_build_branch():
 
-    ci_system = MagicMock()
+    ci_system = test_utils.MagicMock()
 
     ci_system.pull_request = None
     ci_system.tag = None
@@ -202,7 +197,7 @@ def test_validate_build_branch():
 
 def test_validate_build():
 
-    ci_system = MagicMock()
+    ci_system = test_utils.MagicMock()
 
     ci_system.pull_request = None
     ci_system.tag = None

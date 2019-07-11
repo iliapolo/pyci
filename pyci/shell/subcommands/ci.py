@@ -21,7 +21,7 @@ import click
 from pyci.shell import handle_exceptions
 from pyci.shell import help as pyci_help
 from pyci.shell.logger import get as get_logger
-from pyci.api import ci
+from pyci.api.ci import ci
 
 
 log = get_logger()

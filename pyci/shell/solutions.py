@@ -16,9 +16,15 @@
 #############################################################################
 
 
-def non_standard_project():
+def create_setup_py():
 
-    return [
-        'Please follow these instructions to create a standard '
-        'python project --> https://packaging.python.org/tutorials/distributing-packages/'
-    ]
+    return "Create a setup.py file and follow standard python packaging structure. " \
+           "See https://packaging.python.org/tutorials/distributing-packages/"
+
+
+def add_argument_to_setup_py(argument):
+    return "Add the '{}' argument to your setup.py file".format(argument)
+
+
+def specify_command_line_option(option):
+    return 'Use --{} to specify a custom {}'.format(option, option)

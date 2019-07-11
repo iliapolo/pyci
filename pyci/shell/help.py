@@ -15,8 +15,8 @@
 #
 #############################################################################
 
-from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
-from pyci.api.packager import DEFAULT_WHEEL_VERSION
+from pyci.api.package.packager import DEFAULT_PY_INSTALLER_VERSION
+from pyci.api.package.packager import DEFAULT_WHEEL_VERSION
 
 BRANCH = 'The name of the branch you want to release. The defaulting heuristics ' \
               'are as follows: ' \

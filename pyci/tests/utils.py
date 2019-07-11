@@ -19,6 +19,15 @@ import shutil
 import os
 import time
 
+try:
+    # python2
+    from mock import MagicMock
+except ImportError:
+    # python3
+    # noinspection PyUnresolvedReferences,PyCompatibility
+    from unittest.mock import MagicMock
+
+
 from pyci.api.utils import generate_setup_py
 
 

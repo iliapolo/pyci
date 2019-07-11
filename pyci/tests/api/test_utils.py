@@ -21,8 +21,6 @@ import sys
 
 import pytest
 
-import pyci
-import pyci.api
 from pyci.tests import resources
 from pyci.api import utils, exceptions
 
@@ -38,10 +36,10 @@ def test_generate_setup_py(setup_py_path, version, expected):
 
     if expected is None:
         with pytest.raises(exceptions.FailedGeneratingSetupPyException):
-            pyci.api.utils.generate_setup_py(setup_py, version)
+            utils.generate_setup_py(setup_py, version)
     else:
         expected_setup_py = resources.get_resource(expected)
-        actual = pyci.api.utils.generate_setup_py(setup_py, version)
+        actual = utils.generate_setup_py(setup_py, version)
         assert expected_setup_py == actual
 
 

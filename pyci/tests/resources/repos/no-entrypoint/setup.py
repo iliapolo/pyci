@@ -19,6 +19,11 @@ from setuptools import setup
 
 
 setup(
+    url='url',
+    version='1.2.3',
+    author='author',
+    description='description',
+    license='license',
     name='no-entrypoint',
     packages=[
         'no_entrypoint'

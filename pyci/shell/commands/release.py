@@ -50,14 +50,13 @@ log = get_logger()
 @click.option('--author', required=False,
               help='Program author. Defaults to the author value in setup.py (if exists). Used by the '
                    'installer package metadata')
-@click.option('--website', required=False,
-              help='Website URL. Defaults to the url value in setup.py (if exists). Used by the installer '
-                   'package metadata')
-@click.option('--copyr', required=False,
-              help='Copyright string. Default to an empty value. Used by the installer package metadata')
-@click.option('--license-path', required=False,
+@click.option('--url', required=False,
+              help='Website URL. Defaults to the url value in setup.py (if exists)')
+@click.option('--copyright', 'copyright_string', required=False,
+              help='Copyright string. Default to an empty value.')
+@click.option('--license', 'license_path', required=False,
               help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
-                   'to license value in setup.py (if exists). Used by the installer package metadata')
+                   'to license value in setup.py (if exists)')
 @click.option('--pypi-test', is_flag=True,
               help='Use PyPI test index. This option is ignored if --no-wheel is used')
 @click.option('--pypi-url', is_flag=True,
@@ -105,8 +104,8 @@ def release(ctx,
             no_installer,
             force,
             author,
-            website,
-            copyr,
+            url,
+            copyright_string,
             license_path):
 
     """
@@ -189,8 +188,8 @@ def release(ctx,
                                              author=author,
                                              version=version,
                                              license_path=license_path,
-                                             copyr=copyr,
-                                             website=website)
+                                             copyright_string=copyright_string,
+                                             url=url)
 
         log.sub()
 
@@ -231,7 +230,7 @@ def release(ctx,
         log.echo('PyPI: {}'.format(wheel_url))
 
 
-def _pack_installer(ctx, version, author, website, copyr, license_path, binary_path):
+def _pack_installer(ctx, version, author, url, copyright_string, license_path, binary_path):
 
     if not utils.is_windows():
         # Currently installers are only supported for windows.
@@ -243,8 +242,8 @@ def _pack_installer(ctx, version, author, website, copyr, license_path, binary_p
                                 version=version,
                                 output=None,
                                 author=author,
-                                website=website,
-                                copyr=copyr,
+                                url=url,
+                                copyright_string=copyright_string,
                                 license_path=license_path)
 
     return installer_path
@@ -272,15 +271,14 @@ def _pack_binary(ctx, base_name, entrypoint, pyinstaller_version):
 
     except TerminationException as e:
 
-        if isinstance(e.cause, exceptions.DefaultEntrypointNotFoundException):
+        if isinstance(e.cause, exceptions.FailedReadingSetupPyArgumentException) and e.cause.argument == 'entry_points':
             # this is ok, just means that the project is not an executable
             # according to our assumptions.
-            log.echo('Binary package will not be created because an entrypoint was not '
-                     'found in the expected paths: {}. \nYou can specify a custom '
-                     'entrypoint path by using the "--binary-entrypoint" option.\n'
+            log.echo('Binary package will not be created because PyCI could not detect an entrypoint for your project. '
+                     '\nYou can specify a custom entrypoint path by using the "--binary-entrypoint" option.\n'
                      'If your package is not meant to be an executable binary, '
-                     'use the "--no-binary" flag to avoid seeing this message'
-                     .format(e.cause.expected_paths))
+                     'use the "--no-binary" flag to avoid seeing this message. '
+                     'See "pyci pack binary --help" for more details on binary packages.')
             return binary_package_path
 
         raise
