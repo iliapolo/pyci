@@ -218,7 +218,7 @@ def _pypi(pyci):
 
 
 @pytest.fixture(name='temp_file')
-def _temp_file(temp_dir):
+def _temp_file():
 
     temp_file = tempfile.NamedTemporaryFile(delete=False).name
 

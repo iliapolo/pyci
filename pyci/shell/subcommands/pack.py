@@ -27,6 +27,25 @@ from pyci.shell import solutions
 log = logger.get()
 
 
+__nsis_common_options = [
+    click.option('--author', required=False, help=pyci_help.AUTHOR),
+    click.option('--url', required=False, help=pyci_help.URL),
+    click.option('--copyright', 'copyright_string', required=False, help=pyci_help.COPYRIGHT),
+    click.option('--license', 'license_path', required=False, help=pyci_help.LICENSE)
+]
+
+
+def common_nsis_options():
+
+    def _add_options(func):
+
+        for option in reversed(__nsis_common_options):
+            func = option(func)
+        return func
+
+    return _add_options
+
+
 @click.command()
 @click.pass_context
 @click.option('--base-name', required=False,
@@ -90,9 +109,11 @@ def binary(ctx, base_name, entrypoint, pyinstaller_version):
 
         if isinstance(e, exceptions.FailedDetectingPackageMetadataException):
 
+            # pylint: disable=no-member
             argument = e.argument
             option = 'entrypoint' if argument == 'entry_points' else argument
 
+            # pylint: disable=no-member
             if isinstance(e.reason, exceptions.SetupPyNotFoundException):
                 e.cause = causes.no_setup_py_file(option)
                 e.possible_solutions = [
@@ -100,6 +121,7 @@ def binary(ctx, base_name, entrypoint, pyinstaller_version):
                     solutions.specify_command_line_option(option)
                 ]
 
+            # pylint: disable=no-member
             if isinstance(e.reason, exceptions.MissingSetupPyArgumentException):
                 e.cause = causes.missing_argument_from_setup_py(argument)
                 e.possible_solutions = [
@@ -174,15 +196,7 @@ def wheel(ctx, universal, wheel_version):
                    '(if exists)')
 @click.option('--output', required=False,
               help='Path to write the created installer file.')
-@click.option('--author', required=False,
-              help='Program author. Defaults to the author value in setup.py (if exists)')
-@click.option('--url', required=False,
-              help='Website URL. Defaults to the url value in setup.py (if exists)')
-@click.option('--copyright', 'copyright_string', required=False,
-              help='Copyright string. Default to an empty value.')
-@click.option('--license', 'license_path', required=False,
-              help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
-                   'to license value in setup.py (if exists)')
+@common_nsis_options()
 @handle_exceptions
 def nsis(ctx, binary_path, version, output, author, url, copyright_string, license_path):
 
@@ -218,9 +232,11 @@ def nsis(ctx, binary_path, version, output, author, url, copyright_string, licen
 
         if isinstance(e, exceptions.FailedDetectingPackageMetadataException):
 
+            # pylint: disable=no-member
             argument = e.argument
             option = 'entrypoint' if argument == 'entry_points' else argument
 
+            # pylint: disable=no-member
             if isinstance(e.reason, exceptions.SetupPyNotFoundException):
                 e.cause = causes.no_setup_py_file(option)
                 e.possible_solutions = [
@@ -228,6 +244,7 @@ def nsis(ctx, binary_path, version, output, author, url, copyright_string, licen
                     solutions.specify_command_line_option(option)
                 ]
 
+            # pylint: disable=no-member
             if isinstance(e.reason, exceptions.MissingSetupPyArgumentException):
                 e.cause = causes.missing_argument_from_setup_py(argument)
                 e.possible_solutions = [

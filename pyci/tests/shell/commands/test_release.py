@@ -20,6 +20,7 @@ import os
 import pytest
 
 from pyci.tests.conftest import LAST_COMMIT
+from pyci.api import exceptions
 
 
 @pytest.mark.wet
@@ -104,6 +105,28 @@ def test_release(release, temp_dir, mocker):
 
     # noinspection PyUnresolvedReferences
     PyPI.upload.assert_called_once_with(wheel=wheel_path)  # pylint: disable=no-member
+
+
+@pytest.mark.wet
+def test_release_no_default_entrypoint(release, mocker, repo_path):
+
+    def _binary(*_, **__):
+        raise exceptions.FailedDetectingPackageMetadataException(
+            argument='entry_points',
+            reason=exceptions.SetupPyNotFoundException(repo=repo_path))
+
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+
+    result = release.run('--branch release --no-wheel --no-installer')
+
+    github_release = release.github.api.repo.get_release(id='1.0.0')
+
+    assets = [asset.name for asset in github_release.get_assets()]
+
+    expected_message = 'Binary package will not be created because PyCI could not detect an entrypoint'
+
+    assert expected_message in result.std_out
+    assert not assets
 
 
 @pytest.mark.wet

@@ -56,7 +56,7 @@ def test_path_doesnt_exist():
         Packager.create(path='doesnt-exist')
 
 
-def test_target_dir_doesnt_exist(pack, repo_path):
+def test_target_dir_doesnt_exist(repo_path):
 
     with pytest.raises(exceptions.DirectoryDoesntExistException):
         Packager.create(target_dir='doesnt-exist',
@@ -201,7 +201,7 @@ def test_binary_no_default_name_no_basename():
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.binary()
 
-    assert 'name' == e.value.argument
+    assert e.value.argument == 'name'
 
 
 def test_binary_custom_entrypoint(pack, request, runner, repo_path):
@@ -290,7 +290,7 @@ def test_binary_no_default_entrypoint():
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.binary()
 
-    assert 'entry_points' == e.value.argument
+    assert e.value.argument == 'entry_points'
 
 
 def test_binary_multiple_default_entrypoints():
@@ -362,7 +362,7 @@ def test_nsis_no_default_author(temp_file, mocker):
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.nsis(temp_file)
 
-    assert 'author' == e.value.argument
+    assert e.value.argument == 'author'
 
 
 def test_nsis_no_default_description(temp_file, mocker):
@@ -376,7 +376,7 @@ def test_nsis_no_default_description(temp_file, mocker):
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.nsis(temp_file)
 
-    assert 'description' == e.value.argument
+    assert e.value.argument == 'description'
 
 
 def test_nsis_no_default_url(temp_file, mocker):
@@ -390,7 +390,7 @@ def test_nsis_no_default_url(temp_file, mocker):
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.nsis(temp_file)
 
-    assert 'url' == e.value.argument
+    assert e.value.argument == 'url'
 
 
 def test_nsis_no_default_license(temp_file, mocker):
@@ -404,7 +404,7 @@ def test_nsis_no_default_license(temp_file, mocker):
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.nsis(temp_file)
 
-    assert 'license' == e.value.argument
+    assert e.value.argument == 'license'
 
 
 def test_nsis_no_default_version(temp_file, mocker):
@@ -418,7 +418,7 @@ def test_nsis_no_default_version(temp_file, mocker):
     with pytest.raises(exceptions.FailedDetectingPackageMetadataException) as e:
         packager.nsis(temp_file)
 
-    assert 'version' == e.value.argument
+    assert e.value.argument == 'version'
 
 
 def test_nsis_destination_exists(pack, mocker, repo_path):

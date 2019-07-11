@@ -47,16 +47,7 @@ log = get_logger()
               help='Base commit for changelog generation (exclusive)')
 @click.option('--version', required=False,
               help='Use this version instead of the changelog generated version')
-@click.option('--author', required=False,
-              help='Program author. Defaults to the author value in setup.py (if exists). Used by the '
-                   'installer package metadata')
-@click.option('--url', required=False,
-              help='Website URL. Defaults to the url value in setup.py (if exists)')
-@click.option('--copyright', 'copyright_string', required=False,
-              help='Copyright string. Default to an empty value.')
-@click.option('--license', 'license_path', required=False,
-              help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
-                   'to license value in setup.py (if exists)')
+@pack.common_nsis_options()
 @click.option('--pypi-test', is_flag=True,
               help='Use PyPI test index. This option is ignored if --no-wheel is used')
 @click.option('--pypi-url', is_flag=True,
@@ -271,7 +262,8 @@ def _pack_binary(ctx, base_name, entrypoint, pyinstaller_version):
 
     except TerminationException as e:
 
-        if isinstance(e.cause, exceptions.FailedReadingSetupPyArgumentException) and e.cause.argument == 'entry_points':
+        if isinstance(e.cause, exceptions.FailedDetectingPackageMetadataException) \
+                and e.cause.argument == 'entry_points':
             # this is ok, just means that the project is not an executable
             # according to our assumptions.
             log.echo('Binary package will not be created because PyCI could not detect an entrypoint for your project. '

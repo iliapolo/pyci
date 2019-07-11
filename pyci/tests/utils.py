@@ -19,12 +19,16 @@ import shutil
 import os
 import time
 
+# This whole bit is just so test will import magic mock
+# in a unified way from this file, without needing to duplicate this logic.
 try:
     # python2
+    # pylint: disable=unused-import
     from mock import MagicMock
 except ImportError:
     # python3
     # noinspection PyUnresolvedReferences,PyCompatibility
+    # pylint: disable=unused-import
     from unittest.mock import MagicMock
 
 
