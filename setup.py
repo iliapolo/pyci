@@ -77,8 +77,7 @@ setup(
         'six==1.11.0',
         'colorama==0.3.9',
         'wheel==0.33.4',
-        'packaging==19.0',
-        'configparser==3.5.0'
+        'packaging==19.0'
     ],
     classifiers=[
         'Programming Language :: Python',
