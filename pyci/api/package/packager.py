@@ -553,22 +553,22 @@ class Packager(object):
         import setuptools
 
         setup_func = setuptools.setup
-        runtime_errors = tempfile.NamedTemporaryFile(delete=False)
 
         try:
 
-            setuptools.setup = _setup
+            with tempfile.NamedTemporaryFile() as errors:
 
-            obj = compile(setup_py, runtime_errors.name, mode='exec')
+                setuptools.setup = _setup
 
-            # pylint: disable=eval-used
-            eval(obj)
+                obj = compile(setup_py, errors.name, mode='exec')
 
-            return kwargs
+                # pylint: disable=eval-used
+                eval(obj)
+
+                return kwargs
 
         finally:
             setuptools.setup = setup_func
-            os.remove(runtime_errors.name)
 
     @cachedproperty
     def _interpreter(self):
