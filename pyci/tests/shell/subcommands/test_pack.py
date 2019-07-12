@@ -197,9 +197,9 @@ def test_wheel_no_setup_py(pack, repo_path, mocker):
 
 
 @pytest.mark.windows
-def test_nsis(pack):
+def test_nsis(pack, pyci):
 
-    pack.run('nsis', binary=True)
+    pack.run('nsis --binary-path {}'.format(pyci.binary_path), binary=True)
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{}-{}-installer.exe'
                                          .format(platform.machine(), platform.system()))
