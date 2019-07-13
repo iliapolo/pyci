@@ -150,10 +150,17 @@ def pack(ctx, repo, sha, path, target_dir):
         raise click.UsageError('Must specify either --sha or --path')
 
     try:
+
+        log.echo('Fetching repository...', break_line=False)
+
         ctx.obj.packager = Packager.create(repo=repo, path=path, sha=sha, target_dir=target_dir)
+
+        log.checkmark()
+
     except BaseException as e:
 
         if isinstance(e, exceptions.DirectoryDoesntExistException):
+            e.cause = 'The target directory you specified does not exist'
             e.possible_solutions = [
                 'Create the directory and try again'
             ]
@@ -163,6 +170,7 @@ def pack(ctx, repo, sha, path, target_dir):
             if e.code == 404:
                 e.cause = 'You either provided a non existing sha or a non existing repository'
 
+        log.xmark()
         raise
 
 
