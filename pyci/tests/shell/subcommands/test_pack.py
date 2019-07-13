@@ -28,7 +28,7 @@ from pyci.tests import utils as test_utils
 from pyci.tests import conftest
 
 
-def test_binary(pack, repo_path, runner):
+def test_binary(pack, runner):
 
 #     custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
 #
