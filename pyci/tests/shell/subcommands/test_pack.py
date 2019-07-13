@@ -49,7 +49,7 @@ def test_binary(pack, runner):
     assert os.path.exists(expected_package_path)
 
     # lets make sure the binary actually works
-    assert runner.run(expected_package_path)
+    assert runner.run('{} --help'.format(expected_package_path))
 
 
 def test_binary_options(pack, mocker):
