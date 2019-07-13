@@ -574,16 +574,19 @@ class Packager(object):
     def _interpreter(self):
         return self._python or self._lookup_interpreter()
 
-    @staticmethod
-    def _lookup_interpreter():
+    def _lookup_interpreter(self):
         if utils.is_pyinstaller():
+            self._debug('Running inside a frozen package...Looking up python interpreter from PATH')
             interpreter = utils.which('python')
         else:
+            self._debug('Running inside a python environment...Looking up python interpreter locally')
             interpreter = utils.get_python_executable('python')
 
         if not interpreter:
             raise exceptions.PythonNotFoundException()
 
+        self._debug('Python interpreter: {}'.format(interpreter))
+        
         return interpreter
 
     # pylint: disable=too-many-branches
