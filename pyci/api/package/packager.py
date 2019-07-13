@@ -586,7 +586,7 @@ class Packager(object):
             raise exceptions.PythonNotFoundException()
 
         self._debug('Python interpreter: {}'.format(interpreter))
-        
+
         return interpreter
 
     # pylint: disable=too-many-branches
