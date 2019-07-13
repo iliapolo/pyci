@@ -30,7 +30,16 @@ from pyci.tests import conftest
 
 def test_binary(pack, runner):
 
-    pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), binary=True)
+    custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
+
+    with open(os.path.join(pack.api.repo_dir, custom_main), 'w') as stream:
+        stream.write('''
+import six
+if __name__ == '__main__':
+    six.print_('It works!')        
+''')
+
+    pack.run('binary --entrypoint {}'.format(custom_main), binary=True)
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{}-{}'.format(platform.machine(), platform.system()))
 
