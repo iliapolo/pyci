@@ -25,7 +25,7 @@ from pyci.api import utils
 from pyci.api import exceptions
 from pyci.tests import distros
 from pyci.tests import utils as test_utils
-from pyci.tests import conftest
+# from pyci.tests import conftest
 
 
 def test_binary(pack, runner):
