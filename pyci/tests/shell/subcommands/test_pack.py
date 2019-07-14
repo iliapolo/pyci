@@ -25,21 +25,12 @@ from pyci.api import utils
 from pyci.api import exceptions
 from pyci.tests import distros
 from pyci.tests import utils as test_utils
-# from pyci.tests import conftest
+from pyci.tests import conftest
 
 
 def test_binary(pack, repo_path, runner):
 
-    custom_main = os.path.join('pyci', 'shell', 'custom_main.py')
-
-    with open(os.path.join(repo_path, custom_main), 'w') as stream:
-        stream.write('''
-import six
-if __name__ == '__main__':
-    six.print_('It works!')        
-''')
-
-    pack.run('binary --entrypoint {}'.format(custom_main), binary=True)
+    pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), binary=True)
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{}-{}'.format(platform.machine(), platform.system()))
 
