@@ -28,7 +28,7 @@ lint: dep ## Run lint validations.
 
 test-unit: dep ## Run the unit tests.
 
-	py.test -s --durations=10 -v -m "not cross_distro" -rs -c configs/pytest.ini  --cov-config=configs/coverage.ini --cov=pyci pyci/tests/shell/subcommands/test_pack.py::test_binary --rootdir .
+	py.test -s --durations=10 -v -m "not cross_distro" -rs -c configs/pytest.ini  --cov-config=configs/coverage.ini --cov=pyci pyci/tests/shell/subcommands/test_pack.py::test_nsis --rootdir .
 
 test-cross-distro: dep ## Run the cross-distro tests.
 
