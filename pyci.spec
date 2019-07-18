@@ -6,6 +6,8 @@ import platform
 
 block_cipher = None
 
+sys.modules['FixTk'] = None
+
 datas = [
     ('pyci/resources/changelog.jinja', 'pyci/resources'),
     ('pyci/resources/pyci.ascii', 'pyci/resources'),
@@ -38,7 +40,7 @@ a = Analysis(['pyci/shell/main.py'],
              hiddenimports=hidden_imports,
              hookspath=[],
              runtime_hooks=[],
-             excludes=[],
+             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
              cipher=block_cipher)
