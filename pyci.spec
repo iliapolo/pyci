@@ -6,6 +6,8 @@ import platform
 
 block_cipher = None
 
+# This ugly hack is courtesy of pyinstaller adding tkinter hooks for some reason
+# https://github.com/pyinstaller/pyinstaller/wiki/Recipe-remove-tkinter-tcl
 sys.modules['FixTk'] = None
 
 datas = [
