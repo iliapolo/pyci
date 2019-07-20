@@ -152,13 +152,11 @@ PyCI needs your PyPI account credentials in order to upload wheels to PyPI. Thes
 
 ## Tell me more
 
-Like I mentioned before, PyCI is an opinionated tool, and as such, you should know what those opinions are:
-
-- [I am PyCI - Hear Me Roar](./docs/hear-me-roar.md)
+- [Genesis](./docs/genesis.md)
 
 Its also worth understanding some key concepts and how exactly PyCI implements them.
 
-- [I am PyCI - Be Gentle](./docs/be-gentle.md)
+- [How it works](./docs/how-it-works.md)
 
 
 ## Not planning to use PyCI?
