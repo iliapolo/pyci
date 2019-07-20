@@ -38,6 +38,11 @@ setup(
         '{0}.resources.virtualenv_support'.format(BASE_PACKAGE_NAME),
         '{0}.resources.windows_support'.format(BASE_PACKAGE_NAME),
         '{0}.api'.format(BASE_PACKAGE_NAME),
+        '{0}.api.ci'.format(BASE_PACKAGE_NAME),
+        '{0}.api.model'.format(BASE_PACKAGE_NAME),
+        '{0}.api.package'.format(BASE_PACKAGE_NAME),
+        '{0}.api.publish'.format(BASE_PACKAGE_NAME),
+        '{0}.api.scm'.format(BASE_PACKAGE_NAME),
         '{0}.shell'.format(BASE_PACKAGE_NAME),
         '{0}.shell.commands'.format(BASE_PACKAGE_NAME),
         '{0}.shell.subcommands'.format(BASE_PACKAGE_NAME)

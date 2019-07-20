@@ -18,13 +18,32 @@
 import click
 
 from pyci.api import exceptions
-from pyci.api import utils
 from pyci.shell import handle_exceptions
 from pyci.shell import logger
-from pyci.shell.exceptions import ShellException
 from pyci.shell import help as pyci_help
+from pyci.shell import causes
+from pyci.shell import solutions
 
 log = logger.get()
+
+
+__nsis_common_options = [
+    click.option('--author', required=False, help=pyci_help.AUTHOR),
+    click.option('--url', required=False, help=pyci_help.URL),
+    click.option('--copyright', 'copyright_string', required=False, help=pyci_help.COPYRIGHT),
+    click.option('--license', 'license_path', required=False, help=pyci_help.LICENSE)
+]
+
+
+def common_nsis_options():
+
+    def _add_options(func):
+
+        for option in reversed(__nsis_common_options):
+            func = option(func)
+        return func
+
+    return _add_options
 
 
 @click.command()
@@ -75,26 +94,40 @@ def binary(ctx, base_name, entrypoint, pyinstaller_version):
     except BaseException as e:
 
         if isinstance(e, exceptions.BinaryExistsException):
-            e.exit_code = 101
             e.cause = 'You probably forgot to move/delete the package you created last time'
             e.possible_solutions = [
                 'Delete/Move the binary and try again'
             ]
 
-        if isinstance(e, exceptions.DefaultEntrypointNotFoundException):
-            e.exit_code = 102
-            e.cause = "You probably created the entrypoint in a different location than " \
-                      "PyCI knows about.\nFor more details see " \
-                      "https://github.com/iliapolo/pyci#cli-detection"
+        if isinstance(e, exceptions.ConsoleScriptNotFoundException):
+            e.cause = "PyCI detected a console script definition in your setup.py file. However, it seems the " \
+                      "script doesnt exist in your repository."
             e.possible_solutions = [
-                # pylint this 'e' is of type BaseException here - IntelliJ gets it though.
-                # pylint: disable=no-member
-                'Create an entrypoint file in one of the following paths: {}'.format(', '.join(e.expected_paths)),
-                'Use --entrypoint to specify a custom entrypoint path'
+                "Fix the 'entry_points' argument in setup.py to point to an existing script",
+                "Use --entrypoint to specify a different script than the one in setup.py (discouraged)"
             ]
 
-        if isinstance(e, exceptions.EntrypointNotFoundException):
-            e.exit_code = 103
+        if isinstance(e, exceptions.FailedDetectingPackageMetadataException):
+
+            # pylint: disable=no-member
+            argument = e.argument
+            option = 'entrypoint' if argument == 'entry_points' else argument
+
+            # pylint: disable=no-member
+            if isinstance(e.reason, exceptions.SetupPyNotFoundException):
+                e.cause = causes.no_setup_py_file(option)
+                e.possible_solutions = [
+                    solutions.create_setup_py(),
+                    solutions.specify_command_line_option(option)
+                ]
+
+            # pylint: disable=no-member
+            if isinstance(e.reason, exceptions.MissingSetupPyArgumentException):
+                e.cause = causes.missing_argument_from_setup_py(argument)
+                e.possible_solutions = [
+                    solutions.add_argument_to_setup_py(argument),
+                    solutions.specify_command_line_option(option)
+                ]
 
         log.xmark()
         raise
@@ -138,10 +171,14 @@ def wheel(ctx, universal, wheel_version):
     except BaseException as e:
 
         if isinstance(e, exceptions.WheelExistsException):
-            e.exit_code = 104
             e.cause = 'You probably forgot to move/delete the package you created last time'
             e.possible_solutions = [
                 'Delete/Move the package and try again'
+            ]
+
+        if isinstance(e, exceptions.SetupPyNotFoundException):
+            e.possible_solutions = [
+                solutions.create_setup_py()
             ]
 
         log.xmark()
@@ -150,7 +187,7 @@ def wheel(ctx, universal, wheel_version):
 
 @click.command()
 @click.pass_context
-@click.option('--binary-path', required=False,
+@click.option('--binary-path', required=True,
               help='Path to a pre-packed binary executable. '
                    "This is the program that the installer will install. You can create this file by running the "
                    "'pyci pack binary' command.")
@@ -159,17 +196,9 @@ def wheel(ctx, universal, wheel_version):
                    '(if exists)')
 @click.option('--output', required=False,
               help='Path to write the created installer file.')
-@click.option('--author', required=False,
-              help='Program author. Defaults to the author value in setup.py (if exists)')
-@click.option('--website', required=False,
-              help='Website URL. Defaults to the url value in setup.py (if exists)')
-@click.option('--copyr', required=False,
-              help='Copyright string. Default to an empty value.')
-@click.option('--license-path', required=False,
-              help='Path to a license file. This license will appear as part of the installation Wizard. Defaults '
-                   'to license value in setup.py (if exists)')
+@common_nsis_options()
 @handle_exceptions
-def nsis(ctx, binary_path, version, output, author, website, copyr, license_path):
+def nsis(ctx, binary_path, version, output, author, url, copyright_string, license_path):
 
     """
     Create a windows executable installer.
@@ -183,9 +212,6 @@ def nsis(ctx, binary_path, version, output, author, website, copyr, license_path
     See https://nsis.sourceforge.io/Main_Page
     """
 
-    if not utils.is_windows():
-        raise ShellException('NSIS packaging can only run on windows machines')
-
     try:
 
         packager = ctx.obj.packager
@@ -195,38 +221,36 @@ def nsis(ctx, binary_path, version, output, author, website, copyr, license_path
                                      version=version,
                                      output=output,
                                      author=author,
-                                     website=website,
-                                     copyr=copyr,
+                                     url=url,
+                                     copyright_string=copyright_string,
                                      license_path=license_path)
         log.checkmark()
-        log.echo('Installer package created: {}'.format(package_path))
+        log.echo('NSIS Installer created: {}'.format(package_path))
         return package_path
 
     except BaseException as e:
 
-        if isinstance(e, exceptions.FailedReadingSetupPyAuthorException):
-            e.possible_solutions = [
-                'Create a standard setup.py file in your project root',
-                'Use --author to specify a custom author'
-            ]
+        if isinstance(e, exceptions.FailedDetectingPackageMetadataException):
 
-        if isinstance(e, exceptions.FailedReadingSetupPyLicenseException):
-            e.possible_solutions = [
-                'Create a standard setup.py file in your project root',
-                'Use --license-path to specify a custom author'
-            ]
+            # pylint: disable=no-member
+            argument = e.argument
+            option = 'entrypoint' if argument == 'entry_points' else argument
 
-        if isinstance(e, exceptions.FailedReadingSetupPyVersionException):
-            e.possible_solutions = [
-                'Create a standard setup.py file in your project root',
-                'Use --version to specify a custom author'
-            ]
+            # pylint: disable=no-member
+            if isinstance(e.reason, exceptions.SetupPyNotFoundException):
+                e.cause = causes.no_setup_py_file(option)
+                e.possible_solutions = [
+                    solutions.create_setup_py(),
+                    solutions.specify_command_line_option(option)
+                ]
 
-        if isinstance(e, exceptions.FailedReadingSetupPyURLException):
-            e.possible_solutions = [
-                'Create a standard setup.py file in your project root',
-                'Use --website to specify a custom author'
-            ]
+            # pylint: disable=no-member
+            if isinstance(e.reason, exceptions.MissingSetupPyArgumentException):
+                e.cause = causes.missing_argument_from_setup_py(argument)
+                e.possible_solutions = [
+                    solutions.add_argument_to_setup_py(argument),
+                    solutions.specify_command_line_option(option)
+                ]
 
         log.xmark()
         raise

@@ -15,15 +15,8 @@
 #
 #############################################################################
 
-from pyci.api import ci
-
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
+from pyci.api.ci import ci
+from pyci.tests import utils as test_utils
 
 
 def test_validate_build(pyci, mocker):
@@ -37,9 +30,9 @@ def test_validate_build(pyci, mocker):
         'TRAVIS_PULL_REQUEST': 'false'
     })
 
-    detect = MagicMock(return_value=ci_provider)
+    detect = test_utils.MagicMock(return_value=ci_provider)
 
-    mocker.patch(target='pyci.api.ci.detect', new=detect)
+    mocker.patch(target='pyci.api.ci.ci.detect', new=detect)
 
     result = pyci.run('ci validate-build --release-branch release')
 
@@ -59,9 +52,9 @@ def test_validate_build_failed(pyci, mocker):
         'TRAVIS_PULL_REQUEST': 'false'
     })
 
-    detect = MagicMock(return_value=ci_provider)
+    detect = test_utils.MagicMock(return_value=ci_provider)
 
-    mocker.patch(target='pyci.api.ci.detect', new=detect)
+    mocker.patch(target='pyci.api.ci.ci.detect', new=detect)
 
     result = pyci.run('ci validate-build --release-branch release', catch_exceptions=True)
 

@@ -15,8 +15,8 @@
 #
 #############################################################################
 
-from pyci.api.packager import DEFAULT_PY_INSTALLER_VERSION
-from pyci.api.packager import DEFAULT_WHEEL_VERSION
+from pyci.api.package.packager import DEFAULT_PY_INSTALLER_VERSION
+from pyci.api.package.packager import DEFAULT_WHEEL_VERSION
 
 BRANCH = 'The name of the branch you want to release. The defaulting heuristics ' \
               'are as follows: ' \
@@ -51,3 +51,13 @@ PY_INSTALLER_VERSION = 'Which version of PyInstaller to use. Note that PyCI is t
 
 WHEEL_VERSION = 'Which version of wheel to use for packaging. Note that PyCI is tested only against version {}, ' \
         'this is an advanced option, use at your own peril'.format(DEFAULT_WHEEL_VERSION)
+
+
+AUTHOR = 'Program author. Defaults to the author value in setup.py (if exists)'
+
+URL = 'Website URL. Defaults to the url value in setup.py (if exists)'
+
+COPYRIGHT = 'Copyright string. Default to an empty value.'
+
+LICENSE = 'Path to a license file. This license will appear as part of the installation Wizard. Defaults ' \
+          'to license value in setup.py (if exists)'

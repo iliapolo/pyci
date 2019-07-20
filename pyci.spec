@@ -6,12 +6,19 @@ import platform
 
 block_cipher = None
 
+# This ugly hack is courtesy of pyinstaller adding tkinter hooks for some reason
+# https://github.com/pyinstaller/pyinstaller/wiki/Recipe-remove-tkinter-tcl
+sys.modules['FixTk'] = None
+
 datas = [
     ('pyci/resources/changelog.jinja', 'pyci/resources'),
     ('pyci/resources/pyci.ascii', 'pyci/resources'),
     ('pyci/resources/virtualenv.py', 'pyci/resources'),
     ('pyci/resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
-    ('pyci/resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support')
+    ('pyci/resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
+    ('pyci/resources/windows_support/installer.nsi.jinja', 'pyci/resources/windows_support'),
+    ('pyci/resources/windows_support/nsis-3.04.zip', 'pyci/resources/windows_support'),
+    ('pyci/resources/windows_support/path.nsh', 'pyci/resources/windows_support')
 ]
 
 # This ugly hack is courtesy of the following issue:
@@ -38,7 +45,7 @@ a = Analysis(['pyci/shell/main.py'],
              hiddenimports=hidden_imports,
              hookspath=[],
              runtime_hooks=[],
-             excludes=[],
+             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter'],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
              cipher=block_cipher)
