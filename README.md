@@ -24,6 +24,8 @@ Would that be something you might be interested in?
 
 If your answer is yes, or if you just got the reference, carry on 😎
 
+## Show me the money
+
 PyCI integrates with your existing CI providers and enables continuous release of 
 the project. All you have to do is invoke the `pyci release` at the end of your CI workflow. It will detect the CI 
 provider and perform a release of the associated commit.
@@ -126,8 +128,7 @@ pip install py-ci
 
 Or, since PyCI itself uses PyCI for releases, you can simply download the executable from the [releases](https://github.com/iliapolo/pyci/releases) page.
 
-
-### Credentials
+## Credentials
 
 There are several credentials used by PyCI. All credentials are passed via environment variables,
 never via the command line. All credentials can be prompted interactively in case the appropriate
@@ -135,19 +136,29 @@ env variable is not defined.
 
 Every supported CI provider has a way of securely injecting environment variables to a job.
 
-#### GitHub
+### GitHub
 
 PyCI uses a [Github Authentication Token](https://github.com/settings/tokens) for authentication. 
 It is passed via the `GITHUB_ACCESS_TOKEN` env variable.
 
 You must create the token with the necessary scopes for full control over your repository.
 
-#### PyPI
+### PyPI
 
 PyCI needs your PyPI account credentials in order to upload wheels to PyPI. These credentials are:
 
 - `TWINE_USERNAME`
 - `TWINE_PASSWORD`
+
+## Tell me more
+
+Like I mentioned before, PyCI is an opinionated tool, and as such, you should know what those opinions are:
+
+- [I am PyCI - Hear Me Roar](./docs/hear-me-roar.md)
+
+Its also worth understanding some key concepts and how exactly PyCI implements them.
+
+- [I am PyCI - Be Gentle](./docs/be-gentle.md)
 
 
 ## Not planning to use PyCI?
@@ -160,7 +171,3 @@ No hard feelings, but I would really love to know why :)
 If you could spare a minute or two to simply explain your choice as a comment in 
 [this](https://github.com/iliapolo/pyci/issues/30) issue, that would be great, if not, that's ok 
 too.
-
-**Currently only supported for projects hosted on Github and running CI on either 
-[Travis](https://travis-ci.org/), and or [Circle](https://circleci.com/), 
-and or [Appveyor](https://www.appveyor.com/)**
