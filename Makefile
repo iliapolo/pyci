@@ -40,6 +40,6 @@ release: dep-project ## Run release
 
 	pyci release --wheel-universal --binary-entrypoint pyci.spec
 
-codecov: dep-test ## Report coverage to codecov.io
+codecov: dep-test ## Report coverage to coveralls
 
 	coveralls

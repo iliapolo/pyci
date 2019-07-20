@@ -26,7 +26,7 @@ from click.testing import CliRunner
 from pyci.tests import utils as test_utils
 from pyci.api import exceptions
 from pyci.api import logger
-from pyci.api.packager import Packager
+from pyci.api.package.packager import Packager
 from pyci.api.runner import CommandExecutionResponse
 from pyci.api.runner import LocalCommandRunner
 from pyci.shell.main import app

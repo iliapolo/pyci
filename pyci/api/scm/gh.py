@@ -26,11 +26,10 @@ from github import InputGitTreeElement
 from github.GithubException import UnknownObjectException
 from github.GithubException import GithubException
 
-from pyci.api.model import ChangelogIssue
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
-from pyci.api import model
+from pyci.api.model import model
 from pyci.api.runner import LocalCommandRunner
 
 
@@ -398,9 +397,9 @@ class GitHubRepository(object):
         if not semantic:
             raise exceptions.InvalidArgumentsException('semantic cannot be empty')
 
-        if semantic not in ChangelogIssue.SEMANTIC_VERSION_LABELS:
+        if semantic not in model.ChangelogIssue.SEMANTIC_VERSION_LABELS:
             raise exceptions.InvalidArgumentsException('semantic must be one of: {}'
-                                                       .format(ChangelogIssue.SEMANTIC_VERSION_LABELS))
+                                                       .format(model.ChangelogIssue.SEMANTIC_VERSION_LABELS))
 
         branch = branch or self.default_branch_name
 
@@ -794,9 +793,7 @@ class _GitHubCommit(object):
             content_file = self._repo.repo.get_contents(path='setup.py',
                                                         ref=self.commit.sha)
         except UnknownObjectException:
-            raise exceptions.NotPythonProjectException(repo=self._repo.repo.full_name,
-                                                       sha=self.commit.sha,
-                                                       cause='setup.py file not found')
+            raise exceptions.SetupPyNotFoundException(repo=self._repo.repo.full_name)
 
         setup_py_file = os.path.join(tempfile.mkdtemp(), 'setup.py')
 

@@ -15,26 +15,18 @@
 #
 #############################################################################
 
-try:
-    # python2
-    from mock import MagicMock
-except ImportError:
-    # python3
-    # noinspection PyUnresolvedReferences,PyCompatibility
-    from unittest.mock import MagicMock
-
-
 import pytest
 from twine.commands import upload
 
 from pyci.shell import secrets
 from pyci.api import exceptions
-from pyci.api.pypi import PyPI
+from pyci.api.publish.pypi import PyPI
+from pyci.tests import utils as test_utils
 
 
 def test_upload(pypi, pyci, mocker):
 
-    mocker.patch(target='twine.commands.upload.main', new=MagicMock())
+    mocker.patch(target='twine.commands.upload.main', new=test_utils.MagicMock())
 
     pypi.api.upload(wheel=pyci.wheel_path)
 

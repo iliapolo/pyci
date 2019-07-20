@@ -20,6 +20,7 @@ import os
 import pytest
 
 from pyci.tests.conftest import LAST_COMMIT
+from pyci.api import exceptions
 
 
 @pytest.mark.wet
@@ -28,17 +29,17 @@ def test_release(release, temp_dir, mocker):
 
     expected_entrypoint = 'entrypoint'
     expected_author = 'author'
-    expected_website = 'website'
+    expected_url = 'url'
     expected_license_path = 'license-path'
     expected_copyr = 'copyr'
 
     release_options = '--pypi-test ' \
                       '--author {} ' \
-                      '--website {} ' \
-                      '--license-path {} ' \
-                      '--copyr {} ' \
+                      '--url {} ' \
+                      '--license {} ' \
+                      '--copyright {} ' \
                       '--binary-entrypoint {}'.format(expected_author,
-                                                      expected_website,
+                                                      expected_url,
                                                       expected_license_path,
                                                       expected_copyr,
                                                       expected_entrypoint)
@@ -54,9 +55,9 @@ def test_release(release, temp_dir, mocker):
     def _nsis(*_, **kwargs):
 
         assert expected_author == kwargs.get('author')
-        assert expected_website == kwargs.get('website')
+        assert expected_url == kwargs.get('url')
         assert expected_license_path == kwargs.get('license_path')
-        assert expected_copyr == kwargs.get('copyr')
+        assert expected_copyr == kwargs.get('copyright_string')
 
         with open(installer_path, 'w') as f:
             f.write('nsis')
@@ -86,10 +87,10 @@ def test_release(release, temp_dir, mocker):
         return True
 
     mocker.patch(target='pyci.api.utils.is_windows', side_effect=_is_windows)
-    mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
-    mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
-    mocker.patch(target='pyci.api.packager.Packager.nsis', side_effect=_nsis)
-    mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.api.package.packager.Packager.nsis', side_effect=_nsis)
+    mocker.patch(target='pyci.api.publish.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch release {}'.format(release_options))
 
@@ -100,10 +101,32 @@ def test_release(release, temp_dir, mocker):
     assert expected_wheel_name in assets
     assert expected_installer_name in assets
 
-    from pyci.api.pypi import PyPI
+    from pyci.api.publish.pypi import PyPI
 
     # noinspection PyUnresolvedReferences
     PyPI.upload.assert_called_once_with(wheel=wheel_path)  # pylint: disable=no-member
+
+
+@pytest.mark.wet
+def test_release_no_default_entrypoint(release, mocker, repo_path):
+
+    def _binary(*_, **__):
+        raise exceptions.FailedDetectingPackageMetadataException(
+            argument='entry_points',
+            reason=exceptions.SetupPyNotFoundException(repo=repo_path))
+
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+
+    result = release.run('--branch release --no-wheel --no-installer')
+
+    github_release = release.github.api.repo.get_release(id='1.0.0')
+
+    assets = [asset.name for asset in github_release.get_assets()]
+
+    expected_message = 'Binary package will not be created because PyCI could not detect an entrypoint'
+
+    assert expected_message in result.std_out
+    assert not assets
 
 
 @pytest.mark.wet
@@ -141,9 +164,9 @@ def test_release_no_wheel_publish(release, temp_dir, mocker):
     def _upload(*_, **__):
         return 'http://this-is-an-upload-url'
 
-    mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
-    mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
-    mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.api.publish.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch release {}'.format(release_options))
 
@@ -153,7 +176,7 @@ def test_release_no_wheel_publish(release, temp_dir, mocker):
     assert expected_binary_name in assets
     assert expected_wheel_name in assets
 
-    from pyci.api.pypi import PyPI
+    from pyci.api.publish.pypi import PyPI
 
     # noinspection PyUnresolvedReferences
     PyPI.upload.assert_not_called()  # pylint: disable=no-member
@@ -194,9 +217,9 @@ def test_release_twice(release, mocker, temp_dir):
     def _upload(*_, **__):
         return 'http://this-is-an-upload-url'
 
-    mocker.patch(target='pyci.api.packager.Packager.binary', side_effect=_binary)
-    mocker.patch(target='pyci.api.packager.Packager.wheel', side_effect=_wheel)
-    mocker.patch(target='pyci.api.pypi.PyPI.upload', side_effect=_upload)
+    mocker.patch(target='pyci.api.package.packager.Packager.binary', side_effect=_binary)
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.api.publish.pypi.PyPI.upload', side_effect=_upload)
 
     release.run('--branch release {}'.format(release_options))
 
