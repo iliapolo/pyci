@@ -15,7 +15,10 @@ datas = [
     ('pyci/resources/pyci.ascii', 'pyci/resources'),
     ('pyci/resources/virtualenv.py', 'pyci/resources'),
     ('pyci/resources/virtualenv_support/pip-19.1.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
-    ('pyci/resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support')
+    ('pyci/resources/virtualenv_support/setuptools-41.0.1-py2.py3-none-any.whl', 'pyci/resources/virtualenv_support'),
+    ('pyci/resources/windows_support/installer.nsi.jinja', 'pyci/resources/windows_support'),
+    ('pyci/resources/windows_support/nsis-3.04.zip', 'pyci/resources/windows_support'),
+    ('pyci/resources/windows_support/path.nsh', 'pyci/resources/windows_support')
 ]
 
 # This ugly hack is courtesy of the following issue:

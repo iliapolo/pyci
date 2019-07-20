@@ -522,19 +522,6 @@ class Packager(object):
 
         return script_path
 
-    # @cachedproperty
-    # def _package_data(self):
-    #
-    #     package_data = []
-    #
-    #     package_data_d = self._setup_py.get('package_data', {})
-    #
-    #     for package, resources in self._setup_py.get('package_data', {}).iteritems():
-    #
-    #         package_data.extend(os.path.join(package, resource) for resource in resources)
-    #
-    #     return package_data
-
     @cachedproperty
     def _setup_py_path(self):
         return os.path.join(self._repo_dir, 'setup.py')

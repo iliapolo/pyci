@@ -30,7 +30,7 @@ from pyci.tests import conftest
 
 def test_binary(pack, runner):
 
-    pack.run('binary', binary=True)
+    pack.run('binary --entrypoint {}'.format(conftest.SPEC_FILE), binary=True)
 
     expected_package_path = os.path.join(os.getcwd(), 'py-ci-{}-{}'.format(platform.machine(), platform.system()))
 
@@ -40,9 +40,7 @@ def test_binary(pack, runner):
     assert os.path.exists(expected_package_path)
 
     # lets make sure the binary actually works
-    result = runner.run(expected_package_path)
-
-    assert result
+    assert runner.run(expected_package_path)
 
 
 def test_binary_options(pack, mocker):
