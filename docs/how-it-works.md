@@ -243,3 +243,58 @@ Each commit is then categorized into one of: (see [Issue detection](https://gith
 If a *feature* (or *bug*) label if found, the commit is categorized as a feature (or bug). 
 If these labels are not found, the commit is categorized as a regular issue. If the commit 
 does not reference any issue, the commit is left "Dangling".
+
+
+Create a binary executable file. This packaging format is extremely useful for distributing your 
+CLI with minimum requirements. All users have to do is download a single file based on their 
+platform. This also alleviates the need for an internet connection during installation since all 
+dependencies are packaged inside. 
+
+##### Good to know
+
+Binary packages may greatly differ from the wheel distribution you are used to. That is, code 
+that runs properly from within a wheel, may fail when its running from inside the installer. The 
+main differences revolve around these issues:
+
+- Accessing resource files
+
+    When you package a wheel, it looks in the setup.py file for your package data declaration and 
+    includes these files in the target wheel. [PyInstaller]()https://www.pyinstaller.org/ does not do
+    this unfortunately, and you have to specify your package data in 
+    a [spec](https://pyinstaller.readthedocs.io/en/v3.3.1/spec-files.html) file (similar to setup.py).  
+    You can see an example in PyCI itself, which uses [this](pyci.spec#L11) spec file.
+
+- Invoking python command line tools
+
+    When you run within a wheel, you are running inside a standard python runtime environment. 
+    Which  means you have access to all command lines that were installed to that environment. 
+    However, the python runtime inside a PyInstaller package is not standard, and by default, 
+    does not include the *bin* directory from the installation. This means you have to add it 
+    yourself, again using a spec file. You can see an example in PyCI itself, which 
+    uses [this](pyci.spec#L19) spec file.
+    
+    Also, the path to these command line tools will **not** be the same. Remember, you running 
+    inside a compressed package that embeds the python library. When your command line is invoked,
+    the PyInstaller boot loader extracts the package to a temp directory on your file system, and 
+    using things like `sys.executable` will not produce the expected result. Instead, 
+    PyInstaller provides an environment variable that points to that temp directory, so all your
+    paths should take this into account.
+     
+    PyCI itself relies on this, you can see how I implemented path resolution 
+    [here](https://github.com/iliapolo/pyci/blob/release/pyci/api/utils.py#L214).
+
+- Script entrypoint
+
+    When you install a package via pip, it looks for the entry-points declared in your setup.py,
+    and dynamically creates python scripts to be used as the command line entry-point. 
+    PyInstaller packages obviously dont do this, this means that your entrypoint file must be 
+    invokable as a script. If you are using a framework like [click](http://click.pocoo.org/6/), 
+    this wont be the case.
+    
+    You see an example [here](./pyci/shell/main.py#L223) of how to deal with such a case.
+
+
+Basically, the main point is: **Run your tests on the binary package as well as the wheel.**
+<br> 
+Do not assume that what runs in the wheel will work. Exactly as you should not assume that what 
+runs in editable mode will work in a wheel.
