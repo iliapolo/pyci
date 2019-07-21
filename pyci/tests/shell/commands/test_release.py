@@ -305,5 +305,3 @@ def test_release_no_wheel_publish_no_twine_credentials(release, mocker, temp_dir
 
     assets = [asset.name for asset in github_release.get_assets()]
     assert expected_wheel_name in assets
-
-
