@@ -210,7 +210,7 @@ def test_release_twice(release, mocker, temp_dir):
         with open(wheel_path, 'w') as f:
             f.write('wheel')
 
-        return binary_path
+        return wheel_path
 
     # This mock can return anything it wants since this URL is not being
     # asserted upon.
@@ -276,3 +276,34 @@ def test_release_failed(release):
     expected_output = 'Commit not found: doesnt-exist'
 
     assert expected_output in result.std_out
+
+
+@pytest.mark.wet
+def test_release_no_wheel_publish_no_twine_credentials(release, mocker, temp_dir):
+
+    expected_wheel_name = 'pyci-guinea-pig.whl'
+
+    wheel_path = os.path.join(temp_dir, expected_wheel_name)
+
+    def _secret():
+        raise RuntimeError("We shouldn't get here...")
+
+    def _wheel(*_, **__):
+
+        with open(wheel_path, 'w') as f:
+            f.write('wheel')
+
+        return wheel_path
+
+    mocker.patch(target='pyci.api.package.packager.Packager.wheel', side_effect=_wheel)
+    mocker.patch(target='pyci.shell.secrets.twine_username', side_effect=_secret)
+    mocker.patch(target='pyci.shell.secrets.twine_password', side_effect=_secret)
+
+    release.run('--branch release --no-wheel-publish --no-binary --no-installer')
+
+    github_release = release.github.api.repo.get_release(id='1.0.0')
+
+    assets = [asset.name for asset in github_release.get_assets()]
+    assert expected_wheel_name in assets
+
+
