@@ -133,7 +133,6 @@ def release(ctx,
     from pyci.shell import main
 
     ctx.invoke(main.github, repo=repo)
-    ctx.invoke(main.pypi, test=pypi_test, repository_url=pypi_url)
 
     github_release = ctx.invoke(github.release_,
                                 version=version,
@@ -202,6 +201,9 @@ def release(ctx,
                           github_release=github_release)
 
             if not no_wheel_publish:
+
+                ctx.invoke(main.pypi, test=pypi_test, repository_url=pypi_url)
+
                 _upload_pypi(ctx=ctx,
                              wheel_path=wheel_path)
 
