@@ -41,7 +41,7 @@ log = get_logger()
               help=pyci_help.BRANCH)
 @click.option('--master-branch', required=False, default='master',
               help=pyci_help.MASTER_BRANCH)
-@click.option('--release-branch', required=False, default='release',
+@click.option('--release-branch', required=False,
               help=pyci_help.RELEASE_BRANCH)
 @click.option('--changelog-base', required=False,
               help='Base commit for changelog generation (exclusive)')
