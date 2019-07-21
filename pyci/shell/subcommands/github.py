@@ -42,7 +42,7 @@ log = get_logger()
               help=pyci_help.BRANCH)
 @click.option('--master-branch', required=False, default='master',
               help=pyci_help.MASTER_BRANCH)
-@click.option('--release-branch', required=False, default='release',
+@click.option('--release-branch', required=False,
               help=pyci_help.RELEASE_BRANCH)
 @click.option('--version', required=False,
               help='Use this version instead of the automatic, changelog based, generated version.')
@@ -96,6 +96,7 @@ def release_(ctx, version, branch, master_branch, release_branch, changelog_base
     gh = ctx.obj.github
 
     branch = branch or (ci_provider.branch if ci_provider else None)
+    release_branch = release_branch or gh.default_branch_name
     sha = ci_provider.sha if ci_provider else branch
 
     if not force:
