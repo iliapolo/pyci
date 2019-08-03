@@ -429,7 +429,7 @@ def test_detect_issues_not_related_to_issue(github):
 
     result = github.run('detect-issues --message message')
 
-    expected_output = 'The commit is not related ot any issue.'
+    expected_output = ''
 
     assert expected_output in result.std_out
 
