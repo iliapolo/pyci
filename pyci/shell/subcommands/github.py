@@ -351,16 +351,16 @@ def upload_changelog(ctx, changelog, release):
 @click.command()
 @handle_exceptions
 @click.pass_context
-@click.option('--sha', required=False,
-              help='Detect from a sha, the message will be retrieved.')
 @click.option('--message', required=False,
               help='Detect from a commit message directly.')
-def detect_issue(ctx, sha, message):
+@click.option('--sha', required=False,
+              help='Detect from a sha, the message will be retrieved.')
+def detect_issues(ctx, sha, message):
 
     """
-    Detect an issue for a specific commit.
+    Detect an issue for a specific commit (message).
 
-    Parses the commit message to detect which issue as related to that commit.
+    Parses the commit message to detect which issues are related to that commit.
 
     """
 
@@ -372,12 +372,10 @@ def detect_issue(ctx, sha, message):
 
     try:
         log.echo('Detecting issue...', break_line=False)
-        issue = ctx.obj.github.detect_issue(sha=sha, commit_message=message)
+        issues = ctx.obj.github.detect_issues(sha=sha, message=message)
         log.checkmark()
-        if issue:
+        for issue in issues:
             log.echo('Issue detected: {}'.format(issue.url))
-        else:
-            log.echo('The commit is not related ot any issue.')
     except BaseException as _:
         log.xmark()
         raise

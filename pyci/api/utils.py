@@ -33,25 +33,30 @@ import requests
 from pyci.api import exceptions
 
 
-def extract_link(commit_message):
+def extract_links(commit_message):
 
     """
-    Extracts the link number from a commit message. A link is considered as the first number
+    Extracts the link numbers from a commit message. A link is considered as the first number
     following the '#' sign.
+
     For example:
-        "Implemented feature (#4)" --> link = 4
+
+        "Implemented feature (#4)" --> links = [4]
+        "Implemented feature (#4) and (#5)" --> links = [4.5]
+
+    Args:
+
+        commit_message (:str): The commit message.
 
     Returns:
-        int: The link number from the message or None if doesn't exist.
+
+        A list of link numbers.
+
     """
 
-    # pylint: disable=anomalous-backslash-in-string
-    p = re.compile('.* ?#(\d+)')
-    match = p.match(commit_message)
-    if match:
-        return int(match.group(1))
+    p = re.findall(r'#(\d+)', commit_message)
 
-    return None
+    return [int(l) for l in p]
 
 
 def lsf(directory):
