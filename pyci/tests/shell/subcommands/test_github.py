@@ -83,6 +83,37 @@ def test_release(github):
 
 
 @pytest.mark.wet
+def test_release_commit_multiple_issues(github):
+
+    github.api.commit(path='README.md',
+                      contents='For release',
+                      message='This resolves issue #12 and #11',
+                      branch='release')
+
+    github.run('release --branch release')
+
+    expected_release_title = '3.0.0'
+    repo = github.api.repo
+    github_release = repo.get_release(id=expected_release_title)
+
+    expected_issue_comment = 'This issue is part of release [{}]({})'.format(
+        expected_release_title, github_release.html_url)
+
+    def _assert_issue(number):
+        issue = repo.get_issue(number=number)
+        comments = [comment.body for comment in issue.get_comments()]
+        assert issue.state == 'closed'
+        assert expected_issue_comment in comments
+
+    _assert_issue(1)
+    _assert_issue(5)
+    _assert_issue(6)
+    _assert_issue(7)
+    _assert_issue(11)
+    _assert_issue(12)
+
+
+@pytest.mark.wet
 def test_release_twice(github):
 
     github.run('release --force --branch release')
@@ -367,45 +398,45 @@ def test_upload_asset_failed(github):
     assert expected_output in result.std_out
 
 
-def test_detect_issue_no_sha_no_message(github):
+def test_detect_issues_no_sha_no_message(github):
 
-    result = github.run('detect-issue', catch_exceptions=True)
+    result = github.run('detect-issues', catch_exceptions=True)
 
     expected_output = 'Must specify either --sha or --message.'
 
     assert expected_output in result.std_out
 
 
-def test_detect_issue_sha_and_message(github):
+def test_detect_issues_sha_and_message(github):
 
-    result = github.run('detect-issue --sha sha --message message', catch_exceptions=True)
+    result = github.run('detect-issues --sha sha --message message', catch_exceptions=True)
 
     expected_output = 'Use either --sha or --message, not both.'
 
     assert expected_output in result.std_out
 
 
-def test_detect_issue(github):
+def test_detect_issues(github):
 
-    result = github.run('detect-issue --message "Dummy commit linked to issue (#6)"')
+    result = github.run('detect-issues --message "Dummy commit linked to issue (#6)"')
 
     expected_output = 'Issue detected: https://github.com/{}/issues/6'.format(REPO_UNDER_TEST)
 
     assert expected_output in result.std_out
 
 
-def test_detect_issue_not_related_to_issue(github):
+def test_detect_issues_not_related_to_issue(github):
 
-    result = github.run('detect-issue --message message')
+    result = github.run('detect-issues --message message')
 
     expected_output = 'The commit is not related ot any issue.'
 
     assert expected_output in result.std_out
 
 
-def test_detect_issue_failed(github):
+def test_detect_issues_failed(github):
 
-    result = github.run('detect-issue --sha sha', catch_exceptions=True)
+    result = github.run('detect-issues --sha sha', catch_exceptions=True)
 
     expected_output = 'Commit not found: sha'
 

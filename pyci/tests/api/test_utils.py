@@ -150,6 +150,20 @@ def test_which_python():
     assert os.path.abspath(sys.exec_prefix).lower() in python_path.lower()
 
 
+def test_extract_links_multiple_matches():
+
+    links = utils.extract_links('This commit closes issues #21 and #24')
+
+    assert links == [21, 24]
+
+
+def test_extract_links_no_matches():
+
+    links = utils.extract_links('This commit doesnt close any issue')
+
+    assert links == []
+
+
 @pytest.mark.linux
 def test_which_ls():
 

@@ -236,88 +236,107 @@ class GitHubRepository(object):
                              url=git_release.html_url,
                              sha=release_sha)
 
-    def detect_issue(self, sha=None, commit_message=None):
+    def detect_issues(self, sha=None, message=None):
 
         """
-        Detect which issue a commit is related to. This is done by looking up the number
-        following the '#' sign in the commit message. If this number corresponds to an issue,
-        we are done. If not, check if it corresponds to a pull request, if so, detect the issue
-        number from the pull request body.
+
+        Detect which issues a commit is related to. This is done by using the following heuristic:
+
+            1. Extract all links in the commit message. A link is defined as a number prefix by the '#' sign.
+
+            2. For each link:
+
+                2.1 - Check if it points to an issue.
+                2.2 - Yes --> we are done.
+                2.3 - No --> check if it points to a PR.
+                2.4 - Yes --> extract links from the PR body and run 2.1 --> 2.2 --> 2.5 for each link.
+                2.5 - No --> ignore this link and move on.
+
+            3. Return all collected issues.
 
         Args:
-            sha (:str, optional): Using the commit sha.
-            commit_message (:str, optional): Using the commit message.
+
+            message (:str, optional): The commit message.
+
+            sha (:str, optional): The commit sha.
 
         Return:
-            pyci.api.model.Issue: The issue, if found.
-            None: If the commit does not contain a link to an issue number.
+
+            list(pyci.api.model.Issue): All the collected issues.
+
         """
 
-        if not sha and not commit_message:
-            raise exceptions.InvalidArgumentsException('either sha or commit_message is required.')
+        if not sha and not message:
+            raise exceptions.InvalidArgumentsException('either sha or message is required.')
 
-        if sha and commit_message:
-            raise exceptions.InvalidArgumentsException('either sha or commit_message is allowed.')
+        if sha and message:
+            raise exceptions.InvalidArgumentsException('either sha or message is allowed.')
 
-        self._debug('Detecting issue for commit...', sha=sha, commit_message=commit_message)
-
-        if not commit_message:
-            self._debug('Fetching commit message...', sha=sha)
+        def _fetch_message():
             try:
+                self._debug('Fetching commit message...', sha=sha)
                 commit_message = self.repo.get_commit(sha=sha).commit.message
+                self._debug('Fetched commit message...', sha=sha, commit_message=commit_message)
+                return commit_message
             except GithubException as e:
                 if isinstance(e, UnknownObjectException) or 'No commit found for SHA' in str(e):
                     raise exceptions.CommitNotFoundException(sha=sha)
+                else:
+                    raise
 
-            self._debug('Fetched commit message...', sha=sha, commit_message=commit_message)
+        message = message or _fetch_message()
 
-        self._debug('Extracting link...', sha=sha, commit_message=commit_message)
-        ref = utils.extract_link(commit_message)
-        self._debug('Extracted link.', sha=sha, commit_message=commit_message, link=ref)
+        self._debug('Detecting issues for commit...', sha=sha, commit_message=message)
 
-        issue_number = None
+        self._debug('Extracting commit links...', sha=sha, commit_message=message)
+        commit_links = utils.extract_links(message)
+        self._debug('Extracted commit links.', sha=sha, commit_message=message, links=commit_links)
 
-        if ref:
+        issues = []
+
+        for c_link in commit_links:
+
             try:
 
-                self._debug('Fetching pull request...', sha=sha, commit_message=commit_message,
-                            ref=ref)
-                pull = self.repo.get_pull(number=ref)
-                self._debug('Fetched pull request.', sha=sha, commit_message=commit_message,
-                            ref=ref, pull_request=pull.url)
+                self._debug('Fetching pull request...', sha=sha, commit_message=message, ref=c_link)
+                pull = self.repo.get_pull(number=c_link)
+                self._debug('Fetched pull request.', sha=sha, commit_message=message, ref=c_link, pr=pull.url)
 
-                self._debug('Extracting issue number from pull request body...', sha=sha,
-                            commit_message=commit_message, ref=ref, pull_request_body=pull.body)
-                issue_number = utils.extract_link(pull.body)
-                self._debug('Extracted issue number from pull request body', sha=sha,
-                            commit_message=commit_message, ref=ref, pull_request_body=pull.body,
-                            issue_number=issue_number)
+                self._debug('Extracting pull request links...', sha=sha, ref=c_link, pr_body=pull.body)
+                pr_links = utils.extract_links(pull.body)
+                self._debug('Extracted pull request links.', sha=sha, ref=c_link, pr_body=pull.body, links=pr_links)
+
+                for p_link in pr_links:
+
+                    try:
+
+                        self._debug('Fetching issue...', sha=sha, pr_body=pull.body, ref=p_link)
+                        issue = self.repo.get_issue(number=p_link)
+                        self._debug('Fetched issue.', sha=sha, pr_body=pull.body, issue_url=issue.url)
+
+                        issues.append(model.Issue(impl=issue, number=issue.number, url=issue.html_url))
+
+                    except UnknownObjectException:
+                        # ignore - it might not be a reference at all...
+                        pass
 
             except UnknownObjectException:
-                self._debug('Link is not a pull request.', sha=sha, commit_message=commit_message,
-                            ref=ref)
-                issue_number = ref
 
-        if issue_number:
-            try:
-                self._debug('Fetching issue...', sha=sha, commit_message=commit_message,
-                            issue_number=issue_number)
-                issue = self.repo.get_issue(number=issue_number)
-                self._debug('Fetched issue.', sha=sha, commit_message=commit_message,
-                            issue_url=issue.url)
+                self._debug('Link is not a pull request.', sha=sha, commit_message=message, ref=c_link)
 
-                sue = model.Issue(impl=issue, number=issue.number, url=issue.html_url)
+                try:
 
-                self._debug('Detected issue.', sha=sha, commit_message=commit_message,
-                            issue=sue.url)
-                return sue
-            except UnknownObjectException:
-                # this is unexpected, it means the reference is either the pull
-                # request or the commit points to a non existing issue!
-                raise exceptions.IssueNotFoundException(issue=issue_number)
+                    self._debug('Fetching issue...', sha=sha, commit_message=message, ref=c_link)
+                    issue = self.repo.get_issue(number=c_link)
+                    self._debug('Fetched issue.', sha=sha, commit_message=message, issue_url=issue.url)
 
-        self._debug('No link found in commit message', sha=sha, commit_message=commit_message)
-        return None
+                    issues.append(model.Issue(impl=issue, number=issue.number, url=issue.html_url))
+
+                except UnknownObjectException:
+                    # ignore - it might not be a reference at all...
+                    pass
+
+        return issues
 
     def delete_release(self, name):
 
@@ -772,18 +791,22 @@ class _GitHubCommit(object):
             raise
 
     @cachedproperty
-    def issue(self):
-        issue = self._repo.detect_issue(commit_message=self.commit.commit.message)
-        if issue:
-            issue = issue.impl
-        return issue
+    def issues(self):
+        return self._repo.detect_issues(message=self.commit.commit.message)
 
     @cachedproperty
     def labels(self):
-        self._debug('Fetching issue labels...', issue=self.issue.html_url)
-        labels = [label.name for label in self.issue.get_labels()]
-        self._debug('Fetched labels.', issue=self.issue.html_url,
-                    labels=','.join([label for label in labels]))
+
+        self._debug('Fetching labels...')
+
+        labels = set()
+
+        for issue in self.issues:
+            issues_labels = set([label.name for label in issue.impl.get_labels()])
+            labels.update(issues_labels)
+
+        self._debug('Fetched labels.', labels=','.join([label for label in labels]))
+
         return labels
 
     @cachedproperty
@@ -818,30 +841,28 @@ class _GitHubCommit(object):
 
         hooks = hooks or {}
 
-        pre_issue = hooks.get('pre_issue')
-        pre_label = hooks.get('pre_label')
-        post_issue = hooks.get('post_issue')
-        post_label = hooks.get('post_label')
+        pre_issue = hooks.get('pre_issue', _empty_hook)
+        pre_label = hooks.get('pre_label', _empty_hook)
+        post_issue = hooks.get('post_issue', _empty_hook)
+        post_label = hooks.get('post_label', _empty_hook)
 
         self._debug('Validating commit should be released...')
 
-        if pre_issue:
-            pre_issue()
+        pre_issue()
 
-        if self.issue is None:
+        if not self.issues:
             raise exceptions.CommitNotRelatedToIssueException(sha=self.commit.sha)
 
-        if post_issue:
-            post_issue()
+        post_issue()
 
-        if pre_label:
-            pre_label()
+        pre_label()
 
         if not any(label in self.labels for label in ['patch', 'minor', 'major']):
-            raise exceptions.IssueNotLabeledAsReleaseException(issue=self.issue.number, sha=self.commit.sha)
+            raise exceptions.IssuesNotLabeledAsReleaseException(
+                issues=[issue.number for issue in self.issues],
+                sha=self.commit.sha)
 
-        if post_label:
-            post_label()
+        post_label()
 
         self._debug('Validation passed. Commit should be released')
 
@@ -879,16 +900,15 @@ class _GitHubCommit(object):
 
         hooks = hooks or {}
 
-        pre_commit = hooks.get('pre_commit')
-        pre_collect = hooks.get('pre_collect')
-        pre_analyze = hooks.get('pre_analyze')
-        post_analyze = hooks.get('post_analyze')
-        post_commit = hooks.get('post_commit')
+        pre_commit = hooks.get('pre_commit', _empty_hook)
+        pre_collect = hooks.get('pre_collect', _empty_hook)
+        pre_analyze = hooks.get('pre_analyze', _empty_hook)
+        post_analyze = hooks.get('post_analyze', _empty_hook)
+        post_commit = hooks.get('post_commit', _empty_hook)
 
         self._debug('Generating changelog...')
 
-        if pre_collect:
-            pre_collect()
+        pre_collect()
 
         # additional API call to support branch names as base
         if base:
@@ -897,6 +917,85 @@ class _GitHubCommit(object):
         base = base or self._fetch_last_release()
 
         self._debug('Fetching commits...')
+        commits = self._fetch_commits(base)
+
+        if not commits:
+            raise exceptions.EmptyChangelogException(sha=self.commit.sha, base=base)
+
+        self._debug('Fetched commits.', sha=self.commit.sha, base=base)
+
+        changelog = model.Changelog(current_version=self.setup_py_version, sha=self.commit.sha)
+
+        pre_analyze(commits)
+
+        for commit in commits:
+
+            pre_commit(commit)
+
+            issues = self._repo.detect_issues(message=commit.commit.message)
+
+            if not issues:
+                self._debug('Found commit.', sha=commit.sha, commit_message=commit.commit.message)
+                change = model.ChangelogCommit(
+                    title=commit.commit.message,
+                    url=commit.html_url,
+                    timestamp=commit.commit.author.date,
+                    impl=commit)
+                self._debug('Adding change to changelog.', change=change.url)
+                changelog.add(change)
+
+            else:
+
+                for issue in issues:
+                    self._add_issue_to_changelog(issue, changelog)
+
+            post_commit()
+
+        post_analyze()
+
+        self._debug('Generated changelog.')
+
+        return changelog
+
+    def _add_issue_to_changelog(self, issue, changelog):
+
+        issue = issue.impl
+        self._debug('Fetching labels...', issue=issue.number)
+        labels = [label.name for label in list(issue.get_labels())]
+        self._debug('Fetched labels.', issue=issue.number, labels=','.join(labels))
+
+        semantic = None
+
+        if 'patch' in labels:
+            semantic = model.ChangelogIssue.PATCH
+        elif 'minor' in labels:
+            semantic = model.ChangelogIssue.MINOR
+        elif 'major' in labels:
+            semantic = model.ChangelogIssue.MAJOR
+
+        if 'feature' in labels:
+            self._debug('Found feature.', issue=issue.number)
+            kind = model.ChangelogIssue.FEATURE
+        elif 'bug' in labels:
+            self._debug('Found bug.', issue=issue.number)
+            kind = model.ChangelogIssue.BUG
+        else:
+            self._debug('Found issue.', issue=issue.number)
+            kind = model.ChangelogIssue.ISSUE
+
+        change = model.ChangelogIssue(
+            impl=issue,
+            title=issue.title,
+            url=issue.html_url,
+            timestamp=issue.created_at,
+            kind=kind,
+            semantic=semantic)
+
+        self._debug('Adding change to changelog.', change=change.url)
+        changelog.add(change)
+
+    def _fetch_commits(self, base):
+
         all_commits = self._repo.repo.get_commits(sha=self.commit.sha)
 
         commits = []
@@ -911,82 +1010,7 @@ class _GitHubCommit(object):
             else:
                 commits.append(commit)
 
-        if not commits:
-            raise exceptions.EmptyChangelogException(sha=self.commit.sha, base=base)
-
-        self._debug('Fetched commits.', sha=self.commit.sha, base=base)
-
-        changelog = model.Changelog(current_version=self.setup_py_version, sha=self.commit.sha)
-
-        if pre_analyze:
-            pre_analyze(commits)
-
-        for commit in commits:
-
-            if pre_commit:
-                pre_commit(commit)
-
-            issue = None
-            try:
-                issue = self._repo.detect_issue(commit_message=commit.commit.message)
-            except exceptions.IssueNotFoundException as e:
-                # This shouldn't stop us from creating a changelog
-                self._debug('Commit {} is linked to a non-existing issue/pr: {}. Ignoring...'
-                            .format(commit.sha, e.issue))
-
-            if issue is None:
-                self._debug('Found commit.', sha=commit.sha, commit_message=commit.commit.message)
-                change = model.ChangelogCommit(
-                    title=commit.commit.message,
-                    url=commit.html_url,
-                    timestamp=commit.commit.author.date,
-                    impl=commit)
-            else:
-
-                issue = issue.impl
-                self._debug('Fetching labels...', issue=issue.number)
-                labels = [label.name for label in list(issue.get_labels())]
-                self._debug('Fetched labels.', issue=issue.number, labels=','.join(labels))
-
-                semantic = None
-
-                if 'patch' in labels:
-                    semantic = model.ChangelogIssue.PATCH
-                elif 'minor' in labels:
-                    semantic = model.ChangelogIssue.MINOR
-                elif 'major' in labels:
-                    semantic = model.ChangelogIssue.MAJOR
-
-                if 'feature' in labels:
-                    self._debug('Found feature.', issue=issue.number)
-                    kind = model.ChangelogIssue.FEATURE
-                elif 'bug' in labels:
-                    self._debug('Found bug.', issue=issue.number)
-                    kind = model.ChangelogIssue.BUG
-                else:
-                    self._debug('Found issue.', issue=issue.number)
-                    kind = model.ChangelogIssue.ISSUE
-
-                change = model.ChangelogIssue(
-                    impl=issue,
-                    title=issue.title,
-                    url=issue.html_url,
-                    timestamp=issue.created_at,
-                    kind=kind,
-                    semantic=semantic)
-
-            self._debug('Adding change to changelog.', change=change.url)
-            changelog.add(change)
-
-            if post_commit:
-                post_commit()
-
-        if post_analyze:
-            post_analyze()
-
-        self._debug('Generated changelog.')
-
-        return changelog
+        return commits
 
     def _fetch_last_release(self):
 
@@ -1012,3 +1036,7 @@ class _GitHubCommit(object):
         kwargs = copy.deepcopy(kwargs)
         kwargs.update(self._log_ctx)
         self._logger.debug(message, **kwargs)
+
+
+def _empty_hook(*_, **__):
+    pass

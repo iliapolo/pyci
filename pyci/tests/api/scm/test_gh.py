@@ -74,7 +74,7 @@ def test_validate_commit_commit_not_related_to_issue(gh):
 
 def test_validate_commit_issue_is_not_labeled_as_release(gh):
 
-    with pytest.raises(exceptions.IssueNotLabeledAsReleaseException):
+    with pytest.raises(exceptions.IssuesNotLabeledAsReleaseException):
         gh.validate_commit(sha='4772c5708ff25a69f1f6c8106c7fe863c6686459')
 
 
@@ -498,61 +498,47 @@ def test_close_issue(gh, request):
     assert expected_comment in issue_comments
 
 
-def test_detect_issue_direct(gh):
+@pytest.mark.wet
+def test_detect_issues_direct(gh):
 
-    issue = gh.detect_issue(sha=conftest.LAST_COMMIT)
+    commit = gh.commit(path='README.md',
+                       contents='dummy',
+                       message='This commit resolves issue #5 and #6',
+                       branch='release')
 
-    expected_issue_number = 7
+    issues = gh.detect_issues(sha=commit.sha)
 
-    assert expected_issue_number == issue.number
+    expected_issue_numbers = [5, 6]
 
-    issue = gh.detect_issue(commit_message='Dummy commit linked to issue (#7)')
-
-    assert expected_issue_number == issue.number
-
-
-def test_detect_issue_via_pr(gh):
-
-    issue = gh.detect_issue(sha='1997dbd53731b5f51153bbae35bbab6fcc6dab81')
-
-    expected_issue_number = 5
-
-    assert expected_issue_number == issue.number
-
-    issue = gh.detect_issue(commit_message='Merged pull request (#10)')
-
-    assert expected_issue_number == issue.number
+    assert expected_issue_numbers == [issue.number for issue in issues]
 
 
-def test_detect_issue_not_exists(gh):
+def test_detect_issues_via_pr(gh):
 
-    with pytest.raises(exceptions.IssueNotFoundException):
-        gh.detect_issue(commit_message='Issue (#2500)')
+    issues= gh.detect_issues(message='Merged pull request (#10)')
 
+    expected_issue_numbers = [5, 6]
 
-def test_detect_issue_does_not_exist_via_pr(gh):
-
-    with pytest.raises(exceptions.IssueNotFoundException):
-        gh.detect_issue(commit_message='PR #9')
+    assert expected_issue_numbers == [issue.number for issue in issues]
 
 
-def test_detect_issue_no_issue(gh):
+def test_detect_issues_no_issues(gh):
 
-    issue = gh.detect_issue(commit_message='Commit message without issue ref')
+    issue = gh.detect_issues(sha='33526a9e0445541d96e027db2aeb93d07cdf8bd6')
 
-    assert issue is None
+    assert issue == []
 
 
-def test_detect_issue_no_sha_no_commit_message(gh):
+def test_detect_issues_no_sha_no_message(gh):
 
     with pytest.raises(exceptions.InvalidArgumentsException):
-        gh.detect_issue()
+        gh.detect_issues()
 
 
-def test_detect_issue_sha_and_commit_message(gh):
+def test_detect_issues_sha_and_message(gh):
 
     with pytest.raises(exceptions.InvalidArgumentsException):
-        gh.detect_issue(sha='sha', commit_message='message')
+        gh.detect_issues(sha='sha', message='message')
 
 
 def test_create_release_non_existing_commit(gh):

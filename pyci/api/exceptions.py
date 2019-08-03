@@ -343,16 +343,16 @@ class CommitNotRelatedToIssueException(ReleaseValidationFailedException):
         return 'Commit {} does not reference any issue'.format(self.sha)
 
 
-class IssueNotLabeledAsReleaseException(ReleaseValidationFailedException):
+class IssuesNotLabeledAsReleaseException(ReleaseValidationFailedException):
 
-    def __init__(self, sha, issue):
+    def __init__(self, sha, issues):
         self.sha = sha
-        self.issue = issue
-        super(IssueNotLabeledAsReleaseException, self).__init__(self.__str__())
+        self.issues = issues
+        super(IssuesNotLabeledAsReleaseException, self).__init__(self.__str__())
 
     def __str__(self):
-        return 'Commit {} references issue number {}, which is not labeled with any ' \
-               'release labels'.format(self.sha, self.issue)
+        return 'Commit {} references issue {}, which are not labeled with any ' \
+               'release labels'.format(self.sha, self.issues)
 
 
 class ReleaseNotFoundException(ApiException):
