@@ -376,8 +376,6 @@ def detect_issues(ctx, sha, message):
         log.checkmark()
         for issue in issues:
             log.echo('Issue detected: {}'.format(issue.url))
-        else:
-            log.echo('The commit is not related ot any issue.')
     except BaseException as _:
         log.xmark()
         raise

@@ -23,7 +23,6 @@ from github import UnknownObjectException, GithubException, GitRelease
 from pyci.api import exceptions, utils
 from pyci.api.scm.gh import GitHubRepository
 from pyci.api.model import model
-from pyci.tests import conftest
 from pyci.tests.conftest import LAST_COMMIT
 from pyci.tests import utils as test_utils
 
@@ -515,7 +514,7 @@ def test_detect_issues_direct(gh):
 
 def test_detect_issues_via_pr(gh):
 
-    issues= gh.detect_issues(message='Merged pull request (#10)')
+    issues = gh.detect_issues(message='Merged pull request (#10)')
 
     expected_issue_numbers = [5, 6]
 
