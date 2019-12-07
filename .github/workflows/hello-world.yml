@@ -1,4 +1,5 @@
 name: Hello world
+on: push
 jobs:
   release:
     runs-on: ubuntu-latest
