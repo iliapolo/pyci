@@ -61,3 +61,5 @@ COPYRIGHT = 'Copyright string. Default to an empty value.'
 
 LICENSE = 'Path to a license file. This license will appear as part of the installation Wizard. Defaults ' \
           'to license value in setup.py (if exists)'
+
+PROGRAM_FILES_DIR = 'Directory name inside Program Files where the app will be installed'
