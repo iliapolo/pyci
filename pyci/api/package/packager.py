@@ -462,6 +462,13 @@ class Packager(object):
             makensis_path = os.path.join(temp_dir, 'nsis-3.04', 'makensis.exe')
             command = '{} -DVERSION={} {}'.format(makensis_path, version, installer_path)
 
+            # The installer expects the binary to be located in the working directory
+            # and be named {{ name }}.exe.
+            # See installer.nsi.jinja#L85
+            expected_binary_path = os.path.join(temp_dir, '{}.exe'.format(name))
+            self._debug('Copying binary to expected location: {}'.format(expected_binary_path))
+            shutil.copyfile(src=binary_path, dst=expected_binary_path)
+
             self._debug('Creating installer...')
             self._runner.run(command, cwd=temp_dir)
 
