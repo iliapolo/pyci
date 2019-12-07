@@ -1,1 +1,10 @@
 name: Hello world
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: List files
+        run: |
+          ls -l
