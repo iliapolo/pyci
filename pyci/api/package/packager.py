@@ -315,7 +315,8 @@ class Packager(object):
              url=None,
              copyright_string=None,
              description=None,
-             license_path=None):
+             license_path=None,
+             program_files_dir=None):
 
         """
         Create a windows installer package.
@@ -347,6 +348,8 @@ class Packager(object):
             description (:str, optional): Package description. Defaults to the value specified in setup.py.
 
             license_path (:str, optional): Path to a license file. Defaults to the value specified in setup.py.
+
+            program_files_dir (:str, optional): Directory name inside Program Files where the app will be installed.
 
         Raises:
 
@@ -417,6 +420,8 @@ class Packager(object):
         url = url or self._url
         description = description or self._description
 
+        program_files_dir = program_files_dir or name
+
         config = {
             'name': name,
             'author': author,
@@ -425,7 +430,8 @@ class Packager(object):
             'license_path': license_path,
             'binary_path': binary_path,
             'description': description,
-            'installer_name': installer_name
+            'installer_name': installer_name,
+            'program_files_dir': program_files_dir
         }
 
         temp_dir = tempfile.mkdtemp()
