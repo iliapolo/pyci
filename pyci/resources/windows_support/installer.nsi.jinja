@@ -82,7 +82,7 @@ Section -MainProgram
 ${INSTALL_TYPE}
 SetOverwrite ifnewer
 SetOutPath "$INSTDIR"
-File "{{ binary_path }}"
+File "${MAIN_APP_EXE}"
 
 Push $INSTDIR
 Call AddToPath
