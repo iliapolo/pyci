@@ -31,7 +31,8 @@ __nsis_common_options = [
     click.option('--author', required=False, help=pyci_help.AUTHOR),
     click.option('--url', required=False, help=pyci_help.URL),
     click.option('--copyright', 'copyright_string', required=False, help=pyci_help.COPYRIGHT),
-    click.option('--license', 'license_path', required=False, help=pyci_help.LICENSE)
+    click.option('--license', 'license_path', required=False, help=pyci_help.LICENSE),
+    click.option('--program-files-dir', 'program_files_dir', required=False, help=pyci_help.PROGRAM_FILES_DIR)
 ]
 
 
@@ -198,7 +199,7 @@ def wheel(ctx, universal, wheel_version):
               help='Path to write the created installer file.')
 @common_nsis_options()
 @handle_exceptions
-def nsis(ctx, binary_path, version, output, author, url, copyright_string, license_path):
+def nsis(ctx, binary_path, version, output, author, url, copyright_string, license_path, program_files_dir):
 
     """
     Create a windows executable installer.
@@ -223,7 +224,8 @@ def nsis(ctx, binary_path, version, output, author, url, copyright_string, licen
                                      author=author,
                                      url=url,
                                      copyright_string=copyright_string,
-                                     license_path=license_path)
+                                     license_path=license_path,
+                                     program_files_dir=program_files_dir)
         log.checkmark()
         log.echo('NSIS Installer created: {}'.format(package_path))
         return package_path

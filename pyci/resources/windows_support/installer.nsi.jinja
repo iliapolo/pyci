@@ -11,6 +11,7 @@
 !define DESCRIPTION "{{ description }}"
 !define LICENSE_TXT "{{ license_path }}"
 !define INSTALLER_NAME "{{ installer_name }}.exe"
+!define PROGRAM_FILES_DIR "{{ program_files_dir }}"
 !define MAIN_APP_EXE "${APP_NAME}.exe"
 !define INSTALL_TYPE "SetShellVarContext all"
 !define REG_ROOT "HKLM"
@@ -39,7 +40,7 @@ OutFile "${INSTALLER_NAME}"
 BrandingText "${APP_NAME}"
 XPStyle on
 InstallDirRegKey "${REG_ROOT}" "${REG_APP_PATH}" ""
-InstallDir "$PROGRAMFILES\${APP_NAME}"
+InstallDir "$PROGRAMFILES\${PROGRAM_FILES_DIR}"
 
 ######################################################################
 
@@ -82,7 +83,7 @@ Section -MainProgram
 ${INSTALL_TYPE}
 SetOverwrite ifnewer
 SetOutPath "$INSTDIR"
-File "{{ binary_path }}"
+File "${MAIN_APP_EXE}"
 
 Push $INSTDIR
 Call AddToPath

@@ -220,7 +220,8 @@ def test_nsis_options(pack, mocker):
              '--author author '
              '--url url '
              '--copyright copyright '
-             '--license license')
+             '--license license '
+             '--program-files-dir pf')
 
     # noinspection PyUnresolvedReferences
     Packager.nsis.assert_called_once_with('binary-path',  # pylint: disable=no-member
@@ -229,7 +230,8 @@ def test_nsis_options(pack, mocker):
                                           author='author',
                                           url='url',
                                           copyright_string='copyright',
-                                          license_path='license')
+                                          license_path='license',
+                                          program_files_dir='pf')
 
 
 def test_nsis_no_setup_py(pack, repo_path, mocker):
