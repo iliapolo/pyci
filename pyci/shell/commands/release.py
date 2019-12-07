@@ -97,7 +97,8 @@ def release(ctx,
             author,
             url,
             copyright_string,
-            license_path):
+            license_path,
+            program_files_dir):
 
     """
     Execute a complete release process.
@@ -179,7 +180,8 @@ def release(ctx,
                                              version=version,
                                              license_path=license_path,
                                              copyright_string=copyright_string,
-                                             url=url)
+                                             url=url,
+                                             program_files_dir=program_files_dir)
 
         log.sub()
 
@@ -223,7 +225,7 @@ def release(ctx,
         log.echo('PyPI: {}'.format(wheel_url))
 
 
-def _pack_installer(ctx, version, author, url, copyright_string, license_path, binary_path):
+def _pack_installer(ctx, version, author, url, copyright_string, license_path, binary_path, program_files_dir):
 
     if not utils.is_windows():
         # Currently installers are only supported for windows.
@@ -237,7 +239,8 @@ def _pack_installer(ctx, version, author, url, copyright_string, license_path, b
                                 author=author,
                                 url=url,
                                 copyright_string=copyright_string,
-                                license_path=license_path)
+                                license_path=license_path,
+                                program_files_dir=program_files_dir)
 
     return installer_path
 
