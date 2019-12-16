@@ -23,15 +23,14 @@ import semver
 from boltons.cacheutils import cachedproperty
 from github import Github
 from github import InputGitTreeElement
-from github.GithubException import UnknownObjectException
 from github.GithubException import GithubException
+from github.GithubException import UnknownObjectException
 
 from pyci.api import exceptions
 from pyci.api import logger
 from pyci.api import utils
 from pyci.api.model import model
 from pyci.api.runner import LocalCommandRunner
-
 
 BUMP_VERSION_COMMIT_MESSAGE_FORMAT = 'Bump version to {}'
 
@@ -175,12 +174,9 @@ class GitHubRepository(object):
 
         utils.validate_file_exists(asset)
 
-        try:
-            self._debug('Fetching release...', name=release)
-            git_release = self.repo.get_release(id=release)
-            self._debug('Fetched release.', url=git_release.html_url)
-        except UnknownObjectException:
-            raise exceptions.ReleaseNotFoundException(release=release)
+        self._debug('Fetching release...', name=release)
+        git_release = self.get_release(title=release).impl
+        self._debug('Fetched release.', url=git_release.html_url)
 
         try:
             self._debug('Uploading asset...', asset=asset, release=release)
@@ -188,10 +184,6 @@ class GitHubRepository(object):
             asset_url = 'https://github.com/{0}/releases/download/{1}/{2}'.format(
                 self._repo_name, git_release.title, os.path.basename(asset))
             self._debug('Uploaded asset.', url=asset_url, release=release)
-
-            # because of this bug i currently have to use my own version of PyGithub :\
-            # see https://github.com/PyGithub/PyGithub/issues/779
-
             return asset_url
         except GithubException as e:
 
@@ -674,17 +666,35 @@ class GitHubRepository(object):
         if not title:
             raise exceptions.InvalidArgumentsException('title cannot be empty')
 
+        draft = False
+
         try:
             release = self.repo.get_release(id=title)
         except UnknownObjectException:
-            raise exceptions.ReleaseNotFoundException(release=title)
 
-        tag = self.repo.get_git_ref('tags/{}'.format(release.tag_name))
+            # This might be a draft release, in which case we need to list and filter
+            # since 'get' doesn't fetch draft releases. (but list does for some reason)
+            releases = [r for r in self.repo.get_releases() if r.title == title]
+
+            if not releases:
+                raise exceptions.ReleaseNotFoundException(release=title)
+
+            release = releases[0]
+
+            draft = True
+
+        try:
+            sha = self.repo.get_git_ref('tags/{}'.format(release.tag_name)).object.sha
+        except UnknownObjectException:
+            if draft:
+                sha = None
+            else:
+                raise
 
         return model.Release(impl=release,
                              title=release.title,
                              url=release.html_url,
-                             sha=tag.object.sha)
+                             sha=sha)
 
     def _create_set_version_commit(self, value, sha):
 
