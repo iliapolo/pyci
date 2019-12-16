@@ -356,6 +356,25 @@ def test_upload_asset(gh, request, temp_dir):
 
 
 @pytest.mark.wet
+def test_upload_asset_to_draft_release(gh, request, temp_dir):
+
+    asset = os.path.join(temp_dir, request.node.name)
+
+    with open(asset, 'w') as stream:
+        stream.write('Hello')
+
+    rel = test_utils.create_release(gh, request, '33526a9e0445541d96e027db2aeb93d07cdf8bd6', draft=True)
+    gh.upload_asset(asset=asset, release=rel.title)
+
+    assets = list(gh.get_release(title=rel.title).impl.get_assets())
+
+    expected_number_of_assets = 1
+
+    assert expected_number_of_assets == len(assets)
+    assert request.node.name == assets[0].name
+
+
+@pytest.mark.wet
 def test_upload_asset_already_exists(gh, request, temp_dir):
 
     asset = os.path.join(temp_dir, request.node.name)
