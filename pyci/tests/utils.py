@@ -35,7 +35,7 @@ except ImportError:
 from pyci.api.utils import generate_setup_py
 
 
-def create_release(gh, request, sha, name=None):
+def create_release(gh, request, sha, name=None, draft=False):
 
     release_name = name or request.node.name
 
@@ -43,7 +43,8 @@ def create_release(gh, request, sha, name=None):
         tag=release_name,
         target_commitish=sha,
         name=release_name,
-        message=''
+        message='',
+        draft=draft
     )
 
 
