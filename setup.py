@@ -71,7 +71,7 @@ setup(
         'semver==2.8.0',
         'PyGithub==1.40',
         'requests==2.22.0',
-        'jinja2==2.10.1',
+        'jinja2==2.11.3',
         'boltons==18.0.0',
         'twine==1.11.0',
         'six==1.11.0',
