@@ -76,7 +76,7 @@ setup(
         'twine==1.11.0',
         'six==1.11.0',
         'colorama==0.3.9',
-        'wheel==0.33.4',
+        'wheel==0.38.1',
         'packaging==19.0'
     ],
     classifiers=[
